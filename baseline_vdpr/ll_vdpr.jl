@@ -106,19 +106,25 @@ _bc_loss_functions = [
     ) for (bc, bc_indvar) in zip(bcs, bc_indvars)
 ]
 
-pde_train_set, bcs_train_set =
+train_domain_set, train_bound_set =
     NeuralPDE.generate_training_sets(domains, dx, [pde], bcs, eltypeθ, indvars, depvars);
 
-# strategy.points = Int(1/strategy.dx)
-pde_bounds, bcs_bounds = NeuralPDE.get_bounds(domains, [pde], bcs, eltypeθ, indvars, depvars, strategy);
+pde_loss_function = NeuralPDE.get_loss_function(
+    _pde_loss_function,
+    train_domain_set[1],
+    eltypeθ,
+    parameterless_type_θ,
+    strategy,
+)
 
-pde_loss_function =
-    NeuralPDE.get_loss_function([_pde_loss_function], pde_train_set, strategy)
+bc_loss_functions = [
+    NeuralPDE.get_loss_function(loss, set, eltypeθ, parameterless_type_θ, strategy) for
+    (loss, set) in zip(_bc_loss_functions, train_bound_set)
+]
 
-bc_loss_function = NeuralPDE.get_loss_function(_bc_loss_functions, bcs_train_set, strategy)
-
+bc_loss_function_sum = θ -> sum(map(l -> l(θ), bc_loss_functions))
 function loss_function_(θ, p)
-    return pde_loss_function(θ) + bc_loss_function(θ)
+    return pde_loss_function(θ) + bc_loss_function_sum(θ)  #loss_function__(θ)
 end
 
 ## set up GalacticOptim optimization problem
@@ -135,11 +141,11 @@ cb_ = function (p, l)
         "Individual losses are: PDE loss:",
         pde_loss_function(p),
         ", BC loss:",
-        bc_loss_function(p),
+        bc_loss_function_sum(p),
     )
 
     push!(PDE_losses, pde_loss_function(p))
-    push!(BC_losses, bc_loss_function(p))
+    push!(BC_losses, bc_loss_function_sum(p))
     return false
 end
 
