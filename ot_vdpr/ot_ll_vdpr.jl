@@ -173,11 +173,7 @@ end
 CsEval = collocationGrid(maxval*[-1,1],maxval*[-1,1],nEvalFine);
 
 ## initialize variables for OT-iterations
-<<<<<<< HEAD
-pde_train_sets = Vector{Vector{Matrix{Float32}}}(undef, otIters+1); pde_train_sets[1] = pde_train_set;
-=======
 pde_train_sets = Vector{Vector{Matrix{Float32}}}(undef, otIters+1); pde_train_sets[1] = train_domain_set;
->>>>>>> c62f619665e1fe19428c3e01ceeb2382863df04e
 pdeLossFunctions = Vector{Function}(undef, otIters+1); pdeLossFunctions[1] = pde_loss_function;
 newPtsAll = Vector{Matrix{Float32}}(undef, otIters);
 optParams = Vector{Vector{Float32}}(undef, otIters+1); optParams[1] = optParam1;
