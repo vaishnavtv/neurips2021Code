@@ -9,7 +9,7 @@ suff = string(activFunc); nn = 48; optFlag = 1;
 
 Q = 0.1;
 
-saveFile = "data/dx5eM2_vdp_$(suff)_$(nn).jld2";
+fileLoc = "data/dx5eM2_vdp_$(suff)_$(nn).jld2";
 
 println("Loading file");
 file =  jldopen(fileLoc, "r");
