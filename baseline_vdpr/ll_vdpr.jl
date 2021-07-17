@@ -1,7 +1,9 @@
 ## Solve the FPKE for the Van der Pol Rayleigh oscillator using baseline PINNs (large training set)
 
 using NeuralPDE, Flux, ModelingToolkit, GalacticOptim, Optim, DiffEqFlux, Symbolics, JLD2
-#using CUDA
+
+using CUDA
+using GPUArrays
 import Random: seed!;
 seed!(1);
 
@@ -11,12 +13,12 @@ activFunc = tanh; # activation function
 maxOptIters = 10000; # maximum number of training iterations
 opt = Optim.BFGS(); # Optimizer used for training
 
-#CUDA.allowscalar(false)
+CUDA.allowscalar(false)
 
 dx = 0.05
 
 suff = string(activFunc);
-saveFile = "data/dx5eM2_vdpr_$(suff)_$(nn).jld2";
+saveFile = "data/dx5eM2_vdpr_$(suff)_$(nn)_gpu.jld2";
 
 # Van der Pol Rayleigh Dynamics
 @parameters x1, x2
@@ -44,7 +46,11 @@ T2 = sum([
 ]);
 
 Eqn = expand_derivatives(-T1 + T2); # + dx*u(x1,x2)-1 ~ 0;
-pde = simplify(Eqn / ρ(x), expand = true) ~ 0;
+# pde = expand_derivatives(-T1 + T2) ~ 0.0f0; # + dx*u(x1,x2)-1 ~ 0;
+pde_orig = simplify(Eqn / ρ(x), expand = true) ~ 0.0f0;
+pde = pde_orig;
+# pde = Differential(x1)(η(x[1], x[2])) ~0.0f0;
+# pde = Differential(x[1])((ρ(x)*x[2])[1])~0.0f0;
 
 # Domain
 maxval = 2.0;
@@ -53,16 +59,16 @@ domains = [x1 ∈ IntervalDomain(-maxval, maxval), x2 ∈ IntervalDomain(-maxval
 # Boundary conditions
 bcs = [
     ρ([-maxval, x2]) ~ 0.0f0,
-    ρ([maxval, x2]) ~ 0,
+    ρ([maxval, x2]) ~ 0.0f0,
     ρ([x1, -maxval]) ~ 0.0f0,
-    ρ([x1, maxval]) ~ 0,
+    ρ([x1, maxval]) ~ 0.0f0,
 ];
 
 ## Neural network
 dim = 2 # number of dimensions
-chain = Chain(Dense(dim, nn, activFunc), Dense(nn, nn, activFunc), Dense(nn, 1)) #|> gpu;
+chain = Chain(Dense(dim, nn, activFunc), Dense(nn, nn, activFunc), Dense(nn, 1)) |> gpu;
 
-initθ = DiffEqFlux.initial_params(chain) #|> gpu
+initθ = (DiffEqFlux.initial_params(chain)) |> gpu
 flat_initθ = if (typeof(chain) <: AbstractVector)
     reduce(vcat, initθ)
 else
@@ -91,7 +97,8 @@ _pde_loss_function = NeuralPDE.build_loss_function(
     strategy,
 );
 
-bc_indvars = NeuralPDE.get_argument(bcs, indvars, depvars);
+# bc_indvars = NeuralPDE.get_argument(bcs, indvars, depvars);
+bc_indvars = NeuralPDE.get_variables(bcs, indvars, depvars);
 _bc_loss_functions = [
     NeuralPDE.build_loss_function(
         bc,
@@ -107,7 +114,7 @@ _bc_loss_functions = [
 ]
 
 train_domain_set, train_bound_set =
-    NeuralPDE.generate_training_sets(domains, dx, [pde], bcs, eltypeθ, indvars, depvars);
+    NeuralPDE.generate_training_sets(domains, dx, [pde], bcs, eltypeθ, indvars, depvars) |> gpu;
 
 pde_loss_function = NeuralPDE.get_loss_function(
     _pde_loss_function,
@@ -115,18 +122,23 @@ pde_loss_function = NeuralPDE.get_loss_function(
     eltypeθ,
     parameterless_type_θ,
     strategy,
-)
-
+);
+@show pde_loss_function(initθ)
+# sleep(1000)
 bc_loss_functions = [
     NeuralPDE.get_loss_function(loss, set, eltypeθ, parameterless_type_θ, strategy) for
     (loss, set) in zip(_bc_loss_functions, train_bound_set)
 ]
 
 bc_loss_function_sum = θ -> sum(map(l -> l(θ), bc_loss_functions))
+typeof(bc_loss_function_sum(initθ))
 function loss_function_(θ, p)
-    return pde_loss_function(θ) + bc_loss_function_sum(θ)  #loss_function__(θ)
+    # return pde_loss_function(θ) + bc_loss_function_sum(θ)  #loss_function__(θ)
+    return pde_loss_function(θ)
+    # return bc_loss_function_sum(θ)
 end
-
+@show bc_loss_function_sum(initθ)
+@show loss_function_(initθ,0)
 ## set up GalacticOptim optimization problem
 f_ = OptimizationFunction(loss_function_, GalacticOptim.AutoZygote())
 prob = GalacticOptim.OptimizationProblem(f_, initθ)
@@ -137,15 +149,15 @@ BC_losses = Float32[];
 cb_ = function (p, l)
     global nSteps = nSteps + 1
     println("[$nSteps] Current loss is: $l")
-    println(
-        "Individual losses are: PDE loss:",
-        pde_loss_function(p),
-        ", BC loss:",
-        bc_loss_function_sum(p),
-    )
+    # println(
+    #     "Individual losses are: PDE loss:",
+    #     pde_loss_function(p),
+    #     ", BC loss:",
+    #     bc_loss_function_sum(p),
+    # )
 
-    push!(PDE_losses, pde_loss_function(p))
-    push!(BC_losses, bc_loss_function_sum(p))
+    # push!(PDE_losses, pde_loss_function(p))
+    # push!(BC_losses, bc_loss_function_sum(p))
     return false
 end
 
