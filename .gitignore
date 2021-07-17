@@ -1,2 +1,4 @@
 trial.jl
 batchFiles/
+baseline_vdpr/batch.slurm
+baseline_vdpr/out
