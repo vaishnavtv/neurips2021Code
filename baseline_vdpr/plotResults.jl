@@ -1,5 +1,5 @@
 ## Plot the results of the bsaeline-PINNs implementation for the Van der Pol Rayleigh oscillator
-using JLD2, PyPlot, VectorizedRoutines, NeuralPDE, ModelingToolkit, LinearAlgebra, Flux, Trapz
+using JLD2, PyPlot, VectorizedRoutines, NeuralPDE, ModelingToolkit, LinearAlgebra, Flux, Trapz, Printf
 @variables x1,x2
 pygui(true);
 
@@ -11,17 +11,19 @@ nn = 48;
 Q = 0.3;
 rhoTrue(x) = exp(1/Q*(x[1]^2 + x[2]^2 - 1/2*(x[1]^2 + x[2]^2)^2));
 
-fileLoc = "data/dx5eM2_vdpr_$(suff)_$(nn).jld2";
+fileLoc = "data/dx5eM2_vdpr_$(suff)_$(nn)_2.jld2";
 
 println("Loading file");
 file =  jldopen(fileLoc, "r");
-optParam = read(file, "optParam2");
+optParam = read(file, "optParam");
 PDE_losses = read(file, "PDE_losses");
 BC_losses = read(file, "BC_losses");
 close(file);
 
+parameterless_type_θ = DiffEqBase.parameterless_type(optParam);
+
 chain = Chain(Dense(2,nn,activFunc), Dense(nn,nn,activFunc), Dense(nn,1));
-phi = NeuralPDE.get_phi(chain);
+phi = NeuralPDE.get_phi(chain, parameterless_type_θ);
 
 maxval = 2.0f0;
 

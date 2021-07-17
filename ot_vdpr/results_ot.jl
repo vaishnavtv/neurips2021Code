@@ -25,7 +25,8 @@ rhoTrue(x) = exp(ηTrue(x));
 # Neural network
 dim = 2 # number of dimensions
 chain = Chain(Dense(dim,nn,activFunc), Dense(nn,nn,activFunc), Dense(nn,1));
-phi = NeuralPDE.get_phi(chain);
+parameterless_type_θ = DiffEqBase.parameterless_type(optParam);
+phi = NeuralPDE.get_phi(chain, parameterless_type_θ);
 
 
 # Van der Pol Rayleigh Dynamics
