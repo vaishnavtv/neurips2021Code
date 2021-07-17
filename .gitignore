@@ -2,3 +2,7 @@ trial.jl
 batchFiles/
 baseline_vdpr/batch.slurm
 baseline_vdpr/out
+baseline_vdpr/data
+baseline_vdp/data
+baseline_vdp/out
+

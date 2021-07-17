@@ -2,8 +2,8 @@
 
 using NeuralPDE, Flux, ModelingToolkit, GalacticOptim, Optim, DiffEqFlux, Symbolics, JLD2
 
-using CUDA
-using GPUArrays
+# using CUDA
+# using GPUArrays
 import Random: seed!;
 seed!(1);
 
@@ -13,12 +13,12 @@ activFunc = tanh; # activation function
 maxOptIters = 10000; # maximum number of training iterations
 opt = Optim.BFGS(); # Optimizer used for training
 
-CUDA.allowscalar(false)
+# CUDA.allowscalar(false)
 
 dx = 0.05
 
 suff = string(activFunc);
-saveFile = "data/dx5eM2_vdpr_$(suff)_$(nn)_gpu.jld2";
+saveFile = "data/dx5eM2_vdpr_$(suff)_$(nn)_2.jld2";
 
 # Van der Pol Rayleigh Dynamics
 @parameters x1, x2
@@ -66,9 +66,9 @@ bcs = [
 
 ## Neural network
 dim = 2 # number of dimensions
-chain = Chain(Dense(dim, nn, activFunc), Dense(nn, nn, activFunc), Dense(nn, 1)) |> gpu;
+chain = Chain(Dense(dim, nn, activFunc), Dense(nn, nn, activFunc), Dense(nn, 1));# |> gpu;
 
-initθ = (DiffEqFlux.initial_params(chain)) |> gpu
+initθ = (DiffEqFlux.initial_params(chain));# |> gpu
 flat_initθ = if (typeof(chain) <: AbstractVector)
     reduce(vcat, initθ)
 else
@@ -114,7 +114,7 @@ _bc_loss_functions = [
 ]
 
 train_domain_set, train_bound_set =
-    NeuralPDE.generate_training_sets(domains, dx, [pde], bcs, eltypeθ, indvars, depvars) |> gpu;
+    NeuralPDE.generate_training_sets(domains, dx, [pde], bcs, eltypeθ, indvars, depvars) ;#|> gpu;
 
 pde_loss_function = NeuralPDE.get_loss_function(
     _pde_loss_function,
@@ -133,8 +133,8 @@ bc_loss_functions = [
 bc_loss_function_sum = θ -> sum(map(l -> l(θ), bc_loss_functions))
 typeof(bc_loss_function_sum(initθ))
 function loss_function_(θ, p)
-    # return pde_loss_function(θ) + bc_loss_function_sum(θ)  #loss_function__(θ)
-    return pde_loss_function(θ)
+    return pde_loss_function(θ) + bc_loss_function_sum(θ)  #loss_function__(θ)
+    # return pde_loss_function(θ)
     # return bc_loss_function_sum(θ)
 end
 @show bc_loss_function_sum(initθ)
@@ -149,15 +149,15 @@ BC_losses = Float32[];
 cb_ = function (p, l)
     global nSteps = nSteps + 1
     println("[$nSteps] Current loss is: $l")
-    # println(
-    #     "Individual losses are: PDE loss:",
-    #     pde_loss_function(p),
-    #     ", BC loss:",
-    #     bc_loss_function_sum(p),
-    # )
+    println(
+        "Individual losses are: PDE loss:",
+        pde_loss_function(p),
+        ", BC loss:",
+        bc_loss_function_sum(p),
+    )
 
-    # push!(PDE_losses, pde_loss_function(p))
-    # push!(BC_losses, bc_loss_function_sum(p))
+    push!(PDE_losses, pde_loss_function(p))
+    push!(BC_losses, bc_loss_function_sum(p))
     return false
 end
 
@@ -166,4 +166,4 @@ res = GalacticOptim.solve(prob, opt, cb = cb_, maxiters = maxOptIters);
 println("Optimization done.");
 
 ## Save data
-# jldsave(saveFile;optParam = res.minimizer, PDE_losses, BC_losses);
+jldsave(saveFile;optParam = res.minimizer, PDE_losses, BC_losses);
