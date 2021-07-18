@@ -19,7 +19,7 @@ dx = 0.25; # discretization size for generating data for the nominal network
 opt = Optim.BFGS(); # optimizer used for training
 
 suff = string(activFunc);
-saveFileLoc = "data/dx25eM2_ot1Eval_vdpr_$(suff)_$(nn)_ot$(otIters)_mnp$(maxNewPts).jld2";
+saveFileLoc = "data/dx25eM2_ot1Eval_vdpr_$(suff)_$(nn)_ot$(otIters)_mnp$(maxNewPts)_2.jld2";
 
 ## set up the NeuralPDE framework using low-level API
 @parameters x1, x2
