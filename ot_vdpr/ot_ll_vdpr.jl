@@ -19,7 +19,7 @@ dx = 0.25; # discretization size for generating data for the nominal network
 opt = Optim.BFGS(); # optimizer used for training
 
 suff = string(activFunc);
-saveFileLoc = "data/dx25eM2_ot1Eval_vdpr_$(suff)_$(nn)_ot$(otIters)_mnp$(maxNewPts).jld2";
+saveFileLoc = "data/dx25eM2_ot1Eval_vdpr_$(suff)_$(nn)_ot$(otIters)_mnp$(maxNewPts)_2.jld2";
 
 ## set up the NeuralPDE framework using low-level API
 @parameters x1, x2
@@ -36,7 +36,7 @@ end
 
 # PDE
 ρ(x) = exp(η(x[1],x[2]));
-F = f(x)*u(x);
+F = f(x)*ρ(x);
 G = 0.5*(g(x)*Q*g(x)')*ρ(x);
 
 T1 = sum([Differential(x[i])(F[i]) for i in 1:length(x)]);
@@ -58,52 +58,98 @@ bcs = [ρ([-maxval,x2]) ~ 0.f0, ρ([maxval,x2]) ~ 0,
 dim = 2 # number of dimensions
 chain = Chain(Dense(dim,nn,activFunc), Dense(nn,nn,activFunc), Dense(nn,1));
 
+initθ = DiffEqFlux.initial_params(chain)
+flat_initθ = if (typeof(chain) <: AbstractVector)
+    reduce(vcat, initθ)
+else
+    initθ
+end
+eltypeθ = eltype(flat_initθ)
+
+parameterless_type_θ = DiffEqBase.parameterless_type(flat_initθ);
 strategy = NeuralPDE.GridTraining(dx);
 
-phi = NeuralPDE.get_phi(chain);
+phi = NeuralPDE.get_phi(chain, parameterless_type_θ);
 derivative = NeuralPDE.get_numeric_derivative();
-initθ = DiffEqFlux.initial_params(chain)
 
 indvars = [x1, x2]
 depvars = [η]
 
-_pde_loss_function = NeuralPDE.build_loss_function(pde, indvars, depvars, phi, derivative, initθ, strategy);
+_pde_loss_function = NeuralPDE.build_loss_function(
+    pde,
+    indvars,
+    depvars,
+    phi,
+    derivative,
+    chain,
+    initθ,
+    strategy,
+);
 
-bc_indvars = NeuralPDE.get_argument(bcs, indvars, depvars);
-_bc_loss_functions = [NeuralPDE.build_loss_function(bc,indvars,depvars, phi, derivative,initθ,strategy, bc_indvars = bc_indvar) for (bc,bc_indvar) in zip(bcs,bc_indvars)]
+bc_indvars = NeuralPDE.get_variables(bcs, indvars, depvars);
+_bc_loss_functions = [
+    NeuralPDE.build_loss_function(
+        bc,
+        indvars,
+        depvars,
+        phi,
+        derivative,
+        chain,
+        initθ,
+        strategy,
+        bc_indvars = bc_indvar,
+    ) for (bc, bc_indvar) in zip(bcs, bc_indvars)
+]
 
-pde_train_set,bcs_train_set = NeuralPDE.generate_training_sets(domains,dx,[pde],bcs,indvars,depvars);
+train_domain_set, train_bound_set =
+    NeuralPDE.generate_training_sets(domains, dx, [pde], bcs, eltypeθ, indvars, depvars) ;
 
-pde_bounds, bcs_bounds = NeuralPDE.get_bounds(domains,[pde], bcs,indvars,depvars);
+pde_loss_function = NeuralPDE.get_loss_function(
+    _pde_loss_function,
+    train_domain_set[1],
+    eltypeθ,
+    parameterless_type_θ,
+    strategy,
+);
 
-pde_loss_function = NeuralPDE.get_loss_function([_pde_loss_function], pde_train_set, strategy)
+bc_loss_functions = [
+    NeuralPDE.get_loss_function(loss, set, eltypeθ, parameterless_type_θ, strategy) for
+    (loss, set) in zip(_bc_loss_functions, train_bound_set)
+]
 
-bc_loss_function = NeuralPDE.get_loss_function(_bc_loss_functions, bcs_train_set, strategy)
-
-function loss_function_(θ,p)
-    return pde_loss_function(θ) + bc_loss_function(θ)
+bc_loss_function_sum = θ -> sum(map(l -> l(θ), bc_loss_functions))
+typeof(bc_loss_function_sum(initθ))
+function loss_function_(θ, p)
+    return pde_loss_function(θ) + bc_loss_function_sum(θ)  
 end
 
 ## set up GalacticOptim optimization problem
 f_ = OptimizationFunction(loss_function_, GalacticOptim.AutoZygote())
-prob = GalacticOptim.OptimizationProblem(f_, initθ)  
+prob = GalacticOptim.OptimizationProblem(f_, initθ)
 
 nSteps = 0;
-PDE_losses1 = Float32[]; BC_losses1 = Float32[]; 
-cb_ = function (p,l)
-    global nSteps = nSteps + 1;
+PDE_losses1 = Float32[];
+BC_losses1 = Float32[];
+cb_ = function (p, l)
+    global nSteps = nSteps + 1
     println("[$nSteps] Current loss is: $l")
-    println("Individual losses are: PDE loss:", pde_loss_function(p), ", BC loss:",  bc_loss_function(p))
+    println(
+        "Individual losses are: PDE loss:",
+        pde_loss_function(p),
+        ", BC loss:",
+        bc_loss_function_sum(p),
+    )
 
     push!(PDE_losses1, pde_loss_function(p))
-    push!(BC_losses1, bc_loss_function(p))
+    push!(BC_losses1, bc_loss_function_sum(p))
     return false
 end
+
 
 println("Calling GalacticOptim()");
 
 res = GalacticOptim.solve(prob, opt, cb = cb_, maxiters=maxOptIters);
-println("Optimization 0 done.");# Network trained with nominal data
+println("Optimization 0 done."); # Network trained with nominal data
 
 optParam1 = res.minimizer; # Weights discovered after nominal training
 
@@ -124,13 +170,14 @@ end
 CsEval = collocationGrid(maxval*[-1,1],maxval*[-1,1],nEvalFine);
 
 ## initialize variables for OT-iterations
-pde_train_sets = Vector{Vector{Matrix{Float32}}}(undef, otIters+1); pde_train_sets[1] = pde_train_set;
+pde_train_sets = Vector{Vector{Matrix{Float32}}}(undef, otIters+1); pde_train_sets[1] = train_domain_set;
 pdeLossFunctions = Vector{Function}(undef, otIters+1); pdeLossFunctions[1] = pde_loss_function;
 newPtsAll = Vector{Matrix{Float32}}(undef, otIters);
 optParams = Vector{Vector{Float32}}(undef, otIters+1); optParams[1] = optParam1;
 PDE_losses = Vector{Vector{Float32}}(undef, otIters + 1); PDE_losses[1] = PDE_losses1;
 BC_losses = Vector{Vector{Float32}}(undef, otIters + 1); BC_losses[1] = BC_losses1;
 
+## Run the OT-PINNs loop
 for i in 1:otIters
 
     ## generate functions using new weights, biases
@@ -155,7 +202,6 @@ for i in 1:otIters
         # W2: error distribution
         println("Solving OT problem");
 
-        # Use sparse variables -- that might speed up things.
         n = size(X,2);
 
         C = zeros(n,n);
@@ -177,8 +223,6 @@ for i in 1:otIters
         Convex.solve!(p,()->Mosek.Optimizer());
 
         xx = ϕ.value;
-
-        # xx[xx .<= 0] .= 0;
 
         W = sqrt(p.optval);
         D = maximum(C[:]); # Support diameter
@@ -210,11 +254,11 @@ for i in 1:otIters
     pde_train_sets[i+1] = [CsNew];
 
     # remake pde loss function
-    pdeLossFunctions[i+1] = NeuralPDE.get_loss_function([_pde_loss_function], pde_train_sets[i+1], strategy);
+    pdeLossFunctions[i+1] = NeuralPDE.get_loss_function(_pde_loss_function, pde_train_sets[i+1][1], eltypeθ, parameterless_type_θ, strategy);
 
     # remake optimization loss function
     function loss_function_i(θ,p)
-        return pdeLossFunctions[i+1](θ) + bc_loss_function(θ)
+        return pdeLossFunctions[i+1](θ) + bc_loss_function_sum(θ)
     end
 
     global nSteps = 0;
@@ -222,10 +266,10 @@ for i in 1:otIters
     cb_ = function (p,l)
         global nSteps = nSteps + 1;
         println("[$nSteps] Current loss is: $l")
-        println("Individual losses are: PDE loss:", pdeLossFunctions[i+1](p), ", BC loss:",  bc_loss_function(p))
+        println("Individual losses are: PDE loss:", pdeLossFunctions[i+1](p), ", BC loss:",  bc_loss_function_sum(p))
 
         push!(PDE_losses[i+1], pdeLossFunctions[i+1](p))
-        push!(BC_losses[i+1], bc_loss_function(p))
+        push!(BC_losses[i+1], bc_loss_function_sum(p))
         return false
     end
 
@@ -235,7 +279,7 @@ for i in 1:otIters
 
     println("Calling GalacticOptim() after $(i) iterations of OT");
     res = GalacticOptim.solve(prob, opt, cb = cb_, maxiters=maxOptIters);
-    println("Optimization $(i) done.");
+    println("Optimization done.");
 
     optParams[i+1] = res.minimizer;
 end
