@@ -36,7 +36,7 @@ end
 
 # PDE
 ρ(x) = exp(η(x[1],x[2]));
-F = f(x)*u(x);
+F = f(x)*ρ(x);
 G = 0.5*(g(x)*Q*g(x)')*ρ(x);
 
 T1 = sum([Differential(x[i])(F[i]) for i in 1:length(x)]);
