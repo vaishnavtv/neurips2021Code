@@ -2,8 +2,6 @@
 
 using NeuralPDE, Flux, ModelingToolkit, GalacticOptim, Optim, DiffEqFlux, Symbolics, JLD2
 
-# using CUDA
-# using GPUArrays
 import Random: seed!;
 seed!(1);
 
@@ -12,8 +10,6 @@ nn = 48; # number of neurons in the hidden layer
 activFunc = tanh; # activation function
 maxOptIters = 10000; # maximum number of training iterations
 opt = Optim.BFGS(); # Optimizer used for training
-
-# CUDA.allowscalar(false)
 
 dx = 0.05
 
@@ -46,11 +42,7 @@ T2 = sum([
 ]);
 
 Eqn = expand_derivatives(-T1 + T2); # + dx*u(x1,x2)-1 ~ 0;
-# pde = expand_derivatives(-T1 + T2) ~ 0.0f0; # + dx*u(x1,x2)-1 ~ 0;
-pde_orig = simplify(Eqn / ρ(x), expand = true) ~ 0.0f0;
-pde = pde_orig;
-# pde = Differential(x1)(η(x[1], x[2])) ~0.0f0;
-# pde = Differential(x[1])((ρ(x)*x[2])[1])~0.0f0;
+pde = simplify(Eqn / ρ(x), expand = true) ~ 0.0f0;
 
 # Domain
 maxval = 2.0;
@@ -66,9 +58,9 @@ bcs = [
 
 ## Neural network
 dim = 2 # number of dimensions
-chain = Chain(Dense(dim, nn, activFunc), Dense(nn, nn, activFunc), Dense(nn, 1));# |> gpu;
+chain = Chain(Dense(dim, nn, activFunc), Dense(nn, nn, activFunc), Dense(nn, 1));
 
-initθ = (DiffEqFlux.initial_params(chain));# |> gpu
+initθ = (DiffEqFlux.initial_params(chain));
 flat_initθ = if (typeof(chain) <: AbstractVector)
     reduce(vcat, initθ)
 else
@@ -97,7 +89,6 @@ _pde_loss_function = NeuralPDE.build_loss_function(
     strategy,
 );
 
-# bc_indvars = NeuralPDE.get_argument(bcs, indvars, depvars);
 bc_indvars = NeuralPDE.get_variables(bcs, indvars, depvars);
 _bc_loss_functions = [
     NeuralPDE.build_loss_function(
@@ -114,7 +105,7 @@ _bc_loss_functions = [
 ]
 
 train_domain_set, train_bound_set =
-    NeuralPDE.generate_training_sets(domains, dx, [pde], bcs, eltypeθ, indvars, depvars) ;#|> gpu;
+    NeuralPDE.generate_training_sets(domains, dx, [pde], bcs, eltypeθ, indvars, depvars) ;
 
 pde_loss_function = NeuralPDE.get_loss_function(
     _pde_loss_function,
@@ -123,8 +114,7 @@ pde_loss_function = NeuralPDE.get_loss_function(
     parameterless_type_θ,
     strategy,
 );
-@show pde_loss_function(initθ)
-# sleep(1000)
+
 bc_loss_functions = [
     NeuralPDE.get_loss_function(loss, set, eltypeθ, parameterless_type_θ, strategy) for
     (loss, set) in zip(_bc_loss_functions, train_bound_set)
@@ -133,12 +123,9 @@ bc_loss_functions = [
 bc_loss_function_sum = θ -> sum(map(l -> l(θ), bc_loss_functions))
 typeof(bc_loss_function_sum(initθ))
 function loss_function_(θ, p)
-    return pde_loss_function(θ) + bc_loss_function_sum(θ)  #loss_function__(θ)
-    # return pde_loss_function(θ)
-    # return bc_loss_function_sum(θ)
+    return pde_loss_function(θ) + bc_loss_function_sum(θ) 
 end
-@show bc_loss_function_sum(initθ)
-@show loss_function_(initθ,0)
+
 ## set up GalacticOptim optimization problem
 f_ = OptimizationFunction(loss_function_, GalacticOptim.AutoZygote())
 prob = GalacticOptim.OptimizationProblem(f_, initθ)

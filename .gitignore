@@ -12,3 +12,5 @@ ot_vdp/batch.slurm
 ot_vdpr/data
 ot_vdpr/out
 ot_vdpr/batch.slurm
+cont_vdp/out
+cont_vdp/batch.slurm

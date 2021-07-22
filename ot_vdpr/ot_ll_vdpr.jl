@@ -19,7 +19,7 @@ dx = 0.25; # discretization size for generating data for the nominal network
 opt = Optim.BFGS(); # optimizer used for training
 
 suff = string(activFunc);
-saveFileLoc = "data/dx25eM2_ot1Eval_vdpr_$(suff)_$(nn)_ot$(otIters)_mnp$(maxNewPts).jld2";
+saveFileLoc = "data/dx25eM2_ot1Eval_vdpr_$(suff)_$(nn)_ot$(otIters)_mnp$(maxNewPts)_2.jld2";
 
 ## set up the NeuralPDE framework using low-level API
 @parameters x1, x2
@@ -36,7 +36,7 @@ end
 
 # PDE
 ρ(x) = exp(η(x[1],x[2]));
-F = f(x)*u(x);
+F = f(x)*ρ(x);
 G = 0.5*(g(x)*Q*g(x)')*ρ(x);
 
 T1 = sum([Differential(x[i])(F[i]) for i in 1:length(x)]);
@@ -86,7 +86,6 @@ _pde_loss_function = NeuralPDE.build_loss_function(
     strategy,
 );
 
-# bc_indvars = NeuralPDE.get_argument(bcs, indvars, depvars);
 bc_indvars = NeuralPDE.get_variables(bcs, indvars, depvars);
 _bc_loss_functions = [
     NeuralPDE.build_loss_function(
@@ -103,7 +102,7 @@ _bc_loss_functions = [
 ]
 
 train_domain_set, train_bound_set =
-    NeuralPDE.generate_training_sets(domains, dx, [pde], bcs, eltypeθ, indvars, depvars) ;#|> gpu;
+    NeuralPDE.generate_training_sets(domains, dx, [pde], bcs, eltypeθ, indvars, depvars) ;
 
 pde_loss_function = NeuralPDE.get_loss_function(
     _pde_loss_function,
@@ -112,8 +111,7 @@ pde_loss_function = NeuralPDE.get_loss_function(
     parameterless_type_θ,
     strategy,
 );
-@show pde_loss_function(initθ)
-# sleep(1000)
+
 bc_loss_functions = [
     NeuralPDE.get_loss_function(loss, set, eltypeθ, parameterless_type_θ, strategy) for
     (loss, set) in zip(_bc_loss_functions, train_bound_set)
@@ -124,8 +122,7 @@ typeof(bc_loss_function_sum(initθ))
 function loss_function_(θ, p)
     return pde_loss_function(θ) + bc_loss_function_sum(θ)  
 end
-@show bc_loss_function_sum(initθ)
-@show loss_function_(initθ,0)
+
 ## set up GalacticOptim optimization problem
 f_ = OptimizationFunction(loss_function_, GalacticOptim.AutoZygote())
 prob = GalacticOptim.OptimizationProblem(f_, initθ)
