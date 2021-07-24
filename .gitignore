@@ -15,3 +15,4 @@ ot_vdpr/batch.slurm
 cont_vdp/out
 cont_vdp/batch.slurm
 otSampler_RB/
+.DS_Store
