@@ -137,18 +137,18 @@ function plotTraj(sol, figNum)
     PyPlot.plot(tSim, x1Sol)
     xlabel("t")
     ylabel("x1")
-    # grid("on");
+    grid("on")
     subplot(3, 1, 2)
     PyPlot.plot(tSim, x2Sol)
     xlabel("t")
     ylabel("x2")
-    # grid("on");
+    grid("on")
     subplot(3, 1, 3)
     PyPlot.plot(tSim, u)
     xlabel("t")
     ylabel("u")
     tight_layout()
-    # grid("on");
+    grid("on")
 
     # suptitle("traj_$(titleSuff)");
     tight_layout()
@@ -171,10 +171,12 @@ yg = range(-maxTermVal, maxTermVal, length = nEvalTerm);
 gridXG = xg' .* ones(nEvalTerm);
 gridYG = ones(nEvalTerm)' .* yg;
 termNorm = [norm((nlSim([x, y])[:, end])) for x in xg, y in yg];
-#
+##
 figure(90);
 clf();
 pcolor(gridXG, gridYG, termNorm, shading = "auto");
+xlabel("x1"); ylabel("x2");
+title("Norm of terminal states after 500 seconds for different x0");
 colorbar();
 ##
 function f(x)
@@ -207,3 +209,6 @@ mseErrFine = sum(pdeErrFine[:] .^ 2) / length(pdeErrFine);
 using ForwardDiff
 p(x) = x + deepcopy(x);
 ForwardDiff.derivative(p, 3)
+
+ϵ_pde = mseErrFine;
+@show ϵ_pde
