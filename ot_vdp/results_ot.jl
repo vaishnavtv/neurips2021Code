@@ -7,6 +7,7 @@ activFunc = tanh;
 suff = string(activFunc); nn = 48; otIters = 20;
 maxNewPts = 200;
 
+cd(@__DIR__);
 fileLoc = "data/dx1eM1_ot1Eval_vdp_$(suff)_$(nn)_ot$(otIters)_mnp$(maxNewPts).jld2";
 
 println("Loading file");

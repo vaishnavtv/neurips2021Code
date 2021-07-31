@@ -11,6 +11,7 @@ nn = 48;
 Q = 0.3;
 rhoTrue(x) = exp(1/Q*(x[1]^2 + x[2]^2 - 1/2*(x[1]^2 + x[2]^2)^2));
 
+cd(@__DIR__);
 fileLoc = "data/dx5eM2_vdpr_$(suff)_$(nn)_2.jld2";
 
 println("Loading file");
