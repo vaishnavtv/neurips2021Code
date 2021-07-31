@@ -5,8 +5,8 @@ pygui(true);
 # Load data 
 activFunc = tanh; #dx = 0.25;
 suff = string(activFunc); nn = 48; otIters = 20; maxNewPts = 200;
-
-fileLoc = "data/dx25eM2_ot1Eval_vdpr_$(suff)_$(nn)_ot$(otIters)_mnp$(maxNewPts).jld2";
+cd(@__DIR__);
+fileLoc = "data/dx25eM2_ot1Eval_vdpr_$(suff)_$(nn)_ot$(otIters)_mnp$(maxNewPts)_2.jld2";
 
 println("Loading file");
 file =  jldopen(fileLoc, "r");

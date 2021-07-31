@@ -26,6 +26,7 @@ Q = 0.1;
 Σ_ss = 0.001 * 1.0I(2);
 rhoTrue(x) = exp(-1 / 2 * (x - μ_ss)' * inv(Σ_ss) * (x - μ_ss)) / (2 * pi * sqrt(det(Σ_ss))); # desired steady-state distribution (gaussian function) 
 
+cd(@__DIR__);
 fileLoc = "data/dx5eM2_vdp_$(suff)_$(nn)_cont.jld2";
 
 println("Loading file");

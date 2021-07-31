@@ -8,7 +8,7 @@ activFunc = tanh; dx = 0.05;
 suff = string(activFunc); nn = 48; optFlag = 1;
 
 Q = 0.1;
-
+cd(@__DIR__);
 fileLoc = "data/dx5eM2_vdp_$(suff)_$(nn)_2.jld2";
 
 println("Loading file");
