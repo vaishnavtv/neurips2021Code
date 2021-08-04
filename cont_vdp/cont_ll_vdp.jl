@@ -16,7 +16,7 @@ dx = 0.05; # discretization size used for training
 
 # file location to save data
 suff = string(activFunc);
-saveFile = "data/dx5eM2_vdp_$(suff)_$(nn)_cont.jld2";
+saveFile = "data/dx5eM2_vdp_$(suff)_$(nn)_contMin.jld2";
 
 ## set up the NeuralPDE framework using low-level API
 @parameters x1, x2
@@ -141,8 +141,17 @@ rhoSS_loss_function = NeuralPDE.get_loss_function(
 );
 @show rhoSS_loss_function(flat_initθ);
 
+## minimize control energy required
+function uNorm_loss_function(θ)
+    lenθ = length(θ);
+    θ2 = θ[Int(lenθ/2+1):end]; # phi[2] only requires second half of parameters
+    out = sum((first(phi[2](train_domain_set[1][:,i], θ2)))^2 for i in 1:size(train_domain_set,2));
+    return out
+end
+@show uNorm_loss_function(flat_initθ);
+##
 function loss_function_(θ, p)
-    return pde_loss_function(θ) + bc_loss_function_sum(θ) + rhoSS_loss_function(θ)
+    return pde_loss_function(θ) + bc_loss_function_sum(θ) + rhoSS_loss_function(θ) + uNorm_loss_function(θ)
 end
 
 ## set up GalacticOptim optimization problem
@@ -153,6 +162,7 @@ nSteps = 0;
 PDE_losses = Float32[];
 BC_losses = Float32[];
 rhoSS_losses = Float32[];
+uNorm_losses = Float32[];
 cb_ = function (p, l)
     global nSteps = nSteps + 1
     println("[$nSteps] Current loss is: $l")
@@ -162,12 +172,15 @@ cb_ = function (p, l)
         ", BC loss:",
         bc_loss_function_sum(p),
         ", rhoSS loss:",
-        rhoSS_loss_function(p)
+        rhoSS_loss_function(p),
+        ", uNorm loss:",
+        uNorm_loss_function(p)
     )
 
     push!(PDE_losses, pde_loss_function(p))
     push!(BC_losses, bc_loss_function_sum(p))
     push!(rhoSS_losses, rhoSS_loss_function(p))
+    push!(uNorm_losses, uNorm_loss_function(p))
     return false
 end
 

@@ -5,13 +5,13 @@
   
 ##NECESSARY JOB SPECIFICATIONS
 #SBATCH --job-name=cont_vdp
-#SBATCH --time=48:00:00            #Set the wall clock limit to 24 hrs
+#SBATCH --time=72:00:00            #Set the wall clock limit to 24 hrs
 ##SBATCH --partition=gpu
 #SBATCH --ntasks=16                 #Request 1 task
 #SBATCH --ntasks-per-node=16      #Request 1 task/core per node
 ##SBATCH --gres=gpu:1             # Request 1 GPU
 #SBATCH --mem=32G                #Request 16GB per node
-#SBATCH --output=out/cont_vdp.txt
+#SBATCH --output=out/contMin_vdp.txt
 #SBATCH --mail-type=ALL
 #SBATCH --mail-user=vaishnavtv@tamu.edu
 #SBATCH --account=122756175418
