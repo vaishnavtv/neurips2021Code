@@ -19,7 +19,7 @@ dx = 0.05; # discretization size used for training
 
 # file location to save data
 suff = string(activFunc);
-saveFile = "data/dx5eM2_vdp_$(suff)_$(nn)_contMin.jld2";
+saveFile = "data/dx5eM2_vdp_$(suff)_$(nn)_contMin2.jld2";
 
 ## set up the NeuralPDE framework using low-level API
 @parameters x1, x2
