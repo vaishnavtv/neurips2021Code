@@ -35,7 +35,7 @@ optParam = read(file, "optParam");
 PDE_losses = read(file, "PDE_losses");
 BC_losses = read(file, "BC_losses");
 rhoSS_losses = read(file, "rhoSS_losses");
-# uNorm_losses = read(file, "uNorm_losses");
+uNorm_losses = read(file, "uNorm_losses");
 close(file);
 
 ## Plot losses over time
@@ -45,7 +45,7 @@ nLosses = length(PDE_losses);
 semilogy(1:nLosses, PDE_losses, label = "pde");
 semilogy(1:nLosses, BC_losses, label = "bc");
 semilogy(1:nLosses, rhoSS_losses, label = "rhoSS");
-# semilogy(1:nLosses, uNorm_losses, label = "uNorm");
+semilogy(1:nLosses, uNorm_losses, label = "uNorm");
 xlabel("Iterations");
 ylabel("ϵ");
 legend();
