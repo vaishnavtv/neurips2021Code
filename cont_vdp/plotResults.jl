@@ -27,7 +27,7 @@ Q = 0.1;
 rhoTrue(x) = exp(-1 / 2 * (x - μ_ss)' * inv(Σ_ss) * (x - μ_ss)) / (2 * pi * sqrt(det(Σ_ss))); # desired steady-state distribution (gaussian function) 
 
 cd(@__DIR__);
-fileLoc = "data/dx5eM2_vdp_$(suff)_$(nn)_cont.jld2";
+fileLoc = "data/dx5eM2_vdp_$(suff)_$(nn)_contMin.jld2";
 
 println("Loading file");
 file = jldopen(fileLoc, "r");
@@ -35,7 +35,21 @@ optParam = read(file, "optParam");
 PDE_losses = read(file, "PDE_losses");
 BC_losses = read(file, "BC_losses");
 rhoSS_losses = read(file, "rhoSS_losses");
+# uNorm_losses = read(file, "uNorm_losses");
 close(file);
+
+## Plot losses over time
+figure(569);
+clf;
+nLosses = length(PDE_losses);
+semilogy(1:nLosses, PDE_losses, label = "pde");
+semilogy(1:nLosses, BC_losses, label = "bc");
+semilogy(1:nLosses, rhoSS_losses, label = "rhoSS");
+# semilogy(1:nLosses, uNorm_losses, label = "uNorm");
+xlabel("Iterations");
+ylabel("ϵ");
+legend();
+##
 
 parameterless_type_θ = DiffEqBase.parameterless_type(optParam);
 
@@ -176,7 +190,8 @@ termNorm = [norm((nlSim([x, y])[:, end])) for x in xg, y in yg];
 figure(90);
 clf();
 pcolor(gridXG, gridYG, termNorm, shading = "auto");
-xlabel("x1"); ylabel("x2");
+xlabel("x1");
+ylabel("x2");
 title("Norm of terminal states after 500 seconds for different x0");
 colorbar();
 ##

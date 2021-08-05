@@ -1,7 +1,9 @@
 ## Obtain a controller for vdp using PINNs
 
-using NeuralPDE, Flux, ModelingToolkit, GalacticOptim, Optim, Symbolics, JLD2, DiffEqFlux, LinearAlgebra
-import Random:seed!; seed!(1);
+using NeuralPDE,
+    Flux, ModelingToolkit, GalacticOptim, Optim, Symbolics, JLD2, DiffEqFlux, LinearAlgebra
+import Random: seed!;
+seed!(1);
 
 ## parameters for neural network
 nn = 48; # number of neurons in the hidden layer
@@ -10,7 +12,8 @@ maxOptIters = 10000; # maximum number of training iterations
 opt = Optim.BFGS(); # Optimizer used for training
 
 # parameters for rhoSS_desired
-μ_ss = zeros(2); Σ_ss = 0.001*1.0I(2);
+μ_ss = zeros(2);
+Σ_ss = 0.001 * 1.0I(2);
 
 dx = 0.05; # discretization size used for training
 
@@ -20,42 +23,48 @@ saveFile = "data/dx5eM2_vdp_$(suff)_$(nn)_contMin.jld2";
 
 ## set up the NeuralPDE framework using low-level API
 @parameters x1, x2
-@variables  η(..), Kc(..)
+@variables η(..), Kc(..)
 
-x = [x1;x2]
+x = [x1; x2]
 
 # Van der Pol Dynamics
-f(x) = [x[2]; -x[1] + (1-x[1]^2)*x[2] + Kc(x[1], x[2])];
+f(x) = [x[2]; -x[1] + (1 - x[1]^2) * x[2] + Kc(x[1], x[2])];
 
 function g(x::Vector)
-    return [0.0;1.0];
+    return [0.0; 1.0]
 end
 
 # PDE
 Q = 0.1; # Q = σ^2
-ρ(x) = exp(η(x[1],x[2]));
-F = f(x)*ρ(x);
-G = 0.5*(g(x)*Q*g(x)')*ρ(x);
+ρ(x) = exp(η(x[1], x[2]));
+F = f(x) * ρ(x);
+G = 0.5 * (g(x) * Q * g(x)') * ρ(x);
 
-T1 = sum([Differential(x[i])(F[i]) for i in 1:length(x)]);
-T2 = sum([(Differential(x[i])*Differential(x[j]))(G[i,j]) for i in 1:length(x), j=1:length(x)]);
+T1 = sum([Differential(x[i])(F[i]) for i = 1:length(x)]);
+T2 = sum([
+    (Differential(x[i]) * Differential(x[j]))(G[i, j]) for i = 1:length(x),
+    j = 1:length(x)
+]);
 
-Eqn = expand_derivatives(-T1+T2); # + dx*u(x1,x2)-1 ~ 0;
-pde = simplify(Eqn/ρ(x),expand=true) ~ 0.0f0;
+Eqn = expand_derivatives(-T1 + T2); # + dx*u(x1,x2)-1 ~ 0;
+pde = simplify(Eqn / ρ(x), expand = true) ~ 0.0f0;
 
 # Domain
 maxval = 4.0f0;
-domains = [x1 ∈ IntervalDomain(-maxval,maxval),
-           x2 ∈ IntervalDomain(-maxval,maxval)];
+domains = [x1 ∈ IntervalDomain(-maxval, maxval), x2 ∈ IntervalDomain(-maxval, maxval)];
 
 # Boundary conditions
-bcs = [ρ([-maxval,x2]) ~ 0.f0, ρ([maxval,x2]) ~ 0,
-       ρ([x1,-maxval]) ~ 0.f0, ρ([x1,maxval]) ~ 0];
+bcs = [
+    ρ([-maxval, x2]) ~ 0.0f0,
+    ρ([maxval, x2]) ~ 0,
+    ρ([x1, -maxval]) ~ 0.0f0,
+    ρ([x1, maxval]) ~ 0,
+];
 
 ## Neural network
 dim = 2 # number of dimensions
-chain1 = Chain(Dense(dim,nn,activFunc), Dense(nn,nn,activFunc), Dense(nn,1));
-chain2 = Chain(Dense(dim,nn,activFunc), Dense(nn,nn,activFunc), Dense(nn,1));
+chain1 = Chain(Dense(dim, nn, activFunc), Dense(nn, nn, activFunc), Dense(nn, 1));
+chain2 = Chain(Dense(dim, nn, activFunc), Dense(nn, nn, activFunc), Dense(nn, 1));
 chain = [chain1, chain2];
 
 initθ = DiffEqFlux.initial_params.(chain);
@@ -99,7 +108,7 @@ _bc_loss_functions = [
 ]
 
 train_domain_set, train_bound_set =
-    NeuralPDE.generate_training_sets(domains, dx, [pde], bcs, eltypeθ, indvars, depvars) ;
+    NeuralPDE.generate_training_sets(domains, dx, [pde], bcs, eltypeθ, indvars, depvars);
 
 pde_loss_function = NeuralPDE.get_loss_function(
     _pde_loss_function,
@@ -119,8 +128,8 @@ bc_loss_function_sum = θ -> sum(map(l -> l(θ), bc_loss_functions))
 @show (bc_loss_function_sum(flat_initθ))
 
 ## control loss function (requiring rhoSSPred = rhoDesired)
-rhoTrue(x) = exp(-1/2*(x - μ_ss)'*inv(Σ_ss)*(x - μ_ss))/(2*pi*sqrt(det(Σ_ss))); # desired steady-state distribution (gaussian function) 
-rhoSSEq = ρ([x1,x2]) - rhoTrue([x1,x2]) ~ 0.0f0; 
+rhoTrue(x) = exp(-1 / 2 * (x - μ_ss)' * inv(Σ_ss) * (x - μ_ss)) / (2 * pi * sqrt(det(Σ_ss))); # desired steady-state distribution (gaussian function) 
+rhoSSEq = ρ([x1, x2]) - rhoTrue([x1, x2]) ~ 0.0f0;
 
 _rhoSS_loss_function = NeuralPDE.build_loss_function(
     rhoSSEq,
@@ -143,15 +152,21 @@ rhoSS_loss_function = NeuralPDE.get_loss_function(
 
 ## minimize control energy required
 function uNorm_loss_function(θ)
-    lenθ = length(θ);
-    θ2 = θ[Int(lenθ/2+1):end]; # phi[2] only requires second half of parameters
-    out = sum((first(phi[2](train_domain_set[1][:,i], θ2)))^2 for i in 1:size(train_domain_set,2));
+    lenθ = length(θ)
+    θ2 = θ[Int(lenθ / 2 + 1):end] # phi[2] only requires second half of parameters
+    out = sum(
+        (first(phi[2](train_domain_set[1][:, i], θ2)))^2 for
+        i = 1:size(train_domain_set, 2)
+    )
     return out
 end
 @show uNorm_loss_function(flat_initθ);
 ##
 function loss_function_(θ, p)
-    return pde_loss_function(θ) + bc_loss_function_sum(θ) + rhoSS_loss_function(θ) + uNorm_loss_function(θ)
+    return pde_loss_function(θ) +
+           bc_loss_function_sum(θ) +
+           rhoSS_loss_function(θ) +
+           uNorm_loss_function(θ)
 end
 
 ## set up GalacticOptim optimization problem
@@ -174,7 +189,7 @@ cb_ = function (p, l)
         ", rhoSS loss:",
         rhoSS_loss_function(p),
         ", uNorm loss:",
-        uNorm_loss_function(p)
+        uNorm_loss_function(p),
     )
 
     push!(PDE_losses, pde_loss_function(p))
@@ -189,4 +204,11 @@ res = GalacticOptim.solve(prob, opt, cb = cb_, maxiters = maxOptIters);
 println("Optimization done.");
 
 ## Save data
-jldsave(saveFile;optParam = res.minimizer, PDE_losses, BC_losses, rhoSS_losses);
+jldsave(
+    saveFile;
+    optParam = res.minimizer,
+    PDE_losses,
+    BC_losses,
+    rhoSS_losses,
+    uNorm_losses,
+);
