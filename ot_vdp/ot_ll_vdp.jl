@@ -1,5 +1,5 @@
 ## Solve the FPKE for the Van der Pol oscillator using OT-PINNs
-
+include("../otSampler_RB/rbfNet.jl")
 # import prerequisite packages
 using NeuralPDE, Flux, ModelingToolkit, GalacticOptim, Optim, Symbolics, JLD2, LinearAlgebra, Convex, MosekTools, ForwardDiff, DiffEqFlux
 
@@ -19,7 +19,7 @@ opt = Optim.BFGS(); # optimizer used for training
 
 # file location to save data
 suff = string(activFunc);
-saveFileLoc = "data/dx1eM1_ot1Eval_vdp_$(suff)_$(nn)_ot$(otIters)_mnp$(maxNewPts)_2.jld2";
+saveFileLoc = "data/dx1eM1_ot1Eval_vdp_$(suff)_$(nn)_ot$(otIters)_mnp$(maxNewPts)_otSh.jld2";
 
 ## set up the NeuralPDE framework using low-level API
 @parameters x1, x2
@@ -242,7 +242,12 @@ for i in 1:otIters
         w1 = ones(maxNewPts)/maxNewPts;
         w2 = eqnErrCs[indMaxErr]; w2 = w2/sum(w2);
 
-        W, D, Phi_sp = otMapSp(Cs_ot,w1,w2);
+        # W, D, Phi_sp = otMapSp(Cs_ot,w1,w2);
+
+        ## trying sinkhorn using new code
+        otOpt = Mosek.Optimizer(LOG = 0); # Fast
+        Phi_sp = otMap(Cs_ot,w1,w2, otOpt, alg=:sinkhorn,α=0.005);
+        
         y = Cs_ot*(maxNewPts*Phi_sp);
 
         return y
@@ -278,7 +283,7 @@ for i in 1:otIters
     f_ = OptimizationFunction(loss_function_i, GalacticOptim.AutoZygote())
     prob = GalacticOptim.OptimizationProblem(f_, optParams[i])  
 
-    println("Calling GalacticOptim() after $(i) iterations of OT");
+    println("Calling GalacticOptim() after $(i) iterations of OT sampling");
     res = GalacticOptim.solve(prob, opt, cb = cb_, maxiters=maxOptIters);
     println("Optimization done.");
 
