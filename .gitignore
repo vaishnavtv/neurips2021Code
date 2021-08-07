@@ -14,6 +14,7 @@ ot_vdpr/out
 ot_vdpr/batch.slurm
 cont_vdp/out
 cont_vdp/batch.slurm
-otSampler_RB
 cont_vdp/figs
 cont_vdp/batch.slurm
+otSampler_RB/data/lp.jld2
+otSampler_RB/data/sinkhorn.jld2
