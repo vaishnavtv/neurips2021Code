@@ -1,7 +1,7 @@
 using MosekTools, PyPlot, GLPK, Clp
 include("rbfNet.jl"); # Load utility files.
 
-pygui(true);
+# pygui(:qt);
 
 N = 2000;
 maxval = 1;
@@ -36,18 +36,23 @@ Optimizer = Mosek.Optimizer(LOG = 0); # Fast
 # Optimizer = GLPK.Optimizer(); # Slow
 
 # Generate samples using sinkhorn
-# @time Phi = otMap(Ci, w1, w2, Optimizer, alg=:sinkhorn,α=0.005);
+@time Phi = otMap(Ci, w1, w2, Optimizer, alg=:sinkhorn,α=0.005);
 
 # # Generate samples using LP (Earth Mover's Distance --> emd)
-@time Phi = otMap(Ci, w1, w2, Optimizer, alg=:emd);
+# @time Phi = otMap(Ci, w1, w2, Optimizer, alg=:emd);
 
 y = Ci * (N * Phi'); # Need transpose on Phi, if using OptimalTransport.emd()
 
 ##
-figure(); clf();
-scatter(Ci[1,:],Ci[2,:],c="r",s=1);
-scatter(y[1,:],y[2,:],c="b",s=1);
-axis("square");
+using JLD2
+jldsave("data/sinkhorn.jld2"; Ci, y);
+
+
+##
+# figure(); clf();
+# scatter(Ci[1,:],Ci[2,:],c="r",s=1);
+# scatter(y[1,:],y[2,:],c="b",s=1);
+# axis("square");
 
 # Write a sampler paper.
 # We need the sampling technique in many applications.
