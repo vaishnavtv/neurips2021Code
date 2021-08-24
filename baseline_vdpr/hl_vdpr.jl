@@ -46,7 +46,7 @@ T2 = sum([
 ]);
 
 Eqn = expand_derivatives(-T1 + T2); # + dx*u(x1,x2)-1 ~ 0;
-pde = simplify(Eqn / ρ(x), expand = true) ~ 0.0f0;
+pde = simplify(Eqn / ρ(x)) ~ 0.0f0;
 
 # Domain
 maxval = 2.0;
