@@ -273,7 +273,7 @@ for i = 1:otIters
 
         ## trying sinkhorn using new code
         otOpt = Mosek.Optimizer(LOG = 0) # Fast
-        Phi_ot = otMap(Cs_ot, w1, w2, otOpt, alg = :sinkhorn, α = 0.005)
+        Phi_ot = otMap(Cs_ot, w1, w2, otOpt, alg = :emd, α = 0.005)
         y = Cs_ot * (maxNewPts * Phi_ot')
 
 
