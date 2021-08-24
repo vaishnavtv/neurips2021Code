@@ -19,7 +19,7 @@ otIters = 20;
 maxNewPts = 200;
 
 cd(@__DIR__);
-fileLoc = "data/dx25eM2_ot1Eval_vdpr_$(suff)_$(nn)_ot$(otIters)_mnp$(maxNewPts)_otEmd.jld2";
+fileLoc = "data/dx25eM2_ot1Eval_vdpr_$(suff)_$(nn)_ot$(otIters)_mnp$(maxNewPts)_otShStab.jld2";
 
 println("Loading file");
 file = jldopen(fileLoc, "r");

@@ -19,7 +19,7 @@ function otMap(X, w1, w2, Optimizer; alg = :emd, maxIter = 1000, α = 0.01) # X 
     elseif alg == :sinkhorn
         Phi = sinkhorn(w1, w2, C, α, maxiter = maxIter)
     elseif alg == :sinkhorn_stab
-        Phi = sinkhorn_stabilized(w1, w2, C, α, max_iter = maxIter)
+        Phi = sinkhorn_stabilized(w1, w2, C, α, maxiter = maxIter)
     else
         error("Unsupported algorithm specified")
     end
