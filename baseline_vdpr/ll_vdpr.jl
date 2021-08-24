@@ -10,15 +10,16 @@ seed!(1);
 ## parameters for neural network
 nn = 48; # number of neurons in the hidden layer
 activFunc = tanh; # activation function
-maxOptIters = 10000; # maximum number of training iterations
-opt = Optim.BFGS(); # Optimizer used for training
+maxOptIters = 50000; # maximum number of training iterations
+# opt = Optim.BFGS(); # Optimizer used for training
+opt = ADAM(1e-3); 
 
 CUDA.allowscalar(false)
 
 dx = 0.05
 
 suff = string(activFunc);
-saveFile = "data/dx5eM2_vdpr_$(suff)_$(nn)_2.jld2";
+saveFile = "data/dx5eM2_vdpr_$(suff)_$(nn)_gpu_ll.jld2";
 
 # Van der Pol Rayleigh Dynamics
 @parameters x1, x2
@@ -46,7 +47,8 @@ T2 = sum([
 ]);
 
 Eqn = expand_derivatives(-T1 + T2); # + dx*u(x1,x2)-1 ~ 0;
-pde = simplify(Eqn / ρ(x), expand = true) ~ 0.0f0;
+pdeOrig = simplify(Eqn / ρ(x)) ~ 0.0f0;
+pde = (0.15f0Differential(x2)(Differential(x2)(η(x1, x2)))*exp(η(x1, x2)) + 0.15f0exp(η(x1, x2))*(Differential(x2)(η(x1, x2))^2) - (exp(η(x1, x2))*(1 - (x1^2) - (3(x2^2)))) - (x2*Differential(x1)(η(x1, x2))*exp(η(x1, x2))) - (Differential(x2)(η(x1, x2))*exp(η(x1, x2))*(x2*(1 - (x1^2) - (x2^2)) - x1)))*(exp(η(x1, x2))^-1) ~ 0.0f0; # simplified pde rewritten with constants in float32 format
 
 # Domain
 maxval = 2.0;
@@ -110,6 +112,8 @@ _bc_loss_functions = [
 
 train_domain_set, train_bound_set =
     NeuralPDE.generate_training_sets(domains, dx, [pde], bcs, eltypeθ, indvars, depvars);# |> gpu;
+train_domain_set = train_domain_set |> gpu
+
 
 pde_loss_function = NeuralPDE.get_loss_function(
     _pde_loss_function,
@@ -159,4 +163,5 @@ res = GalacticOptim.solve(prob, opt, cb = cb_, maxiters = maxOptIters);
 println("Optimization done.");
 
 ## Save data
+cd(@__DIR__);
 jldsave(saveFile;optParam = res.minimizer, PDE_losses, BC_losses);
