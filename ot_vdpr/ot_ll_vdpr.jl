@@ -58,7 +58,7 @@ T2 = sum([
 ]);
 
 Eqn = expand_derivatives(-T1 + T2); # + dx*u(x1,x2)-1 ~ 0;
-pde = simplify(Eqn / ρ(x), expand = true) ~ 0;
+pde = simplify(Eqn / ρ(x)) ~ 0;
 
 # Domain
 maxval = 2.0;
@@ -269,12 +269,13 @@ for i = 1:otIters
         w2 = w2 / sum(w2)
 
         # W, D, Phi_sp = otMapSp(Cs_ot,w1,w2);
+        # y = Cs_ot * (maxNewPts * Phi_sp)
 
         ## trying sinkhorn using new code
         otOpt = Mosek.Optimizer(LOG = 0) # Fast
-        Phi_sp = otMap(Cs_ot, w1, w2, otOpt, alg = :emd, maxIter = 10000, α = 0.005)
+        Phi_ot = otMap(Cs_ot, w1, w2, otOpt, alg = :emd, maxIter = 10000, α = 0.005)
+        y = Cs_ot * (maxNewPts * Phi_ot') # need transpose on Phi if using OptimalTransport package
 
-        y = Cs_ot * (maxNewPts * Phi_sp)
 
         return y
     end
