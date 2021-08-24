@@ -12,7 +12,7 @@ nn = 48; # number of neurons in the hidden layer
 activFunc = tanh; # activation function
 maxOptIters = 10000; # maximum number of training iterations
 opt = Optim.BFGS(); # Optimizer used for training
-
+# opt = ADAM(1e-3);
 CUDA.allowscalar(false)
 
 dx = 0.05
@@ -47,7 +47,10 @@ T2 = sum([
 
 Eqn = expand_derivatives(-T1 + T2); # + dx*u(x1,x2)-1 ~ 0;
 pde = simplify(Eqn / ρ(x)) ~ 0.0f0;
+Dx1 = Differential(x1); Dx2 = Differential(x2);
 
+pde = 0.15Differential(x2)(Differential(x2)(η(x1, x2)))*exp(η(x1, x2)) ~ 0.0f0;
+# pde = x2*Dx2(η(x1,x2))~0.0f0;
 # Domain
 maxval = 2.0;
 domains = [x1 ∈ IntervalDomain(-maxval, maxval), x2 ∈ IntervalDomain(-maxval, maxval)];
@@ -86,4 +89,4 @@ phi = discretization.phi;
 res = GalacticOptim.solve(prob, opt, cb = cb_, maxiters = maxOptIters);
 
 ## Save data
-jldsave(saveFile;optParam = res.minimizer);#, PDE_losses, BC_losses);
+# jldsave(saveFile;optParam = res.minimizer);#, PDE_losses, BC_losses);
