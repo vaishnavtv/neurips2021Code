@@ -46,11 +46,7 @@ T2 = sum([
 ]);
 
 Eqn = expand_derivatives(-T1 + T2); # + dx*u(x1,x2)-1 ~ 0;
-# pde = expand_derivatives(-T1 + T2) ~ 0.0f0; # + dx*u(x1,x2)-1 ~ 0;
-pde_orig = simplify(Eqn / ρ(x), expand = true) ~ 0.0f0;
-pde = pde_orig;
-# pde = Differential(x1)(η(x[1], x[2])) ~0.0f0;
-# pde = Differential(x[1])((ρ(x)*x[2])[1])~0.0f0;
+pde = simplify(Eqn / ρ(x), expand = true) ~ 0.0f0;
 
 # Domain
 maxval = 2.0;
