@@ -11,7 +11,7 @@
 #SBATCH --ntasks-per-node=16      #Request 1 task/core per node
 ##SBATCH --gres=gpu:1             # Request 1 GPU
 #SBATCH --mem=32G                #Request 16GB per node
-#SBATCH --output=out/ot_vdp_sh.txt
+#SBATCH --output=out/ot_vdp_emd.txt
 #SBATCH --mail-type=ALL
 #SBATCH --mail-user=vaishnavtv@tamu.edu
 #SBATCH --account=122756175418
