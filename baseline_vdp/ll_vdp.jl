@@ -1,20 +1,24 @@
 ## Solve the FPKE for the Van der Pol oscillator using baseline PINNs (large training set)
 
 using NeuralPDE, Flux, ModelingToolkit, GalacticOptim, Optim, Symbolics, JLD2, DiffEqFlux
+
+using CUDA
 import Random:seed!; seed!(1);
 
 ## parameters for neural network
 nn = 48; # number of neurons in the hidden layer
 activFunc = tanh; # activation function
-maxOptIters = 10000; # maximum number of training iterations
-opt = Optim.BFGS(); # Optimizer used for training
+maxOptIters = 50000; # maximum number of training iterations
+# opt = Optim.BFGS(); # Optimizer used for training
+opt = ADAM(1e-3); 
 
+CUDA.allowscalar(false)
 
 dx = 0.05; # discretization size used for training
 
 # file location to save data
 suff = string(activFunc);
-saveFile = "data/dx5eM2_vdp_$(suff)_$(nn)_2.jld2";
+saveFile = "data/dx5eM2_vdp_$(suff)_$(nn)_gpu_ll.jld2";
 
 ## set up the NeuralPDE framework using low-level API
 @parameters x1, x2
@@ -39,9 +43,10 @@ T1 = sum([Differential(x[i])(F[i]) for i in 1:length(x)]);
 T2 = sum([(Differential(x[i])*Differential(x[j]))(G[i,j]) for i in 1:length(x), j=1:length(x)]);
 
 Eqn = expand_derivatives(-T1+T2); # + dx*u(x1,x2)-1 ~ 0;
-pde = simplify(Eqn/ρ(x),expand=true) ~ 0.0f0;
+pdeOrig = simplify(Eqn/ρ(x)) ~ 0.0f0;
+pde = (0.05f0Differential(x2)(Differential(x2)(η(x1, x2)))*exp(η(x1, x2)) + 0.05f0exp(η(x1, x2))*(Differential(x2)(η(x1, x2))^2) - (exp(η(x1, x2))*(1 - (x1^2))) - (x2*Differential(x1)(η(x1, x2))*exp(η(x1, x2))) - (Differential(x2)(η(x1, x2))*exp(η(x1, x2))*(x2*(1 - (x1^2)) - x1)))*(exp(η(x1, x2))^-1) ~ 0.0f0  # simplified pde rewritten with constants in float32 format
 
-# Domain
+## Domain
 maxval = 4.0;
 domains = [x1 ∈ IntervalDomain(-maxval,maxval),
            x2 ∈ IntervalDomain(-maxval,maxval)];
@@ -54,7 +59,7 @@ bcs = [ρ([-maxval,x2]) ~ 0.f0, ρ([maxval,x2]) ~ 0,
 dim = 2 # number of dimensions
 chain = Chain(Dense(dim,nn,activFunc), Dense(nn,nn,activFunc), Dense(nn,1));
 
-initθ = DiffEqFlux.initial_params(chain)
+initθ = DiffEqFlux.initial_params(chain) |> gpu;
 flat_initθ = if (typeof(chain) <: AbstractVector)
     reduce(vcat, initθ)
 else
@@ -100,6 +105,7 @@ _bc_loss_functions = [
 
 train_domain_set, train_bound_set =
     NeuralPDE.generate_training_sets(domains, dx, [pde], bcs, eltypeθ, indvars, depvars) ;
+train_domain_set = train_domain_set |> gpu
 
 pde_loss_function = NeuralPDE.get_loss_function(
     _pde_loss_function,
@@ -108,6 +114,7 @@ pde_loss_function = NeuralPDE.get_loss_function(
     parameterless_type_θ,
     strategy,
 );
+@show pde_loss_function(initθ)
 
 bc_loss_functions = [
     NeuralPDE.get_loss_function(loss, set, eltypeθ, parameterless_type_θ, strategy) for
@@ -115,10 +122,12 @@ bc_loss_functions = [
 ]
 
 bc_loss_function_sum = θ -> sum(map(l -> l(θ), bc_loss_functions))
-typeof(bc_loss_function_sum(initθ))
+@show bc_loss_function_sum(initθ)
+
 function loss_function_(θ, p)
     return pde_loss_function(θ) + bc_loss_function_sum(θ) 
 end
+@show loss_function_(initθ,0)
 
 ## set up GalacticOptim optimization problem
 f_ = OptimizationFunction(loss_function_, GalacticOptim.AutoZygote())
@@ -147,4 +156,5 @@ res = GalacticOptim.solve(prob, opt, cb = cb_, maxiters = maxOptIters);
 println("Optimization done.");
 
 ## Save data
+cd(@__DIR__);
 jldsave(saveFile;optParam = res.minimizer, PDE_losses, BC_losses);
