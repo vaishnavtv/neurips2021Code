@@ -1,5 +1,6 @@
 using QuasiMonteCarlo,
     Convex, MosekTools, NearestNeighbors, OptimalTransport, Primes, GoldenSequences
+using CUDA
 
 function otMap(X, w1, w2, Optimizer; alg = :emd, maxIter = 1000, α = 0.01) # X is dxN matrix, d in dimension, N is number of samples. W1, W2 are column vectors
     # Use sparse variables -- that might speed up things.
