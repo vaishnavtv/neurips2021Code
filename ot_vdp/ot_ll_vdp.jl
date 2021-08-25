@@ -349,5 +349,5 @@ end
 # pde_train_sets_cpu2 = Array.(Array.(pde_train_sets)) # did not work.
 ## save data
 cd(@__DIR__);
-jldsave(saveFileLoc; optParams = Array.(optParams), PDE_losses, BC_losses, pde_train_sets = pde_train_sets_cpu, newPtsAll = Array(newPtsAll));
+jldsave(saveFileLoc; optParams = Array.(optParams), PDE_losses, BC_losses, pde_train_sets = pde_train_sets_cpu, newPtsAll = Array.(newPtsAll));
 println("Data saved.");

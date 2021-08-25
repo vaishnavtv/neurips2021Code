@@ -23,8 +23,8 @@ seed!(1);
 ## parameters for neural network
 nn = 48; # number of neurons in the hidden layer
 activFunc = tanh; # activation function
-maxOptIters = 10000; # maximum number of training iterations
-otIters = 20; # maximum number of OT iterations
+maxOptIters = 10; # maximum number of training iterations
+otIters = 1; # maximum number of OT iterations
 maxNewPts = 200; # maximum new points found through OT in each iteration
 
 Q = 0.3; # Q = σ^2
@@ -198,7 +198,6 @@ CsEval = collocationGrid(maxval * [-1, 1], maxval * [-1, 1], nEvalFine);
 
 ## initialize variables for OT-iterations
 pde_train_sets = Vector{typeof(train_domain_set)}(undef, otIters + 1);
-# pde_train_sets = Vector{Vector{Matrix{Float32}}}(undef, otIters + 1);
 pde_train_sets[1] = train_domain_set;
 pdeLossFunctions = Vector{Function}(undef, otIters + 1);
 pdeLossFunctions[1] = pde_loss_function;
@@ -346,8 +345,7 @@ for i in 1:otIters + 1
     pde_train_sets_cpu[i] = Array.(pde_train_sets[i]);
 end
 @show typeof(pde_train_sets_cpu)
-
 ## save data
 cd(@__DIR__);
-jldsave(saveFileLoc; optParams = Array.(optParams), PDE_losses, BC_losses, pde_train_sets = pde_train_sets_cpu, newPtsAll = Array(newPtsAll));
+jldsave(saveFileLoc; optParams = Array.(optParams), PDE_losses, BC_losses, pde_train_sets = pde_train_sets_cpu, newPtsAll = Array.(newPtsAll));
 println("Data saved.");
