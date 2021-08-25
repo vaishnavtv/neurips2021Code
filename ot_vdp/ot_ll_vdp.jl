@@ -26,7 +26,7 @@ maxNewPts = 200; # maximum new points found through OT in each iteration
 
 dx = 0.1; # discretization size for generating data for the nominal network
 
-opt = Optim.BFGS(); # optimizer used for training
+opt = Optim.LBFGS(); # optimizer used for training
 
 
 # file location to save data
