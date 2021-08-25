@@ -1,7 +1,6 @@
 ## Solve the FPKE for the Van der Pol Rayleigh oscillator using baseline PINNs (large training set)
 
 using NeuralPDE, Flux, ModelingToolkit, GalacticOptim, Optim, DiffEqFlux, Symbolics, JLD2
-
 using CUDA
 
 import Random: seed!;
@@ -11,14 +10,14 @@ seed!(1);
 nn = 48; # number of neurons in the hidden layer
 activFunc = tanh; # activation function
 maxOptIters = 50000; # maximum number of training iterations
-# opt = Optim.BFGS(); # Optimizer used for training
-opt = ADAM(1e-3);
+opt = Optim.LBFGS(); # Optimizer used for training
+# opt = ADAM(1e-3);
 CUDA.allowscalar(false)
 
 dx = 0.05
 
 suff = string(activFunc);
-saveFile = "data/dx5eM2_vdpr_$(suff)_$(nn)_gpu_hl.jld2";
+saveFile = "data/dx5eM2_vdpr_$(suff)_$(nn)_gpu_hl_LB.jld2";
 
 # Van der Pol Rayleigh Dynamics
 @parameters x1, x2

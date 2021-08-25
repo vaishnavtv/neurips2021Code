@@ -9,8 +9,8 @@ import Random:seed!; seed!(1);
 nn = 48; # number of neurons in the hidden layer
 activFunc = tanh; # activation function
 maxOptIters = 50000; # maximum number of training iterations
-# opt = Optim.BFGS(); # Optimizer used for training
-opt = ADAM(1e-3); 
+opt = Optim.LBFGS(); # Optimizer used for training
+# opt = ADAM(1e-3); 
 
 CUDA.allowscalar(false)
 
@@ -18,7 +18,7 @@ dx = 0.05; # discretization size used for training
 
 # file location to save data
 suff = string(activFunc);
-saveFile = "data/dx5eM2_vdp_$(suff)_$(nn)_gpu_ll.jld2";
+saveFile = "data/dx5eM2_vdp_$(suff)_$(nn)_gpu_ll_LB.jld2";
 
 ## set up the NeuralPDE framework using low-level API
 @parameters x1, x2

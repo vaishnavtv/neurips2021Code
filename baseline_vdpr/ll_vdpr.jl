@@ -10,16 +10,16 @@ seed!(1);
 ## parameters for neural network
 nn = 48; # number of neurons in the hidden layer
 activFunc = tanh; # activation function
-maxOptIters = 50000; # maximum number of training iterations
-# opt = Optim.BFGS(); # Optimizer used for training
-opt = ADAM(1e-3); 
+maxOptIters = 5; # maximum number of training iterations
+opt = Optim.LBFGS(); # Optimizer used for training
+# opt = ADAM(1e-3); 
 
 CUDA.allowscalar(false)
 
 dx = 0.05
 
 suff = string(activFunc);
-saveFile = "data/dx5eM2_vdpr_$(suff)_$(nn)_gpu_ll.jld2";
+saveFile = "data/dx5eM2_vdpr_$(suff)_$(nn)_gpu_ll_LB.jld2";
 
 # Van der Pol Rayleigh Dynamics
 @parameters x1, x2
@@ -164,4 +164,4 @@ println("Optimization done.");
 
 ## Save data
 cd(@__DIR__);
-jldsave(saveFile;optParam = Array(res.minimizer), PDE_losses, BC_losses);
+# jldsave(saveFile;optParam = Array(res.minimizer), PDE_losses, BC_losses);
