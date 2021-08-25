@@ -38,9 +38,9 @@ function otMap_gpu(X, w1, w2, Optimizer; alg = :emd, maxIter = 1000, α = 0.01) 
             C[i, j] = norm(dx)^2
         end
     end
-    w1_cu = cu(w1);
-    w2_cu = cu(w2);
-    C_cu = cu(C);
+    w1_cu = CuArray(w1);
+    w2_cu = CuArray(w2);
+    C_cu = CuArray(C);
 
     # Call the code from OptimalTransport.jl
     if alg == :emd

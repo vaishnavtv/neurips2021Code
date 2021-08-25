@@ -1,4 +1,4 @@
-using MosekTools, PyPlot, GLPK, Clp
+using MosekTools, GLPK, Clp
 include("rbfNet.jl"); # Load utility files.
 
 # pygui(:qt);
@@ -53,7 +53,7 @@ y = Ci * (N * Phi'); # Need transpose on Phi, if using OptimalTransport.emd()
 # jldsave("data/sinkhorn.jld2"; Ci, y);
 
 
-##
+# using PyPlot
 # figure(); clf();
 # scatter(Ci[1,:],Ci[2,:],c="r",s=1);
 # scatter(y[1,:],y[2,:],c="b",s=1);
