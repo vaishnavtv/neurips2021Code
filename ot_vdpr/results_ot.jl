@@ -19,7 +19,7 @@ otIters = 20;
 maxNewPts = 200;
 
 cd(@__DIR__);
-fileLoc = "data/dx25eM2_ot1Eval_vdpr_$(suff)_$(nn)_ot$(otIters)_mnp$(maxNewPts)_otShStab.jld2";
+fileLoc = "data/dx25eM2_ot1Eval_vdpr_$(suff)_$(nn)_ot$(otIters)_mnp$(maxNewPts)_gpu_otShStab.jld2";
 
 println("Loading file");
 file = jldopen(fileLoc, "r");
@@ -143,6 +143,10 @@ function plotDistErr(nEvalFine, RHOFine, pdeErrFine, figNum)
     subplot(1, 3, 1)
     pcolormesh(XXFine, YYFine, RHOFine, cmap = "inferno", shading = "auto")
     colorbar()
+    if otIter < otIters + 1
+        newPts = newPtsAll[otIter]
+        scatter(newPts[1, :], newPts[2, :], s = 1.0, color = "w")
+    end
     xlabel("x1")
     ylabel("x2")
     title("Prediction")

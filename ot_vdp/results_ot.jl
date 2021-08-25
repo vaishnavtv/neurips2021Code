@@ -11,7 +11,7 @@ otIters = 20;
 maxNewPts = 200;
 
 cd(@__DIR__);
-fileLoc = "data/dx1eM1_ot1Eval_vdp_$(suff)_$(nn)_ot$(otIters)_mnp$(maxNewPts).jld2";
+fileLoc = "data/dx1eM1_ot1Eval_vdp_$(suff)_$(nn)_ot$(otIters)_mnp$(maxNewPts)_gpu_otShStab.jld2";
 
 println("Loading file");
 file = jldopen(fileLoc, "r");
@@ -127,10 +127,10 @@ function plotDistErr(RHOFine, pdeErrFine, figNum)
     subplot(1, 2, 2)
     pcolor(XXFine, YYFine, pdeErrFine, shading = "auto", cmap = "inferno")
     colorbar()
-    if otIter < otIters + 1
-        newPts = newPtsAll[otIter]
-        scatter(newPts[1, :], newPts[2, :], s = 1.0, color = "w")
-    end
+    # if otIter < otIters + 1
+    #     newPts = newPtsAll[otIter]
+    #     scatter(newPts[1, :], newPts[2, :], s = 1.0, color = "w")
+    # end
 
     title(L"Equation Error; $ϵ_{pde}$ = %$(mseEqErrStr)")
     xlabel("x1")
