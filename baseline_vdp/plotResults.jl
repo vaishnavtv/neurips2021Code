@@ -9,6 +9,7 @@ suff = string(activFunc); nn = 48; optFlag = 1;
 
 Q = 0.1;
 
+cd(@__DIR__);
 fileLoc = "data/dx5eM2_vdp_$(suff)_$(nn).jld2";
 
 println("Loading file");
