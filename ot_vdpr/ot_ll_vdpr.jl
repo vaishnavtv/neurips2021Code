@@ -340,7 +340,14 @@ CUDA.allowscalar(true) # have to do this for OT (probably not recommended, inves
 
     optParams[i+1] = res.minimizer
 end
+## convert to CPU array
+pde_train_sets_cpu = Vector{Vector{Matrix{Float32}}}(undef, otIters + 1) 
+for i in 1:otIters + 1
+    pde_train_sets_cpu[i] = Array.(pde_train_sets[i]);
+end
+@show typeof(pde_train_sets_cpu)
+
 ## save data
 cd(@__DIR__);
-jldsave(saveFileLoc; optParams = Array(optParams), PDE_losses, BC_losses, pde_train_sets = Array(pde_train_sets), newPtsAll = Array(newPtsAll));
+jldsave(saveFileLoc; optParams = Array.(optParams), PDE_losses, BC_losses, pde_train_sets = pde_train_sets_cpu, newPtsAll = Array(newPtsAll));
 println("Data saved.");
