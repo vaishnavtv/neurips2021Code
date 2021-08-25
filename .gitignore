@@ -13,3 +13,4 @@ ot_vdpr/data
 ot_vdpr/out
 ot_vdpr/batch.slurm
 otSampler_RB/
+baseline_helmholtz/
