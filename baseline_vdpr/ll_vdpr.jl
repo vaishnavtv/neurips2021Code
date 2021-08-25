@@ -164,4 +164,4 @@ println("Optimization done.");
 
 ## Save data
 cd(@__DIR__);
-jldsave(saveFile;optParam = res.minimizer, PDE_losses, BC_losses);
+jldsave(saveFile;optParam = Array(res.minimizer), PDE_losses, BC_losses);
