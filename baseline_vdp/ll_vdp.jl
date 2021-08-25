@@ -9,8 +9,8 @@ import Random:seed!; seed!(1);
 nn = 48; # number of neurons in the hidden layer
 activFunc = tanh; # activation function
 maxOptIters = 50000; # maximum number of training iterations
-opt = Optim.LBFGS(); # Optimizer used for training
-# opt = ADAM(1e-3); 
+# opt = Optim.LBFGS(); # Optimizer used for training
+opt = ADAM(1e-3); 
 
 CUDA.allowscalar(false)
 
