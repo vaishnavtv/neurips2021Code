@@ -127,10 +127,10 @@ function plotDistErr(RHOFine, pdeErrFine, figNum)
     subplot(1, 2, 2)
     pcolor(XXFine, YYFine, pdeErrFine, shading = "auto", cmap = "inferno")
     colorbar()
-    # if otIter < otIters + 1
-    #     newPts = newPtsAll[otIter]
-    #     scatter(newPts[1, :], newPts[2, :], s = 1.0, color = "w")
-    # end
+    if otIter < otIters + 1
+        newPts = newPtsAll[otIter]
+        scatter(newPts[1, :], newPts[2, :], s = 1.0, color = "w")
+    end
 
     title(L"Equation Error; $ϵ_{pde}$ = %$(mseEqErrStr)")
     xlabel("x1")
