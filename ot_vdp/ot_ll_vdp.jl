@@ -13,7 +13,9 @@ using NeuralPDE,
     MosekTools,
     ForwardDiff,
     DiffEqFlux
-
+using CUDA
+CUDA.allowscalar(false)
+    
 import Random: seed!;
 seed!(1);
 
@@ -26,13 +28,13 @@ maxNewPts = 200; # maximum new points found through OT in each iteration
 
 dx = 0.1; # discretization size for generating data for the nominal network
 
-opt = Optim.BFGS(); # optimizer used for training
+opt = Optim.LBFGS(); # optimizer used for training
 
 
 # file location to save data
 suff = string(activFunc);
 cd(@__DIR__)
-saveFileLoc = "data/dx1eM1_ot1Eval_vdp_$(suff)_$(nn)_ot$(otIters)_mnp$(maxNewPts)_otShStab.jld2";
+saveFileLoc = "data/dx1eM1_ot1Eval_vdp_$(suff)_$(nn)_ot$(otIters)_mnp$(maxNewPts)_gpu_otShStab.jld2";
 
 ## set up the NeuralPDE framework using low-level API
 @parameters x1, x2
@@ -77,7 +79,7 @@ bcs = [
 dim = 2 # number of dimensions
 chain = Chain(Dense(dim, nn, activFunc), Dense(nn, nn, activFunc), Dense(nn, 1));
 
-initθ = DiffEqFlux.initial_params(chain)
+initθ = DiffEqFlux.initial_params(chain) |> gpu
 flat_initθ = if (typeof(chain) <: AbstractVector)
     reduce(vcat, initθ)
 else
@@ -122,6 +124,7 @@ _bc_loss_functions = [
 
 train_domain_set, train_bound_set =
     NeuralPDE.generate_training_sets(domains, dx, [pde], bcs, eltypeθ, indvars, depvars);
+train_domain_set = train_domain_set |> gpu
 
 pde_loss_function = NeuralPDE.get_loss_function(
     _pde_loss_function,
@@ -130,6 +133,7 @@ pde_loss_function = NeuralPDE.get_loss_function(
     parameterless_type_θ,
     strategy,
 );
+@show pde_loss_function(initθ)
 
 bc_loss_functions = [
     NeuralPDE.get_loss_function(loss, set, eltypeθ, parameterless_type_θ, strategy) for
@@ -137,10 +141,12 @@ bc_loss_functions = [
 ]
 
 bc_loss_function_sum = θ -> sum(map(l -> l(θ), bc_loss_functions))
-typeof(bc_loss_function_sum(initθ))
+@show bc_loss_function_sum(initθ)
+
 function loss_function_(θ, p)
     return pde_loss_function(θ) + bc_loss_function_sum(θ)
 end
+@show loss_function_(initθ,0)
 
 ## set up GalacticOptim optimization problem
 f_ = OptimizationFunction(loss_function_, GalacticOptim.AutoZygote())
@@ -190,20 +196,22 @@ end
 CsEval = collocationGrid(maxval * [-1, 1], maxval * [-1, 1], nEvalFine);
 
 ## initialize variables for OT-iterations
-pde_train_sets = Vector{Vector{Matrix{Float32}}}(undef, otIters + 1);
+pde_train_sets = Vector{typeof(train_domain_set)}(undef, otIters + 1);
 pde_train_sets[1] = train_domain_set;
 pdeLossFunctions = Vector{Function}(undef, otIters + 1);
 pdeLossFunctions[1] = pde_loss_function;
-newPtsAll = Vector{Matrix{Float32}}(undef, otIters);
-optParams = Vector{Vector{Float32}}(undef, otIters + 1);
+newPtsAll = Vector{typeof(train_domain_set[1])}(undef, otIters);
+optParams = Vector{typeof(optParam1)}(undef, otIters + 1);
 optParams[1] = optParam1;
 PDE_losses = Vector{Vector{Float32}}(undef, otIters + 1);
 PDE_losses[1] = PDE_losses1;
 BC_losses = Vector{Vector{Float32}}(undef, otIters + 1);
 BC_losses[1] = BC_losses1;
 
+
 ## Run the OT-PINNs loop
 for i = 1:otIters
+    CUDA.allowscalar(true) # have to do this for OT (probably not recommended, investigate alternatives)
 
     ## generate functions using new weights, biases
     function ρ_pdeErr_fns(optParam)
@@ -275,11 +283,10 @@ for i = 1:otIters
         ## trying sinkhorn using new code
         otOpt = Mosek.Optimizer(LOG = 0) # Fast
         Phi_ot =
-            otMap(Cs_ot, w1, w2, otOpt, alg = :sinkhorn_stab, maxIter = 50000, α = 0.001)
-        y = Cs_ot * (maxNewPts * Phi_ot') # need transpose on Phi if using OptimalTransport package
+            otMap_gpu(Cs_ot, w1, w2, otOpt, alg = :sinkhorn_stab, maxIter = 50000, α = 0.001)
+        y = Array(Cs_ot) * (maxNewPts * Array(Phi_ot')) # need transpose on Phi if using OptimalTransport package
 
-
-        return y
+        return cu(y)
     end
     ##
 
@@ -330,6 +337,15 @@ for i = 1:otIters
 
     optParams[i+1] = res.minimizer
 end
+## convert to CPU array
+pde_train_sets_cpu = Vector{Vector{Matrix{Float32}}}(undef, otIters + 1) 
+for i in 1:otIters + 1
+    pde_train_sets_cpu[i] = Array.(pde_train_sets[i]);
+end
+@show typeof(pde_train_sets_cpu)
+
+# pde_train_sets_cpu2 = Array.(Array.(pde_train_sets)) # did not work.
 ## save data
-jldsave(saveFileLoc; optParams, PDE_losses, BC_losses, pde_train_sets, newPtsAll);
+cd(@__DIR__);
+jldsave(saveFileLoc; optParams = Array.(optParams), PDE_losses, BC_losses, pde_train_sets = pde_train_sets_cpu, newPtsAll = Array(newPtsAll));
 println("Data saved.");
