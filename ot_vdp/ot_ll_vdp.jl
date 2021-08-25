@@ -1,5 +1,6 @@
 ## Solve the FPKE for the Van der Pol oscillator using OT-PINNs
 include("../otSampler_RB/rbfNet.jl")
+
 # import prerequisite packages
 using NeuralPDE,
     Flux,
@@ -61,7 +62,8 @@ T2 = sum([
 ]);
 
 Eqn = expand_derivatives(-T1 + T2); # + dx*u(x1,x2)-1 ~ 0;
-pde = simplify(Eqn / ρ(x)) ~ 0.0f0;
+pdeOrig = simplify(Eqn / ρ(x)) ~ 0.0f0;
+pde = (0.05f0Differential(x2)(Differential(x2)(η(x1, x2)))*exp(η(x1, x2)) + 0.05f0exp(η(x1, x2))*(Differential(x2)(η(x1, x2))^2) - (exp(η(x1, x2))*(1 - (x1^2))) - (x2*Differential(x1)(η(x1, x2))*exp(η(x1, x2))) - (Differential(x2)(η(x1, x2))*exp(η(x1, x2))*(x2*(1 - (x1^2)) - x1)))*(exp(η(x1, x2))^-1) ~ 0.0f0  # simplified pde rewritten with constants in float32 format
 
 # Domain
 maxval = 4.0;
