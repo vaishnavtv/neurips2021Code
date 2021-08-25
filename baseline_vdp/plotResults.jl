@@ -22,7 +22,7 @@ optFlag = 1;
 Q = 0.1;
 
 cd(@__DIR__);
-fileLoc = "data/dx5eM2_vdp_$(suff)_$(nn).jld2";
+fileLoc = "data/dx5eM2_vdp_$(suff)_$(nn)_gpu_ll_LB.jld2";
 
 println("Loading file");
 file = jldopen(fileLoc, "r");
