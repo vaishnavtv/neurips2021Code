@@ -1,5 +1,14 @@
 ## Plot the results of the baseline-PINNs implementation for the Van der Pol Rayleigh oscillator
-using JLD2, PyPlot, NeuralPDE, ModelingToolkit, LinearAlgebra, Flux, Trapz, Printf
+using JLD2,
+    PyPlot,
+    NeuralPDE,
+    ModelingToolkit,
+    LinearAlgebra,
+    Flux,
+    Trapz,
+    Printf,
+    LaTeXStrings,
+    ForwardDiff
 @variables x1, x2
 pygui(true);
 
