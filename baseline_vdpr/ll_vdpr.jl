@@ -10,7 +10,7 @@ seed!(1);
 ## parameters for neural network
 nn = 48; # number of neurons in the hidden layer
 activFunc = tanh; # activation function
-maxOptIters = 5; # maximum number of training iterations
+maxOptIters = 50000; # maximum number of training iterations
 opt = Optim.LBFGS(); # Optimizer used for training
 # opt = ADAM(1e-3); 
 
@@ -164,4 +164,4 @@ println("Optimization done.");
 
 ## Save data
 cd(@__DIR__);
-# jldsave(saveFile;optParam = Array(res.minimizer), PDE_losses, BC_losses);
+jldsave(saveFile;optParam = Array(res.minimizer), PDE_losses, BC_losses);
