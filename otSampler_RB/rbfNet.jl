@@ -26,6 +26,34 @@ function otMap(X, w1, w2, Optimizer; alg = :emd, maxIter = 1000, α = 0.01) # X 
     return Phi
 end
 
+function otMap_gpu(X, w1, w2, Optimizer; alg = :emd, maxIter = 1000, α = 0.01) # X is dxN matrix, d in dimension, N is number of samples. W1, W2 are column vectors
+    # Use sparse variables -- that might speed up things.
+    n = size(X, 2)
+
+    C = zeros(n, n)
+    for i = 1:n
+        for j = 1:n
+            dx = X[:, i] - X[:, j]
+            C[i, j] = norm(dx)^2
+        end
+    end
+    w1_cu = cu(w1);
+    w2_cu = cu(w2);
+    C_cu = cu(C);
+
+    # Call the code from OptimalTransport.jl
+    if alg == :emd
+        Phi = emd(w1_cu, w2_cu, C_cu, Optimizer)
+    elseif alg == :sinkhorn
+        Phi = sinkhorn(w1_cu, w2_cu, C_cu, Float32(α), maxiter = maxIter)
+    elseif alg == :sinkhorn_stab
+        Phi = sinkhorn_stabilized(w1_cu, w2_cu, C_cu, Float32(α), maxiter = maxIter)
+    else
+        error("Unsupported algorithm specified")
+    end
+    return Phi
+end
+
 # Convert linear index to multi-dimensional index
 # ===============================================
 function sub2ind(i, N)

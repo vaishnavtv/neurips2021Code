@@ -38,14 +38,19 @@ Optimizer = Mosek.Optimizer(LOG = 0); # Fast
 # Generate samples using sinkhorn
 @time Phi = otMap(Ci, w1, w2, Optimizer, alg=:sinkhorn,α=0.005);
 
+## trying GPU
+using CUDA
+CUDA.allowscalar(false)
+Phi_gpu = otMap_gpu(Ci, w1, w2, Optimizer, alg=:sinkhorn, maxIter = 10000, α=0.01f0);
+
 # # Generate samples using LP (Earth Mover's Distance --> emd)
 # @time Phi = otMap(Ci, w1, w2, Optimizer, alg=:emd);
 
 y = Ci * (N * Phi'); # Need transpose on Phi, if using OptimalTransport.emd()
 
 ##
-using JLD2
-jldsave("data/sinkhorn.jld2"; Ci, y);
+# using JLD2
+# jldsave("data/sinkhorn.jld2"; Ci, y);
 
 
 ##
