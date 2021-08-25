@@ -30,12 +30,13 @@ maxNewPts = 200; # maximum new points found through OT in each iteration
 dx = 0.1; # discretization size for generating data for the nominal network
 
 opt = Optim.LBFGS(); # optimizer used for training
+# opt = BFGS(linesearch=LineSearches.BackTracking()); # optimizer used for training
 
 
 # file location to save data
 suff = string(activFunc);
 cd(@__DIR__)
-saveFileLoc = "data/dx1eM1_ot1Eval_vdp_$(suff)_$(nn)_ot$(otIters)_mnp$(maxNewPts)_gpu_otShStab.jld2";
+saveFileLoc = "data/dx1eM1_ot1Eval_vdp_$(suff)_$(nn)_ot$(otIters)_mnp$(maxNewPts)_gpu_otShStab_b2.jld2";
 
 ## set up the NeuralPDE framework using low-level API
 @parameters x1, x2
