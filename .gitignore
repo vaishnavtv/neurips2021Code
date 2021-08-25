@@ -16,6 +16,8 @@ cont_vdp/out
 cont_vdp/batch.slurm
 cont_vdp/figs
 cont_vdp/batch.slurm
+otSampler_RB/batch.slurm
+otSampler_RB/out
 otSampler_RB/data/lp.jld2
 otSampler_RB/data/sinkhorn.jld2
 baseline_helmholtz/
