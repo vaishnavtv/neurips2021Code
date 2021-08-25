@@ -23,8 +23,8 @@ seed!(1);
 ## parameters for neural network
 nn = 48; # number of neurons in the hidden layer
 activFunc = tanh; # activation function
-maxOptIters = 10; # maximum number of training iterations
-otIters = 1; # maximum number of OT iterations
+maxOptIters = 10000; # maximum number of training iterations
+otIters = 20; # maximum number of OT iterations
 maxNewPts = 200; # maximum new points found through OT in each iteration
 
 Q = 0.3; # Q = σ^2
