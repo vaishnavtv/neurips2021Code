@@ -24,7 +24,7 @@ seed!(1);
 nn = 48; # number of neurons in the hidden layer
 activFunc = tanh; # activation function
 maxOptIters = 10000; # maximum number of training iterations
-otIters = 20; # maximum number of OT iterations
+otIters = 50; # maximum number of OT iterations
 maxNewPts = 200; # maximum new points found through OT in each iteration
 
 dx = 0.1; # discretization size for generating data for the nominal network
