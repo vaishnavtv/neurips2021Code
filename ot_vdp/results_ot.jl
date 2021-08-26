@@ -152,4 +152,4 @@ ylabel("ϵ");
 title(L"$ϵ_{pde}$");
 nNN0 = size(pde_train_sets[1][1], 2);
 tight_layout();
-savefig("figs/cpu_ShStab_LBFGS.png")
+# savefig("figs/cpu_ShStab_LBFGS.png")
