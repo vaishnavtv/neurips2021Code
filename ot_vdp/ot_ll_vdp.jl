@@ -32,7 +32,7 @@ opt = Optim.LBFGS(); # optimizer used for training
 # file location to save data
 suff = string(activFunc);
 cd(@__DIR__)
-saveFileLoc = "data/dx1eM1_ot1Eval_vdp_$(suff)_$(nn)_ot$(otIters)_mnp$(maxNewPts)_otShStab.jld2";
+saveFileLoc = "data/dx1eM1_ot1Eval_vdp_$(suff)_$(nn)_ot$(otIters)_mnp$(maxNewPts)_otEmd_LB.jld2";
 
 ## set up the NeuralPDE framework using low-level API
 @parameters x1, x2
@@ -275,7 +275,7 @@ for i = 1:otIters
         ## trying sinkhorn using new code
         otOpt = Mosek.Optimizer(LOG = 0) # Fast
         Phi_ot =
-            otMap(Cs_ot, w1, w2, otOpt, alg = :sinkhorn_stab, maxIter = 50000, α = 0.001)
+            otMap(Cs_ot, w1, w2, otOpt, alg = :emd, maxIter = 50000, α = 0.001)
         y = Cs_ot * (maxNewPts * Phi_ot') # need transpose on Phi if using OptimalTransport package
 
 
