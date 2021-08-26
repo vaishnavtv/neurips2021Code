@@ -8,6 +8,7 @@ baseline_vdp/batch.slurm
 baseline_vdp/out
 # ot_vdp/data
 ot_vdp/out
+ot_vdp/figs
 ot_vdp/batch.slurm
 # ot_vdpr/data
 ot_vdpr/out
