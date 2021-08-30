@@ -13,7 +13,7 @@ seed!(1);
 # parameters for neural network
 nn = 100; # number of neurons in the hidden layers
 activFunc = tanh; # activation function
-maxOptIters = 100000; # maximum number of training iterations
+maxOptIters = 10; # maximum number of training iterations
 opt = Optim.LBFGS(); # Optimizer used for training
 # opt = ADAM(1e-3); 
 
@@ -61,6 +61,7 @@ T2 = sum([
 Eqn = expand_derivatives(-T1 + T2); # + dx*u(x1,x2)-1 ~ 0;
 pdeOrig = simplify(Eqn / ρ(x)) ~ 0.0f0; 
 pde = pdeOrig;
+pde = (21.35011849855392f0*exp(η(xV, xα, xθ, xq)) + 0.15f0*Differential(xV)(Differential(xV)(η(xV, xα, xθ, xq)))*exp(η(xV, xα, xθ, xq)) + 0.15f0*exp(η(xV, xα, xθ, xq))*(Differential(xV)(η(xV, xα, xθ, xq))^2) - (0.999737632003832f0*xq*Differential(xθ)(η(xV, xα, xθ, xq))*exp(η(xV, xα, xθ, xq))) - (Differential(xα)(η(xV, xα, xθ, xq))*(0.07366737695388388f0*xV + 0.5860987395959028f0*xq - (4.06465338403395f0*xα) - (0.9555890455527317f0*xθ))*exp(η(xV, xα, xθ, xq))) - (Differential(xq)(η(xV, xα, xθ, xq))*(4.676000907173238f0*xV - (22.777285807392555f0*xq) - (200.20902778630048f0*xα) - (60.2660299605897f0*xθ))*exp(η(xV, xα, xθ, xq))) - (Differential(xV)(η(xV, xα, xθ, xq))*(5.491820692872585f0*xV - (30.96231024708903f0*xq) - (351.3281143952327f0*xα) - (103.73430541907457f0*xθ))*exp(η(xV, xα, xθ, xq))))*(exp(η(xV, xα, xθ, xq))^-1) ~ 0.0f0
 
 ## Domain
 xV_min = 100;
