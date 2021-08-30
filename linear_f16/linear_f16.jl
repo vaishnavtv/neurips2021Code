@@ -93,7 +93,7 @@ bcs = [
 
 ## Neural network
 dim = 4 # number of dimensions
-chain = Chain(Dense(dim, nn, activFunc), Dense(nn, nn, activFunc), Dense(nn, nn, activFunc), Dense(nn, 1));#|> gpu;
+chain = Chain(Dense(dim, nn, activFunc), Dense(nn, nn, activFunc), Dense(nn, nn, activFunc), Dense(nn, nn, activFunc), Dense(nn, 1));#|> gpu;
 
 initθ = DiffEqFlux.initial_params(chain)|> gpu;
 flat_initθ = initθ;
