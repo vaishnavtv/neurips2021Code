@@ -23,5 +23,6 @@ otSampler_RB/data/lp.jld2
 otSampler_RB/data/sinkhorn.jld2
 baseline_helmholtz/
 .vscode/
+f16
 # Manifest.toml
 # Project.toml
