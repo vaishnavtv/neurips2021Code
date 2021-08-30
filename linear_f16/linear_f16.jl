@@ -13,17 +13,16 @@ seed!(1);
 # parameters for neural network
 nn = 48; # number of neurons in the hidden layers
 activFunc = tanh; # activation function
-maxOptIters = 5; # maximum number of training iterations
+maxOptIters = 100000; # maximum number of training iterations
 opt = Optim.LBFGS(); # Optimizer used for training
 # opt = ADAM(1e-3); 
 
-
-dx = 0.05
-
 suff = string(activFunc);
-# saveFile = "data/dx5eM2_vdpr_$(suff)_$(nn)_gpu_ll_LB.jld2";
+dx = [10.0;1.0;1.0;0.01]; # grid discretization in V (ft/s), α (deg), θ (deg), q (rad/s)
 
-# Nominal Controller for Longitudinal F16Model trimmmed at specified altitude and velocity in 
+saveFile = "data/linear_f16_t1.jld2";
+
+# Nominal Controller for Longitudinal F16Model trimmmed at specified altitude and velocity 
 # Trim vehicle at specified altitude and velocity
 h0 = 10000; # ft
 Vt0 = 500;   # ft/s
@@ -43,7 +42,6 @@ end
 x = [xV, xα, xθ, xq]
 
 f(x) = f16_linDyn(x)
-f(x)[1]
 
 function g(x)
     return [1.0; 0.0; 0.0; 0.0] # noise only in first state for now
@@ -65,7 +63,6 @@ pdeOrig = simplify(Eqn / ρ(x)) ~ 0.0f0;
 pde = pdeOrig;
 
 ## Domain
-maxval = 2.0;
 xV_min = 100;
 xV_max = 1500;
 xα_min = deg2rad(-10);
@@ -99,7 +96,7 @@ chain = Chain(Dense(dim, nn, activFunc), Dense(nn, nn, activFunc), Dense(nn, 1))
 
 initθ = DiffEqFlux.initial_params(chain);#|> gpu;
 flat_initθ = initθ;
-eltypeθ = eltype(flat_initθ)
+eltypeθ = eltype(flat_initθ);
 
 parameterless_type_θ = DiffEqBase.parameterless_type(flat_initθ);
 
@@ -141,7 +138,7 @@ train_domain_set, train_bound_set =
     NeuralPDE.generate_training_sets(domains, dx, [pde], bcs, eltypeθ, indvars, depvars);# |> gpu;
 # train_domain_set = train_domain_set |> gpu
 
-
+##
 pde_loss_function = NeuralPDE.get_loss_function(
     _pde_loss_function,
     train_domain_set[1],
@@ -186,9 +183,9 @@ cb_ = function (p, l)
 end
 
 println("Calling GalacticOptim()");
-# res = GalacticOptim.solve(prob, opt, cb = cb_, maxiters = maxOptIters);
+res = GalacticOptim.solve(prob, opt, cb = cb_, maxiters = maxOptIters);
 println("Optimization done.");
 
 ## Save data
 cd(@__DIR__);
-# jldsave(saveFile; optParam = Array(res.minimizer), PDE_losses, BC_losses);
+jldsave(saveFile; optParam = Array(res.minimizer), PDE_losses, BC_losses);
