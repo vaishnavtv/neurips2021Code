@@ -13,14 +13,14 @@ seed!(1);
 # parameters for neural network
 nn = 100; # number of neurons in the hidden layers
 activFunc = tanh; # activation function
-maxOptIters = 10; # maximum number of training iterations
-opt = Optim.LBFGS(); # Optimizer used for training
-# opt = ADAM(1e-3); 
+maxOptIters = 100000; # maximum number of training iterations
+# opt = Optim.LBFGS(); # Optimizer used for training
+opt = ADAM(1e-3); 
 
 suff = string(activFunc);
 dx = [10.0;1.0;1.0;0.01]; # grid discretization in V (ft/s), α (deg), θ (deg), q (rad/s)
 
-saveFile = "data/linear_f16_t1.jld2";
+saveFile = "data/linear_f16_t1_ADAM.jld2";
 
 # Nominal Controller for Longitudinal F16Model trimmmed at specified altitude and velocity 
 # Trim vehicle at specified altitude and velocity
