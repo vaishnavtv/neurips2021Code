@@ -1,17 +1,17 @@
 ## Solve the FPKE for the Van der Pol Rayleigh oscillator using baseline PINNs (large training set)
 cd(@__DIR__);
 include("f16_controller.jl")
-# include("NonlinearF16Model.jl")
+
 using NeuralPDE, Flux, ModelingToolkit, GalacticOptim, Optim, DiffEqFlux, Symbolics, JLD2
 using F16Model
-# using CUDA
-# CUDA.allowscalar(false)
+using CUDA
+CUDA.allowscalar(false)
 
 import Random: seed!;
 seed!(1);
 
 # parameters for neural network
-nn = 48; # number of neurons in the hidden layers
+nn = 100; # number of neurons in the hidden layers
 activFunc = tanh; # activation function
 maxOptIters = 100000; # maximum number of training iterations
 opt = Optim.LBFGS(); # Optimizer used for training
@@ -92,9 +92,9 @@ bcs = [
 
 ## Neural network
 dim = 4 # number of dimensions
-chain = Chain(Dense(dim, nn, activFunc), Dense(nn, nn, activFunc), Dense(nn, 1));#|> gpu;
+chain = Chain(Dense(dim, nn, activFunc), Dense(nn, nn, activFunc), Dense(nn, nn, activFunc), Dense(nn, 1));#|> gpu;
 
-initθ = DiffEqFlux.initial_params(chain);#|> gpu;
+initθ = DiffEqFlux.initial_params(chain)|> gpu;
 flat_initθ = initθ;
 eltypeθ = eltype(flat_initθ);
 
@@ -136,7 +136,7 @@ _bc_loss_functions = [
 
 train_domain_set, train_bound_set =
     NeuralPDE.generate_training_sets(domains, dx, [pde], bcs, eltypeθ, indvars, depvars);# |> gpu;
-# train_domain_set = train_domain_set |> gpu
+train_domain_set = train_domain_set |> gpu
 
 ##
 pde_loss_function = NeuralPDE.get_loss_function(

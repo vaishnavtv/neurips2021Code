@@ -24,5 +24,7 @@ otSampler_RB/data/sinkhorn.jld2
 baseline_helmholtz/
 .vscode/
 f16
+linear_f16/out
+linear_f16/batch.slurm
 # Manifest.toml
 # Project.toml
