@@ -18,9 +18,10 @@ maxOptIters = 100000; # maximum number of training iterations
 opt = ADAM(1e-3); 
 
 suff = string(activFunc);
-dx = [10.0;1.0;1.0;0.01]; # grid discretization in V (ft/s), α (deg), θ (deg), q (rad/s)
+dV = 10.0; dα = 0.5; dθ = 0.5; dq =  0.01;
+dx = [dV; dα; dθ; dq]; # grid discretization in V (ft/s), α (deg), θ (deg), q (rad/s)
 
-saveFile = "data/linear_f16_t1_ADAM.jld2";
+saveFile = "data/linear_f16_t1_ADAM_hl3.jld2";
 
 # Nominal Controller for Longitudinal F16Model trimmmed at specified altitude and velocity 
 # Trim vehicle at specified altitude and velocity
