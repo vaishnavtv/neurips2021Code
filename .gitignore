@@ -26,5 +26,6 @@ baseline_helmholtz/
 f16
 linear_f16/out
 linear_f16/batch.slurm
+linear_f16/figs
 # Manifest.toml
 # Project.toml
