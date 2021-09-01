@@ -1,18 +1,24 @@
-## Solve the FPKE for the Van der Pol Rayleigh oscillator using baseline PINNs (large training set)
+## Solve the FPKE for the nonlinear F16 dynamics with LQR controller using baseline PINNs (large training set)
 cd(@__DIR__);
 include("f16_controller.jl")
 # include("NonlinearF16Model.jl")
 
-using NeuralPDE, Flux, ModelingToolkit, GalacticOptim, Optim, DiffEqFlux, Symbolics, JLD2
+using NeuralPDE, Flux, ModelingToolkit, GalacticOptim, Optim, DiffEqFlux, Symbolics, JLD2, ForwardDiff
 using F16Model
+
+using CUDA
+CUDA.allowscalar(false)
+    
+import Random: seed!;
+seed!(1);
 
 # parameters for neural network
 nn = 100; # number of neurons in the hidden layers
 activFunc = tanh; # activation function
-maxOptIters = 10; # maximum number of training iterations
+maxOptIters = 50000; # maximum number of training iterations
 # opt = Optim.LBFGS(); # Optimizer used for training
 opt = ADAM(1e-3); 
-
+saveFile = "data/baseline_f16_ADAM_hl2_$(nn).jld2";
 ##
 # Nominal Controller for Longitudinal F16Model trimmmed at specified altitude and velocity in 
 # Trim vehicle at specified altitude and velocity
@@ -27,13 +33,26 @@ function f16Model_4x(x4, xbar, ubar, Kc)
     xFull[ind_x] .= x4#(x4)
     uFull = Vector{Real}(undef, length(ubar))
     uFull .= ubar
-    # @show ubar[ind_u]
-    u = (Kc * (x4 .- xbar[ind_x])) # controller
+    u = (Kc * (Array(x4) .- xbar[ind_x])) # controller
+    # u[2] = rad2deg(u[2]);
     # @show u
     uFull[ind_u] .+= u
+    # @show uFull[ind_u]
+    uFull[ind_u] = contSat(uFull[ind_u])
     xdotFull = F16Model.Dynamics(xFull, uFull)
     # xdotFull = F16ModelDynamics_sym(xFull, uFull)
+    # return u
     return xdotFull[ind_x] # return the 4 state dynamics
+end
+
+function contSat(u)
+    # controller saturation
+    if u[2] < -25.0
+        u[2] = -25.0
+    elseif u[2] > 25.0
+        u[2] = 25.0
+    end
+    return u
 end
 
 @parameters xV, xα, xθ, xq
@@ -45,7 +64,7 @@ f(x) = f16Model_4x(x, xbar, ubar, Kc)
 
 ## PDE
 function g(x)
-    return [1.0; 0.0; 0.0; 0.0] # noise 
+    return [1.0; 0.0; 0.0; 0.0] # noise only in xV
 end
 
 D_xV = Differential(xV);
@@ -59,23 +78,27 @@ Q = 0.3; # Q = σ^2
 pde = D_xV(ρ(xSym)) ~ 0.0f0; # placeholder pde, does not get used. Created only for NeuralPDE purposes.
 
 ## Domain
-xV_min = 300;
-xV_max = 1000;
-xα_min = deg2rad(-5);
-xα_max = pi / 6;
+xV_min = 100;
+xV_max = 1500;
+xα_min = deg2rad(-20);
+xα_max = deg2rad(40);
 xθ_min = xα_min;
 xθ_max = xα_max;
-xq_min = 0;
-xq_max = 1.0;
+xq_min = -pi/6;
+xq_max = pi/6;
 domains = [
     xV ∈ IntervalDomain(xV_min, xV_max),
     xα ∈ IntervalDomain(xα_min, xα_max),
     xθ ∈ IntervalDomain(xθ_min, xθ_max),
     xq ∈ IntervalDomain(xq_min, xq_max),
 ];
-
-# Grid discretization
-dV = 100.0; dα = deg2rad(10.0); dθ = deg2rad(10.0); dq =  0.5;
+# train_domain_set, train_bound_set =
+#     NeuralPDE.generate_training_sets(domains, dx, [pde], bcs, eltypeθ, indvars, depvars);
+# nTrainDomainSet = size(train_domain_set[1],2);
+# [f(train_domain_set[1][:,i]) for i in 1:nTrainDomainSet];
+## Grid discretization
+dV = 500.0; dα = deg2rad(10); 
+dθ = dα; dq = (xq_max - xq_min)/2;
 dx = [dV; dα; dθ; dq]; # grid discretization in V (ft/s), α (deg), θ (deg), q (rad/s)
 
 
@@ -93,10 +116,9 @@ bcs = [
 
 ## Neural network
 dim = 4 # number of dimensions
-nn = 10; activFunc = tanh;
-chain = Chain(Dense(dim, nn, activFunc), Dense(nn, nn, activFunc), Dense(nn, 1));#|> gpu;
+chain = Chain(Dense(dim, nn, activFunc), Dense(nn, nn, activFunc), Dense(nn, nn, activFunc), Dense(nn, 1));#|> gpu;
 
-initθ = DiffEqFlux.initial_params(chain);#|> gpu;
+initθ = DiffEqFlux.initial_params(chain)#|> gpu;
 eltypeθ = eltype(initθ)
 
 parameterless_type_θ = DiffEqBase.parameterless_type(initθ);
@@ -131,15 +153,14 @@ train_domain_set = train_domain_set #|> gpu
 
 function pde_loss_function_custom(θ)
     # custom self-written pde loss function. need to check again.
-    ρFn(y) = exp(phi(y, θ)[1]); # phi is the NN
+    # CUDA.allowscalar(true);
+    ρFn(y) = exp(first(phi(y, θ))); # phi is the NN representing η
 
     fxρ(y) = f(y)*ρFn(y);
     gxρ(y) = 0.5 * (g(y) * Q * g(y)') * ρFn(y);
     
     function term1(y)
         tmp = ForwardDiff.jacobian(fxρ, y)
-        # tmp = ForwardDiff.gradient(ρFn, y)
-        # return sum(tmp)
         return sum(diag(tmp))
     end
     function term2(y)
@@ -147,28 +168,21 @@ function pde_loss_function_custom(θ)
         for j = 1:4
             for i = 1:4
                 g2(x) = gxρ(x)[i,j];
-                # g2_i(y) = ForwardDiff.gradient(g2, y)[i]
-                # g2_ij(y) = ForwardDiff.gradient(g2_i,y)[j]
                 g2_ij(x) = ForwardDiff.hessian(g2, x)[i,j]
                 tmp += g2_ij(y)
             end
         end
         return tmp
     end
-    pdeErr(y) = -term1(y) + term2(y); # pdeErr evaluated at state y
+    pdeErr(y) = -term1(y)# + term2(y); # pdeErr evaluated at state y
     
     nTrainDomainSet = size(train_domain_set[1],2)
-    tmp = Float32(sum(pdeErr(train_domain_set[1][:,i])^2 for i in 1:nTrainDomainSet)/nTrainDomainSet) # mean squared error
+    train_domain_set_cpu = Array(train_domain_set[1])
+    tmp = Float32(sum(pdeErr(train_domain_set_cpu[:,i])^2 for i in 1:nTrainDomainSet)/nTrainDomainSet) #mean squared error
+    # CUDA.allowscalar(false);
     return tmp
 end
 @show pde_loss_function_custom(initθ)
-
-# gxρ(xbar[ind_x])
-# g2(y) = gxρ(y)[1,1];
-# ForwardDiff.hessian(g2, xbar[ind_x])
-# sum(term2(train_domain_set[1][:,i]) for i in 1:96)
-# sum(term1(train_domain_set[1][:,i]) for i in 1:96)
-# sum(ρFn(train_domain_set[1][:,i]) for i in 1:96)
 
 bc_loss_functions = [
     NeuralPDE.get_loss_function(loss, set, eltypeθ, parameterless_type_θ, strategy) for
