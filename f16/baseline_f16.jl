@@ -6,9 +6,6 @@ include("f16_controller.jl")
 using NeuralPDE, Flux, ModelingToolkit, GalacticOptim, Optim, DiffEqFlux, Symbolics, JLD2, ForwardDiff
 using F16Model
 
-using CUDA
-CUDA.allowscalar(false)
-    
 import Random: seed!;
 seed!(1);
 
@@ -92,10 +89,7 @@ domains = [
     xθ ∈ IntervalDomain(xθ_min, xθ_max),
     xq ∈ IntervalDomain(xq_min, xq_max),
 ];
-# train_domain_set, train_bound_set =
-#     NeuralPDE.generate_training_sets(domains, dx, [pde], bcs, eltypeθ, indvars, depvars);
-# nTrainDomainSet = size(train_domain_set[1],2);
-# [f(train_domain_set[1][:,i]) for i in 1:nTrainDomainSet];
+
 ## Grid discretization
 dV = 500.0; dα = deg2rad(10); 
 dθ = dα; dq = (xq_max - xq_min)/2;
@@ -152,8 +146,7 @@ train_domain_set, train_bound_set =
 train_domain_set = train_domain_set #|> gpu
 
 function pde_loss_function_custom(θ)
-    # custom self-written pde loss function. need to check again.
-    # CUDA.allowscalar(true);
+    # custom self-written pde loss function. 
     ρFn(y) = exp(first(phi(y, θ))); # phi is the NN representing η
 
     fxρ(y) = f(y)*ρFn(y);
@@ -174,12 +167,11 @@ function pde_loss_function_custom(θ)
         end
         return tmp
     end
-    pdeErr(y) = -term1(y)# + term2(y); # pdeErr evaluated at state y
+    pdeErr(y) = -term1(y) + term2(y); # pdeErr evaluated at state y
     
     nTrainDomainSet = size(train_domain_set[1],2)
     train_domain_set_cpu = Array(train_domain_set[1])
     tmp = Float32(sum(pdeErr(train_domain_set_cpu[:,i])^2 for i in 1:nTrainDomainSet)/nTrainDomainSet) #mean squared error
-    # CUDA.allowscalar(false);
     return tmp
 end
 @show pde_loss_function_custom(initθ)
@@ -224,4 +216,4 @@ println("Optimization done.");
 
 ## Save data
 cd(@__DIR__);
-# jldsave(saveFile; optParam = Array(res.minimizer), PDE_losses, BC_losses);
+jldsave(saveFile; optParam = Array(res.minimizer), PDE_losses, BC_losses);
