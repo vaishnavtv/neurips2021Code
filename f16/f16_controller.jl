@@ -3,7 +3,7 @@ using F16Model
 # # Trim vehicle at specified altitude and velocity
 h0 = 10000; # ft
 Vt0 = 500;   # ft/s
-xbar, ubar, _, _ = F16Model.Trim(h0, Vt0); # Default is steady-level
+# xbar, ubar, _, _ = F16Model.Trim(h0, Vt0); # Default is steady-level
 
 ## 4-state system for RoA analysis
 ind_x = [7, 8, 5, 11]; # V, alpha, theta, q
@@ -15,7 +15,7 @@ function getLinearModel4x(xbar, ubar)
     B2 = B[ind_x, ind_u]
     return A2, B2
 end
-A2, B2 = getLinearModel4x(xbar, ubar)
+# A2, B2 = getLinearModel4x(xbar, ubar)
 
 ## Solve LMI and get nominal stabilizing controller
 using Convex, MosekTools, LinearAlgebra
@@ -51,35 +51,32 @@ function getKc_lqr(A2,B2)
     Kc = -inv(R)*B2'*inv(Y.value);
     return Kc
 end
-Kc_lqr = getKc_lqr(A2,B2);
-Kc = Kc_lqr;
+# Kc_lqr = getKc_lqr(A2,B2);
+# Kc = Kc_lqr;
 
 #region
-# xbar = [
-#     0.0,
-#     0.0,
-#     10000.0,
-#     0.02290761750153361,
-#     0.2115123543756087,
-#     0.0,
-#     500.0,
-#     0.21155041298248242,
-#     0.0007057633870208768,
-#     -0.015515418839628248,
-#     0.12976570070063434,
-#     -0.0031009495374126543,
-# ]
-# ubar = [
-#     10072.896496722757,
-#     -3.93794893001149,
-#     0.020447222210172724,
-#     0.019097421123670758,
-#     12.320513590695686,
-# ]
-# Kc = [
-#     -0.20215502439374533 8.92514332974591 2.64510828522257 0.9364780818173069
-#     -31.83024553378093 1389.558965098923 410.26695969350294 146.98916334744476
-# ]
+xbar = [
+    0.0,
+    0.0,
+    10000.0,
+    0.02290761750153361,
+    0.2115123543756087,
+    0.0,
+    500.0,
+    0.21155041298248242,
+    0.0007057633870208768,
+    -0.015515418839628248,
+    0.12976570070063434,
+    -0.0031009495374126543,
+];
+ubar = [
+    10072.896496722757,
+    -3.93794893001149,
+    0.020447222210172724,
+    0.019097421123670758,
+    12.320513590695686,
+];
+Kc = [-0.5470758598111812 103.66925411758012 31.024026394129915 47.40198717690881; -0.03251963249654607 32.11378665734905 3.7426770697698895 14.969332380810693];
 #endregion
 
 
