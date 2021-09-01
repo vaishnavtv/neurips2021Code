@@ -18,7 +18,7 @@ activFunc = tanh; # activation function
 maxOptIters = 50000; # maximum number of training iterations
 # opt = Optim.LBFGS(); # Optimizer used for training
 opt = ADAM(1e-3); 
-saveFile = "data/baseline_f16_ADAM_hl2_$(nn).jld2";
+saveFile = "data/baseline_f16_ADAM_hl2_$(nn)_gpu.jld2";
 ##
 # Nominal Controller for Longitudinal F16Model trimmmed at specified altitude and velocity in 
 # Trim vehicle at specified altitude and velocity
@@ -97,8 +97,8 @@ domains = [
 # nTrainDomainSet = size(train_domain_set[1],2);
 # [f(train_domain_set[1][:,i]) for i in 1:nTrainDomainSet];
 ## Grid discretization
-dV = 500.0; dα = deg2rad(10); 
-dθ = dα; dq = (xq_max - xq_min)/2;
+dV = 100.0; dα = deg2rad(5); 
+dθ = dα; dq = deg2rad(5);
 dx = [dV; dα; dθ; dq]; # grid discretization in V (ft/s), α (deg), θ (deg), q (rad/s)
 
 
@@ -224,4 +224,4 @@ println("Optimization done.");
 
 ## Save data
 cd(@__DIR__);
-# jldsave(saveFile; optParam = Array(res.minimizer), PDE_losses, BC_losses);
+jldsave(saveFile; optParam = Array(res.minimizer), PDE_losses, BC_losses);
