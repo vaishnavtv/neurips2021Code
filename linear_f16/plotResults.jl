@@ -17,13 +17,13 @@ pygui(true);
 activFunc = tanh;
 dx = 0.05;
 suff = string(activFunc);
-nn = 48;
+nn = 100;
 optFlag = 1;
 
-Q = 0.1;
+Q = 0.3;
 
 cd(@__DIR__);
-fileLoc = "data/linear_f16_t1.jld2";
+fileLoc = "data/linear_f16_t1_ADAM.jld2";
 
 println("Loading file");
 file = jldopen(fileLoc, "r");
@@ -32,10 +32,33 @@ PDE_losses = read(file, "PDE_losses");
 BC_losses = read(file, "BC_losses");
 close(file);
 
-# Neural network
+
+## plot losses
+figure(1); clf();
+nIters = length(PDE_losses)
+semilogy(1:nIters, PDE_losses, label= "PDE_losses");
+semilogy(1:nIters, BC_losses, label = "BC_losses");
+legend();
+tight_layout();
+# savefig("figs/ADAM_100k.png");
+## Neural network
+dim = 4;
 chain = Chain(Dense(dim, nn, activFunc), Dense(nn, nn, activFunc), Dense(nn, nn, activFunc), Dense(nn, 1));#|> gpu;
 parameterless_type_θ = DiffEqBase.parameterless_type(optParam);
 phi = NeuralPDE.get_phi(chain, parameterless_type_θ);
+
+## System Dynamics
+include("f16_controller.jl")
+A2, B2 = getLinearModel4x(xbar, ubar);
+# Kc = getKc(A2, B2)
+function f16_linDyn(x)
+    # linear 4 state perturbation dynamics
+    u = Kc * x
+    dx = A2 * x + B2 * u
+    return (dx)
+end    
+f(x) = f16_linDyn(x)
+
 
 ## Generate functions to check solution and PDE error
 function ρ_pdeErr_fns(optParam)
@@ -52,7 +75,7 @@ function ρ_pdeErr_fns(optParam)
 end
 ρFn = ρ_pdeErr_fns(optParam);
 ρFn(xbar[ind_x])
-exp(phi(xbar[ind_x], optParam)[1])
+exp(phi(xbar[ind_x], optParam)[1]) # should be same as line above
 ## Domains
 xV_min = 100;
 xV_max = 1500;
@@ -63,7 +86,7 @@ xθ_max = xα_max;
 xq_min = 0;
 xq_max = 1.0;
 
-nEvalFine = 10;
+nEvalFine = 10; # to be changed
 
 xVFine = range(xV_min, xV_max, length = nEvalFine);
 xαFine = range(xα_min, xα_max, length = nEvalFine);
@@ -84,13 +107,15 @@ RHOFine = RHOFine/sol.u;
 # Supposing we want the marginal pdf for the first two states(V, α)
 function ρ12(xV,xα)
     # p = [xV, xα]; y = [xθ, xq]
-    ρFnQuad34(y,p) = ρFn([p;y])
-    prob = QuadratureProblem(ρFnQuad34, [xθ_min, xq_min], [xθ_max, xq_max], p = [xV; xα])
+    ρFnQuad34(y,p) = ρFn([xV;xα;y])
+    prob = QuadratureProblem(ρFnQuad34, [xθ_min; xq_min], [xθ_max; xq_max], p = 0)
     sol = solve(prob,HCubatureJL(),reltol=1e-3,abstol=1e-3)
     return sol.u
 end
-ρ12(500, 0.21155)
-ρFnQuad34(y,p)
+vBar = xbar[ind_x][1]; αBar = xbar[ind_x][2];
+ρ12(vBar,αBar)
+
+RHO12Fine = [ρ12(xvg, xαg) for xvg in xVFine, xαg in xαFine];
 # println("The mean squared equation error with dx=$(dx) is:")
 # mseEqErr = sum(FFFine[:] .^ 2) / length(FFFine);
 # @show mseEqErr;
