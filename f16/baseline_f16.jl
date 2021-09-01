@@ -15,7 +15,7 @@ activFunc = tanh; # activation function
 maxOptIters = 50000; # maximum number of training iterations
 # opt = Optim.LBFGS(); # Optimizer used for training
 opt = ADAM(1e-3); 
-saveFile = "data/baseline_f16_ADAM_hl2_$(nn).jld2";
+saveFile = "data/baseline_f16_ADAM_hl2_$(nn)_cpu.jld2";
 ##
 # Nominal Controller for Longitudinal F16Model trimmmed at specified altitude and velocity in 
 # Trim vehicle at specified altitude and velocity
@@ -75,14 +75,14 @@ Q = 0.3; # Q = σ^2
 pde = D_xV(ρ(xSym)) ~ 0.0f0; # placeholder pde, does not get used. Created only for NeuralPDE purposes.
 
 ## Domain
-xV_min = 100;
-xV_max = 1500;
-xα_min = deg2rad(-20);
-xα_max = deg2rad(40);
-xθ_min = xα_min;
-xθ_max = xα_max;
-xq_min = -pi/6;
-xq_max = pi/6;
+xV_min = 100; # ft/s
+xV_max = 1500; # ft/s
+xα_min = deg2rad(-20); # radians
+xα_max = deg2rad(40); # radians
+xθ_min = xα_min; # radians
+xθ_max = xα_max; # radians
+xq_min = -pi/6; # rad/s
+xq_max = pi/6; # rad/s
 domains = [
     xV ∈ IntervalDomain(xV_min, xV_max),
     xα ∈ IntervalDomain(xα_min, xα_max),
@@ -91,8 +91,8 @@ domains = [
 ];
 
 ## Grid discretization
-dV = 500.0; dα = deg2rad(10); 
-dθ = dα; dq = (xq_max - xq_min)/2;
+dV = 100.0; dα = deg2rad(5); 
+dθ = dα; dq = deg2rad(5);
 dx = [dV; dα; dθ; dq]; # grid discretization in V (ft/s), α (deg), θ (deg), q (rad/s)
 
 
