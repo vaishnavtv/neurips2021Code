@@ -23,5 +23,13 @@ otSampler_RB/data/lp.jld2
 otSampler_RB/data/sinkhorn.jld2
 baseline_helmholtz/
 .vscode/
+f16/out
+f16/AeroTableInterpolation.jl
+f16/batch.slurm
+f16/NonlinearF16Model.jl
+f16/data/F16AeroData.h5
+linear_f16/out
+linear_f16/batch.slurm
+linear_f16/figs
 # Manifest.toml
 # Project.toml
