@@ -116,9 +116,9 @@ bcs = [
 
 ## Neural network
 dim = 4 # number of dimensions
-chain = Chain(Dense(dim, nn, activFunc), Dense(nn, nn, activFunc), Dense(nn, nn, activFunc), Dense(nn, 1));#|> gpu;
+chain = Chain(Dense(dim, nn, activFunc), Dense(nn, nn, activFunc), Dense(nn, nn, activFunc), Dense(nn, 1));;
 
-initθ = DiffEqFlux.initial_params(chain)#|> gpu;
+initθ = DiffEqFlux.initial_params(chain) |> gpu;
 eltypeθ = eltype(initθ)
 
 parameterless_type_θ = DiffEqBase.parameterless_type(initθ);
@@ -148,12 +148,12 @@ _bc_loss_functions = [
 ]
 
 train_domain_set, train_bound_set =
-    NeuralPDE.generate_training_sets(domains, dx, [pde], bcs, eltypeθ, indvars, depvars);# |> gpu;
-train_domain_set = train_domain_set #|> gpu
+    NeuralPDE.generate_training_sets(domains, dx, [pde], bcs, eltypeθ, indvars, depvars);
+train_domain_set = train_domain_set |> gpu
 
+CUDA.allowscalar(true);
 function pde_loss_function_custom(θ)
     # custom self-written pde loss function. need to check again.
-    # CUDA.allowscalar(true);
     ρFn(y) = exp(first(phi(y, θ))); # phi is the NN representing η
 
     fxρ(y) = f(y)*ρFn(y);
@@ -174,7 +174,7 @@ function pde_loss_function_custom(θ)
         end
         return tmp
     end
-    pdeErr(y) = -term1(y)# + term2(y); # pdeErr evaluated at state y
+    pdeErr(y) = -term1(y) + term2(y); # pdeErr evaluated at state y
     
     nTrainDomainSet = size(train_domain_set[1],2)
     train_domain_set_cpu = Array(train_domain_set[1])
