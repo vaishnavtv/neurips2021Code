@@ -18,7 +18,7 @@ maxOptIters = 100000; # maximum number of training iterations
 opt = ADAM(1e-3); 
 
 suff = string(activFunc);
-dV = 10.0; dα = 0.5; dθ = 0.5; dq =  0.01;
+dV = 10.0; dα = deg2rad(0.5); dθ = dα; dq =  0.01;
 dx = [dV; dα; dθ; dq]; # grid discretization in V (ft/s), α (deg), θ (deg), q (rad/s)
 
 saveFile = "data/linear_f16_t1_ADAM_hl3.jld2";
