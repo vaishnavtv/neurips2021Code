@@ -82,7 +82,7 @@ Kc = [-0.5470758598111812 103.66925411758012 31.024026394129915 47.4019871769088
 
 ## TESTING CONTROLLER ON LINEAR SYSTEM
 ## Check if nominal linear system is controlled - Yes.
-Kc = Kc_lqr;
+# Kc = Kc_lqr;
 using DifferentialEquations
 function f16_linDyn(x)
     # linear perturbation dynamics
