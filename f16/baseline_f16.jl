@@ -176,11 +176,11 @@ function pde_loss_function_custom(θ)
     end
     pdeErr(y) = (-term1(y) + term2(y))^2; # pdeErr evaluated at state y
     
-    errCols = mapslices(pdeErr, train_domain_set_cpu, dims = 1); # pde error for each column/state in training set (slightly better than map)
+    # errCols = mapslices(pdeErr, train_domain_set_cpu, dims = 1); # pde error for each column/state in training set (slightly better than map)
     # errCols = map(pdeErr, eachslice(train_domain_set_cpu, dims = 2)); # pde error for each column/state in training set
 
-    tmp = Float32(sum(errCols)/nTrainDomainSet); # mean squared error
-    # tmp = Float32(sum(pdeErr(train_domain_set_cpu[:,i])^2 for i in 1:nTrainDomainSet)/nTrainDomainSet) #mean squared error
+    # tmp = Float32(sum(errCols)/nTrainDomainSet); # mean squared error
+    tmp = Float32(sum(pdeErr(train_domain_set_cpu[:,i]) for i in 1:nTrainDomainSet)/nTrainDomainSet) #mean squared error
     return tmp
 end
 @show pde_loss_function_custom(initθ)
