@@ -1,3 +1,4 @@
+println("Running baseline_f16 with pdelossfunction that runs on CPU arrays. Everything else on GPU.")
 ## Solve the FPKE for the nonlinear F16 dynamics with LQR controller using baseline PINNs (large training set)
 cd(@__DIR__);
 include("f16_controller.jl")
@@ -18,7 +19,7 @@ activFunc = tanh; # activation function
 maxOptIters = 50000; # maximum number of training iterations
 # opt = Optim.LBFGS(); # Optimizer used for training
 opt = ADAM(1e-3); 
-saveFile = "data/baseline_f16_ADAM_hl2_$(nn)_gpu.jld2";
+saveFile = "data/baseline_f16_ADAM_hl2_$(nn)_gpu_2.jld2";
 ##
 # Nominal Controller for Longitudinal F16Model trimmmed at specified altitude and velocity in 
 # Trim vehicle at specified altitude and velocity
@@ -30,7 +31,7 @@ function f16Model_4x(x4, xbar, ubar, Kc)
     # x4 are the states, not perturbations
     xFull = Vector{Real}(undef, length(xbar))
     xFull .= xbar
-    xFull[ind_x] .= x4#(x4)
+    xFull[ind_x] .= Array(x4)#(x4)
     uFull = Vector{Real}(undef, length(ubar))
     uFull .= ubar
     u = (Kc * (Array(x4) .- xbar[ind_x])) # controller
@@ -92,14 +93,11 @@ domains = [
     xθ ∈ IntervalDomain(xθ_min, xθ_max),
     xq ∈ IntervalDomain(xq_min, xq_max),
 ];
-# train_domain_set, train_bound_set =
-#     NeuralPDE.generate_training_sets(domains, dx, [pde], bcs, eltypeθ, indvars, depvars);
-# nTrainDomainSet = size(train_domain_set[1],2);
-# [f(train_domain_set[1][:,i]) for i in 1:nTrainDomainSet];
+
 ## Grid discretization
 dV = 100.0; dα = deg2rad(5); 
 dθ = dα; dq = deg2rad(5);
-dx = [dV; dα; dθ; dq]; # grid discretization in V (ft/s), α (deg), θ (deg), q (rad/s)
+dx = [dV; dα; dθ; dq]; # grid discretization in V (ft/s), α (rad), θ (rad), q (rad/s)
 
 
 # Boundary conditions
@@ -150,11 +148,13 @@ _bc_loss_functions = [
 train_domain_set, train_bound_set =
     NeuralPDE.generate_training_sets(domains, dx, [pde], bcs, eltypeθ, indvars, depvars);
 train_domain_set = train_domain_set |> gpu
+train_domain_set_cpu = Array(train_domain_set[1])
+nTrainDomainSet = size(train_domain_set[1],2)
 
-CUDA.allowscalar(true);
+# CUDA.allowscalar(true); # not able to do pde loss function otherwise.
 function pde_loss_function_custom(θ)
-    # custom self-written pde loss function. need to check again.
-    ρFn(y) = exp(first(phi(y, θ))); # phi is the NN representing η
+    # custom self-written pde loss function
+    ρFn(y) = exp(first(Array(phi(y, θ)))); # phi is the NN representing η
 
     fxρ(y) = f(y)*ρFn(y);
     gxρ(y) = 0.5 * (g(y) * Q * g(y)') * ρFn(y);
@@ -174,12 +174,13 @@ function pde_loss_function_custom(θ)
         end
         return tmp
     end
-    pdeErr(y) = -term1(y) + term2(y); # pdeErr evaluated at state y
+    pdeErr(y) = (-term1(y) + term2(y))^2; # pdeErr evaluated at state y
     
-    nTrainDomainSet = size(train_domain_set[1],2)
-    train_domain_set_cpu = Array(train_domain_set[1])
-    tmp = Float32(sum(pdeErr(train_domain_set_cpu[:,i])^2 for i in 1:nTrainDomainSet)/nTrainDomainSet) #mean squared error
-    # CUDA.allowscalar(false);
+    errCols = mapslices(pdeErr, train_domain_set_cpu, dims = 1); # pde error for each column/state in training set (slightly better than map)
+    # errCols = map(pdeErr, eachslice(train_domain_set_cpu, dims = 2)); # pde error for each column/state in training set
+
+    tmp = Float32(sum(errCols)/nTrainDomainSet); # mean squared error
+    # tmp = Float32(sum(pdeErr(train_domain_set_cpu[:,i])^2 for i in 1:nTrainDomainSet)/nTrainDomainSet) #mean squared error
     return tmp
 end
 @show pde_loss_function_custom(initθ)
