@@ -24,10 +24,14 @@ maxOptIters = 500; # maximum number of training iterations
 opt = ADAM(1e-3); 
 expNum = 1;
 saveFile = "dataQuad/baseline_f16_ADAM_$(expNum)_$(maxOptIters).jld2";
-open("outQuad/log$(expNum).txt", "a+") do io
-    write(io, "Running baselin_f16 using Quadrature strategy on CPU. $(maxOptIters) iterations with ADAM (1e-3). $(nn) neurons in the 2 hidden layers. Experiment number: $(expNum).\n")
-end;
-##
+runExp = true; # flag to check if running batch file
+if runExp
+    open("outQuad/log$(expNum).txt", "a+") do io
+        write(io, "Running baselin_f16 using Quadrature strategy on CPU. $(maxOptIters) iterations with ADAM (1e-3). $(nn) neurons in the 2 hidden layers. Experiment number: $(expNum).\n")
+    end
+end
+# end;
+## Dynamics Model
 # Nominal Controller for Longitudinal F16Model trimmmed at specified altitude and velocity in 
 # Trim vehicle at specified altitude and velocity
 h0 = 10000; # ft
@@ -81,7 +85,6 @@ D_xθ = Differential(xθ);
 D_xq = Differential(xq);
 Q = 0.3f0; # Q = σ^2
 
-# ρ(x) = exp(η(x[1], x[2], x[3], x[4]));
 ρ(x) = exp(η(x...));
 G = 0.5f0 * (g(xSym) * Q * g(xSym)') * ρ(xSym);
 T2 = sum([
@@ -112,7 +115,7 @@ domains = [
 ## Grid discretization
 dV = 100.0; dα = deg2rad(10); 
 dθ = dα; dq = deg2rad(10);
-dx = 0.1*[dV; dα; dθ; dq]; # grid discretization in V (ft/s), α (rad), θ (rad), q (rad/s)
+dx = 0.5*[dV; dα; dθ; dq]; # grid discretization in V (ft/s), α (rad), θ (rad), q (rad/s)
 
 
 # Boundary conditions
@@ -183,14 +186,14 @@ _bc_loss_functions = [
 
 train_domain_set, train_bound_set =
     NeuralPDE.generate_training_sets(domains, dx, [pde], bcs, eltypeθ, indvars, depvars);
-train_domain_set = train_domain_set #|> gpu
 train_domain_set_cpu = Array(train_domain_set[1])
 nTrainDomainSet = size(train_domain_set[1],2)
 
 pde_bounds, bcs_bounds = NeuralPDE.get_bounds(domains,[pde],bcs,eltypeθ,indvars,depvars,quadrature_strategy)
 pde_bounds = pde_bounds #|> gpu;
 lbs, ubs = pde_bounds;
-# CUDA.allowscalar(true); # not able to do pde loss function otherwise.
+## create loss functions
+
 function term1_pde_loss_function(θ)
     # custom self-written pde loss function for term1. term2 can be symbolically expressed and too time-consuming for self-written hessian
     ρFn(y) = exp(first(Array(phi(y, θ)))); # phi is the NN representing η
@@ -276,12 +279,13 @@ cb_ = function (p, l)
     push!(term1_losses, term1_pde_loss_function(p))
     push!(term2_losses, term2_pde_loss_function(p))
 
-    open("outQuad/log$(expNum).txt", "a+") do io
-        write(io, "[$nSteps] Current loss is: $l \n")
-    end;
-    
-    jldsave(saveFile; optParam = Array(p), PDE_losses, BC_losses, term1_losses, term2_losses); ## save for checking.
-
+    if runExp # if running job file
+        open("outQuad/log$(expNum).txt", "a+") do io
+            write(io, "[$nSteps] Current loss is: $l \n")
+        end;
+        
+        jldsave(saveFile; optParam = Array(p), PDE_losses, BC_losses, term1_losses, term2_losses); ## save for checking.
+    end
     return false
 end
 
@@ -291,5 +295,6 @@ println("Optimization done.");
 
 ## Save data
 cd(@__DIR__);
-jldsave(saveFile; optParam = Array(res.minimizer), PDE_losses, BC_losses, term1_losses, term2_losses);
-
+if runExp
+    jldsave(saveFile; optParam = Array(res.minimizer), PDE_losses, BC_losses, term1_losses, term2_losses);
+end
