@@ -110,7 +110,7 @@ domains = [
 ## Grid discretization
 dV = 100.0; dα = deg2rad(10); 
 dθ = dα; dq = deg2rad(10);
-dx = 0.1*[dV; dα; dθ; dq]; # grid discretization in V (ft/s), α (rad), θ (rad), q (rad/s)
+dx = 0.5*[dV; dα; dθ; dq]; # grid discretization in V (ft/s), α (rad), θ (rad), q (rad/s)
 
 
 # Boundary conditions
