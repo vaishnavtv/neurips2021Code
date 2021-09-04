@@ -23,7 +23,7 @@ optFlag = 1;
 Q = 0.3;
 
 cd(@__DIR__);
-fileLoc = "data/baseline_f16_ADAM_gpu_4_30.jld2";
+fileLoc = "data/baseline_f16_ADAM_gpu_5_100.jld2";
 
 println("Loading file");
 file = jldopen(fileLoc, "r");
@@ -53,16 +53,37 @@ phi = NeuralPDE.get_phi(chain, parameterless_type_θ);
 
 ## System Dynamics
 include("f16_controller.jl")
-A2, B2 = getLinearModel4x(xbar, ubar);
-# Kc = getKc(A2, B2)
-function f16_linDyn(x)
-    # linear 4 state perturbation dynamics
-    u = Kc * x
-    dx = A2 * x + B2 * u
-    return (dx)
-end    
-f(x) = f16_linDyn(x)
+function f16Model_4x(x4, xbar, ubar, Kc)
+    # nonlinear dynamics of 4-state model with stabilizing controller
+    # x4 are the states, not perturbations
+    xFull = Vector{Real}(undef, length(xbar))
+    xFull .= xbar
+    xFull[ind_x] .= Array(x4)#(x4)
+    uFull = Vector{Real}(undef, length(ubar))
+    uFull .= ubar
+    u = (Kc * (Array(x4) .- xbar[ind_x])) # controller
+    # u[2] = rad2deg(u[2]);
+    # @show u
+    uFull[ind_u] .+= u
+    # @show uFull[ind_u]
+    uFull[ind_u] = contSat(uFull[ind_u])
+    xdotFull = F16Model.Dynamics(xFull, uFull)
+    # xdotFull = F16ModelDynamics_sym(xFull, uFull)
+    # return u
+    return xdotFull[ind_x] # return the 4 state dynamics
+end
 
+function contSat(u)
+    # controller saturation
+    if u[2] < -25.0
+        u[2] = -25.0
+    elseif u[2] > 25.0
+        u[2] = 25.0
+    end
+    return u
+end
+
+f(x) = f16Model_4x(x, xbar, ubar, Kc) ;
 
 ## Generate functions to check solution and PDE error
 function ρ_pdeErr_fns(optParam)
@@ -78,24 +99,27 @@ function ρ_pdeErr_fns(optParam)
     return ρNetS#, pdeErrFn
 end
 ρFn = ρ_pdeErr_fns(optParam);
-ρFn(xbar[ind_x])
-exp(phi(xbar[ind_x], optParam)[1]) # should be same as line above
+@show ρFn(xbar[ind_x])
+@show exp(phi(xbar[ind_x], optParam)[1]) # should be same as line above
 ## Domains
 xV_min = 100;
 xV_max = 1500;
-xα_min = deg2rad(-10);
-xα_max = pi / 4;
+xα_min = deg2rad(-20);
+xα_max = deg2rad(40);
 xθ_min = xα_min;
 xθ_max = xα_max;
-xq_min = 0;
-xq_max = 1.0;
+xq_min = -pi/6;
+xq_max = pi/6;
 
-nEvalFine = 10; # to be changed
-
-xVFine = range(xV_min, xV_max, length = nEvalFine);
-xαFine = range(xα_min, xα_max, length = nEvalFine);
-xθFine = range(xθ_min, xθ_max, length = nEvalFine);
-xqFine = range(xq_min, xq_max, length = nEvalFine);
+# Grid discretization
+dV = 100.0; dα = deg2rad(5); 
+dθ = dα; dq = deg2rad(5);
+dx = 0.1*[dV; dα; dθ; dq]; # grid discretization in V (ft/s), α (rad), θ (rad), q (rad/s)
+# nEvalFine = 10; # to be changed
+xVFine = collect(xV_min:dx[1]:xV_max);#range(xV_min, xV_max, length = nEvalFine);
+xαFine = collect(xα_min:dx[2]:xα_max); #range(xα_min, xα_max, length = nEvalFine);
+xθFine = collect(xα_min:dx[3]:xα_max);# range(xθ_min, xθ_max, length = nEvalFine);
+xqFine = collect(xq_min:dx[4]:xq_max); #range(xq_min, xq_max, length = nEvalFine);
 ##
 RHOFine = [ρFn([xvg, xαg, xθg, xqg]) for xvg in xVFine, xαg in xαFine, xθg in xθFine, xqg in xqFine];
 
@@ -124,35 +148,36 @@ RHO12Fine = [ρ12(xvg, xαg) for xvg in xVFine, xαg in xαFine];
 # mseEqErr = sum(FFFine[:] .^ 2) / length(FFFine);
 # @show mseEqErr;
 # mseEqErrStr = @sprintf "%.2e" mseEqErr;
-# XXFine = similar(RHOFine);
-# YYFine = similar(RHOFine);
+##
+xvFine_XX = similar(RHO12Fine);
+xαFine_YY = similar(RHO12Fine);
 
-# for i = 1:nEvalFine, j = 1:nEvalFine
-#     XXFine[i, j] = xxFine[i]
-#     YYFine[i, j] = yyFine[j]
-# end
+for i = 1:length(xVFine), j = 1:length(xαFine)
+    xvFine_XX[i, j] = xVFine[i]
+    xαFine_YY[i, j] = xαFine[j]
+end
 
 ## Plot shown in paper
 function plotDistErr(figNum)
 
     figure(figNum, [8, 4])
     clf()
-    subplot(1, 2, 1)
+    # subplot(1, 2, 1)
     # figure(figNum); clf();
-    pcolor(XXFine, YYFine, RHOFine, shading = "auto", cmap = "inferno")
+    pcolor(xvFine_XX, xαFine_YY, RHO12Fine, shading = "auto", cmap = "inferno")
     colorbar()
-    xlabel("x1")
-    ylabel("x2")
+    xlabel("V")
+    ylabel(L"$α$")
     axis("auto")
     title("Steady-State Solution (ρ)")
 
-    subplot(1, 2, 2)
-    pcolormesh(XXFine, YYFine, FFFine, cmap = "inferno", shading = "auto")
-    colorbar()
-    axis("auto")
-    title(L"Equation Error; $ϵ_{pde}$ = %$(mseEqErrStr)")
-    xlabel("x1")
-    ylabel("x2")
+    # subplot(1, 2, 2)
+    # pcolormesh(XXFine, YYFine, FFFine, cmap = "inferno", shading = "auto")
+    # colorbar()
+    # axis("auto")
+    # title(L"Equation Error; $ϵ_{pde}$ = %$(mseEqErrStr)")
+    # xlabel("x1")
+    # ylabel("x2")
 
     tight_layout()
 
