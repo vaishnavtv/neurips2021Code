@@ -17,12 +17,12 @@ import Random: seed!;
 seed!(1);
 
 # parameters for neural network
-nn = 20; # number of neurons in the hidden layers
+nn = 50; # number of neurons in the hidden layers
 activFunc = tanh; # activation function
 maxOptIters = 500; # maximum number of training iterations
 # opt = Optim.LBFGS(); # Optimizer used for training
 opt = ADAM(1e-3); 
-expNum = 1;
+expNum = 2;
 saveFile = "dataQuad/baseline_f16_ADAM_$(expNum)_$(maxOptIters).jld2";
 runExp = true; # flag to check if running batch file
 if runExp
