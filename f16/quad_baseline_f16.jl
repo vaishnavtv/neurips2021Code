@@ -1,4 +1,4 @@
-println("Running baseline_f16 with pdelossfunction that runs on CPU arrays. Everything else on GPU.")
+println("Running quad_baseline_f16 on CPU.")
 @show Threads.nthreads()
 ## Solve the FPKE for the nonlinear F16 dynamics with LQR controller using baseline PINNs (large training set)
 cd(@__DIR__);
@@ -10,23 +10,23 @@ using NeuralPDE, Flux, ModelingToolkit, GalacticOptim, Optim, DiffEqFlux, Symbol
 using F16Model
 using Quadrature, Cubature
 
-using CUDA
-CUDA.allowscalar(false)
+# using CUDA
+# CUDA.allowscalar(false)
     
 import Random: seed!;
 seed!(1);
 
 # parameters for neural network
-nn = 100; # number of neurons in the hidden layers
+nn = 20; # number of neurons in the hidden layers
 activFunc = tanh; # activation function
-maxOptIters = 100; # maximum number of training iterations
+maxOptIters = 500; # maximum number of training iterations
 # opt = Optim.LBFGS(); # Optimizer used for training
 opt = ADAM(1e-3); 
-expNum = 5;
-saveFile = "data/baseline_f16_ADAM_gpu_$(expNum)_$(maxOptIters).jld2";
-# open("out/log$(expNum).txt", "a+") do io
-#     write(io, "Running with 2 hls instead of 3. \n")
-# end;
+expNum = 1;
+saveFile = "dataQuad/baseline_f16_ADAM_$(expNum)_$(maxOptIters).jld2";
+open("outQuad/log$(expNum).txt", "a+") do io
+    write(io, "Running baselin_f16 using Quadrature strategy on CPU. $(maxOptIters) iterations with ADAM (1e-3). $(nn) neurons in the 2 hidden layers. Experiment number: $(expNum).\n")
+end;
 ##
 # Nominal Controller for Longitudinal F16Model trimmmed at specified altitude and velocity in 
 # Trim vehicle at specified altitude and velocity
@@ -110,9 +110,9 @@ domains = [
 ];
 
 ## Grid discretization
-dV = 100.0; dα = deg2rad(5); 
-dθ = dα; dq = deg2rad(5);
-dx = [dV; dα; dθ; dq]; # grid discretization in V (ft/s), α (rad), θ (rad), q (rad/s)
+dV = 100.0; dα = deg2rad(10); 
+dθ = dα; dq = deg2rad(10);
+dx = 0.1*[dV; dα; dθ; dq]; # grid discretization in V (ft/s), α (rad), θ (rad), q (rad/s)
 
 
 # Boundary conditions
@@ -265,8 +265,8 @@ cb_ = function (p, l)
         pde_loss_function_custom(p),
         "; term1 loss:",
         term1_pde_loss_function(p),
-        # "; term2 loss:",
-        # term2_pde_loss_function(p),
+        "; term2 loss:",
+        term2_pde_loss_function(p),
         "; BC loss:",
         bc_loss_function_sum(p),
     )
@@ -274,13 +274,13 @@ cb_ = function (p, l)
     push!(PDE_losses, pde_loss_function_custom(p))
     push!(BC_losses, bc_loss_function_sum(p))
     push!(term1_losses, term1_pde_loss_function(p))
-    # push!(term2_losses, term2_pde_loss_function(p))
+    push!(term2_losses, term2_pde_loss_function(p))
 
-    # open("out/log$(expNum).txt", "a+") do io
-    #     write(io, "[$nSteps] Current loss is: $l \n")
-    # end;
+    open("outQuad/log$(expNum).txt", "a+") do io
+        write(io, "[$nSteps] Current loss is: $l \n")
+    end;
     
-    # jldsave(saveFile; optParam = Array(p), PDE_losses, BC_losses, term1_losses, term2_losses); ## save for checking.
+    jldsave(saveFile; optParam = Array(p), PDE_losses, BC_losses, term1_losses, term2_losses); ## save for checking.
 
     return false
 end
@@ -291,5 +291,5 @@ println("Optimization done.");
 
 ## Save data
 cd(@__DIR__);
-# jldsave(saveFile; optParam = Array(res.minimizer), PDE_losses, BC_losses, term1_losses, term2_losses);
+jldsave(saveFile; optParam = Array(res.minimizer), PDE_losses, BC_losses, term1_losses, term2_losses);
 
