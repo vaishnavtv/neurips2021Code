@@ -33,3 +33,10 @@ linear_f16/batch.slurm
 linear_f16/figs
 # Manifest.toml
 # Project.toml
+f16/f16_controller_2.jl
+f16/batch_copy.slurm
+f16/test.jl
+cont_vdp/batch.slurm
+cont_vdp/cont_ll_vdp_2.jl
+cont_vdp/batch.slurm
+f16/baseline_f16_2.jl
