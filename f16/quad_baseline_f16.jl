@@ -20,11 +20,11 @@ seed!(1);
 nn = 50; # number of neurons in the hidden layers
 activFunc = tanh; # activation function
 opt1 = ADAM(5e-3); # primary optimizer used for training
-maxOpt1Iters = 1000; # maximum number of training iterations for opt1
+maxOpt1Iters = 100; # maximum number of training iterations for opt1
 opt2 = Optim.LBFGS(); # second optimizer used for fine-tuning
-maxOpt2Iters = 1000; # maximum number of training iterations for opt2
+maxOpt2Iters = 100; # maximum number of training iterations for opt2
 
-expNum = 3;
+expNum = 4;
 saveFile = "dataQuad/quad_baseline_f16_ADAM_$(expNum).jld2";
 runExp = true; # flag to check if running batch file
 if runExp
