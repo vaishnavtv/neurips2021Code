@@ -25,7 +25,7 @@ opt2 = Optim.LBFGS(); # second optimizer used for fine-tuning
 maxOpt2Iters = 1000; # maximum number of training iterations for opt2
 
 expNum = 3;
-saveFile = "dataQuad/baseline_f16_ADAM_$(expNum)_$(maxOptIters).jld2";
+saveFile = "dataQuad/quad_baseline_f16_ADAM_$(expNum).jld2";
 runExp = true; # flag to check if running batch file
 if runExp
     open("outQuad/log$(expNum).txt", "a+") do io
@@ -292,7 +292,7 @@ cb_ = function (p, l)
 end
 
 println("Calling GalacticOptim()");
-res = GalacticOptim.solve(prob, opt, cb = cb_, maxiters = maxOpt1Iters);
+res = GalacticOptim.solve(prob, opt1, cb = cb_, maxiters = maxOpt1Iters);
 prob = remake(prob, u0 = res.minimizer)
 res = GalacticOptim.solve(prob, opt2, cb = cb_, maxiters = maxOpt2Iters);
 println("Optimization done.");
