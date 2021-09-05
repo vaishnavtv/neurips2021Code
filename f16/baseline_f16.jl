@@ -16,15 +16,15 @@ import Random: seed!;
 seed!(1);
 
 # parameters for neural network
-nn = 20; # number of neurons in the hidden layers
+nn = 50; # number of neurons in the hidden layers
 activFunc = tanh; # activation function
-maxOptIters = 200; # maximum number of training iterations
+maxOptIters = 1000; # maximum number of training iterations
 # opt = Optim.LBFGS(); # Optimizer used for training
-opt = ADAM(1e-3); 
-expNum = 6;
+opt = ADAM(5e-3); 
+expNum = 7;
 saveFile = "data/baseline_f16_ADAM_gpu_$(expNum)_$(maxOptIters).jld2";
 open("out/log$(expNum).txt", "a+") do io
-    write(io, "Running with $(nn) neurons in 2 hidden layers. Using just ADAM. Discretization size updated. \n")
+    write(io, "Running with $(nn) neurons in 2 hidden layers for $(maxOptIters) iterations. Using just ADAM with lr 1e-3. Discretization size updated (~60k points). \n")
 end;
 ##
 # Nominal Controller for Longitudinal F16Model trimmmed at specified altitude and velocity in 
