@@ -19,15 +19,17 @@ seed!(1);
 # parameters for neural network
 nn = 50; # number of neurons in the hidden layers
 activFunc = tanh; # activation function
-maxOptIters = 500; # maximum number of training iterations
-# opt = Optim.LBFGS(); # Optimizer used for training
-opt = ADAM(1e-3); 
-expNum = 2;
+opt1 = ADAM(5e-3); # primary optimizer used for training
+maxOpt1Iters = 1000; # maximum number of training iterations for opt1
+opt2 = Optim.LBFGS(); # second optimizer used for fine-tuning
+maxOpt2Iters = 1000; # maximum number of training iterations for opt2
+
+expNum = 3;
 saveFile = "dataQuad/baseline_f16_ADAM_$(expNum)_$(maxOptIters).jld2";
 runExp = true; # flag to check if running batch file
 if runExp
     open("outQuad/log$(expNum).txt", "a+") do io
-        write(io, "Running baselin_f16 using Quadrature strategy on CPU. $(maxOptIters) iterations with ADAM (1e-3). $(nn) neurons in the 2 hidden layers. Experiment number: $(expNum).\n")
+        write(io, "Running baselin_f16 using Quadrature strategy on CPU. $(nn) neurons in the 2 hidden layers. $(maxOpt1Iters) iterations with ADAM (5e-3) and then $(maxOpt2Iters) iterations with LBFGS. \nExperiment number: $(expNum).\n")
     end
 end
 # end;
@@ -290,7 +292,9 @@ cb_ = function (p, l)
 end
 
 println("Calling GalacticOptim()");
-res = GalacticOptim.solve(prob, opt, cb = cb_, maxiters = maxOptIters);
+res = GalacticOptim.solve(prob, opt, cb = cb_, maxiters = maxOpt1Iters);
+prob = remake(prob, u0 = res.minimizer)
+res = GalacticOptim.solve(prob, opt2, cb = cb_, maxiters = maxOpt2Iters);
 println("Optimization done.");
 
 ## Save data
