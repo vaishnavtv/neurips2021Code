@@ -23,7 +23,7 @@ maxOptIters = 2000; # maximum number of training iterations
 opt = ADAM(1e-3); 
 expNum = 1;
 saveFile = "data_fullpde/fullpde_f16_cpu_$(expNum).jld2";
-runExp = false; # flag to check if running batch file
+runExp = true; # flag to check if running batch file
 if runExp
     open("out_fullpde/log$(expNum).txt", "a+") do io
         write(io, "Running everything on CPU with $(nn) neurons in 2 hidden layers for $(maxOptIters) iterations. Using just ADAM with lr 1e-3. Discretization size updated (~60k points). \n")
