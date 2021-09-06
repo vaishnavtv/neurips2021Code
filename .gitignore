@@ -43,3 +43,4 @@ cont_vdp/batch.slurm
 f16/baseline_f16_2.jl
 f16/quad_batch.slurm
 f16/outQuad
+f16/hl_quad_f16.jl
