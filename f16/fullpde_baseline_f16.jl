@@ -20,13 +20,13 @@ nn = 50; # number of neurons in the hidden layers
 activFunc = tanh; # activation function
 maxOptIters = 2000; # maximum number of training iterations
 # opt = Optim.LBFGS(); # Optimizer used for training
-opt = ADAM(1e-3); 
-expNum = 2;
+opt = ADAM(1e-4); 
+expNum = 3;
 saveFile = "data_fullpde/fullpde_f16_cpu_$(expNum).jld2";
 runExp = true; # flag to check if running batch file
 if runExp
     open("out_fullpde/log$(expNum).txt", "a+") do io
-        write(io, "Running everything on CPU with $(nn) neurons in 2 hidden layers for $(maxOptIters) iterations. Using just ADAM with lr 1e-3. Discretization size updated 0.25dx. \n")
+        write(io, "Running everything on CPU with $(nn) neurons in 2 hidden layers for $(maxOptIters) iterations. Using just ADAM with lr 1e-3. Discretization size updated 0.5dx. \n")
     end;
 end
 ##
@@ -105,7 +105,7 @@ domains = [
 ## Grid discretization
 dV = 100.0; dα = deg2rad(10); 
 dθ = dα; dq = deg2rad(10);
-dx = 0.25*[dV; dα; dθ; dq]; # grid discretization in V (ft/s), α (rad), θ (rad), q (rad/s)
+dx = 0.5*[dV; dα; dθ; dq]; # grid discretization in V (ft/s), α (rad), θ (rad), q (rad/s)
 
 
 # Boundary conditions
