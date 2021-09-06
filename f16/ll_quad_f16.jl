@@ -20,18 +20,18 @@ seed!(1);
 # parameters for neural network
 nn = 50; # number of neurons in the hidden layers
 activFunc = tanh; # activation function
-opt1 = ADAM(5e-3); # primary optimizer used for training
-maxOpt1Iters = 1000; # maximum number of training iterations for opt1
+opt1 = ADAM(1e-5); # primary optimizer used for training
+maxOpt1Iters = 10000; # maximum number of training iterations for opt1
 opt2 = Optim.LBFGS(); # second optimizer used for fine-tuning
 maxOpt2Iters = 1000; # maximum number of training iterations for opt2
 
-expNum = 2;
+expNum = 3;
 saveFile = "data_ll_quad/ll_quad_f16_$(expNum).jld2";
 runExp = true; # flag to check if running batch file
 runExp_fileName = ("out_ll_quad/log$(expNum).txt");
 if runExp
     open(runExp_fileName, "a+") do io
-        write(io, "Running ll_quad_f16_ using Quadrature strategy on CPU. pdelossfunction fixed. $(nn) neurons in the 3 hidden layers. $(maxOpt1Iters) iterations with ADAM (5e-3) and then $(maxOpt2Iters) iterations with LBFGS. \nExperiment number: $(expNum).\n")
+        write(io, "Running ll_quad_f16_ using Quadrature strategy on CPU. pdelossfunction fixed. $(nn) neurons in the 3 hidden layers. $(maxOpt1Iters) iterations with ADAM (1e-5) and then $(maxOpt2Iters) iterations with LBFGS. \nExperiment number: $(expNum).\n")
     end
 end
 
