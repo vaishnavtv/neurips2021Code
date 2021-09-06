@@ -25,13 +25,13 @@ maxOpt1Iters = 1000; # maximum number of training iterations for opt1
 opt2 = Optim.LBFGS(); # second optimizer used for fine-tuning
 maxOpt2Iters = 1000; # maximum number of training iterations for opt2
 
-expNum = 1;
+expNum = 2;
 saveFile = "data_ll_quad/ll_quad_f16_$(expNum).jld2";
 runExp = true; # flag to check if running batch file
 runExp_fileName = ("out_ll_quad/log$(expNum).txt");
 if runExp
     open(runExp_fileName, "a+") do io
-        write(io, "Running baselin_f16 using Quadrature strategy on CPU. $(nn) neurons in the 2 hidden layers. $(maxOpt1Iters) iterations with ADAM (5e-3) and then $(maxOpt2Iters) iterations with LBFGS. \nExperiment number: $(expNum).\n")
+        write(io, "Running ll_quad_f16_ using Quadrature strategy on CPU. pdelossfunction fixed. $(nn) neurons in the 3 hidden layers. $(maxOpt1Iters) iterations with ADAM (5e-3) and then $(maxOpt2Iters) iterations with LBFGS. \nExperiment number: $(expNum).\n")
     end
 end
 
@@ -123,7 +123,7 @@ bcs = [
 ## Neural network
 dim = length(domains) # number of dimensions
 quadrature_strategy = NeuralPDE.QuadratureTraining(quadrature_alg=CubatureJLh(),reltol=1e-3,abstol=1e-3,maxiters =50, batch=100)
-chain = Chain(Dense(dim, nn, activFunc), Dense(nn, nn, activFunc), Dense(nn, 1));;
+chain = Chain(Dense(dim, nn, activFunc), Dense(nn, nn, activFunc),Dense(nn, nn, activFunc), Dense(nn, 1));;
 
 initθ = DiffEqFlux.initial_params(chain) #|> gpu;
 eltypeθ = eltype(initθ)
@@ -183,8 +183,8 @@ function _pde_loss_function_custom(y, θ)
         return tmp
     end
     pdeLoss(y) = (1/ρFn(y)*(-term1(y) + term2(y))); # pdeErr evaluated at state y (not squared)
-    # tmp = [pdeLoss(y[:,i]) for i in 1:size(y,2)]';
-    tmp = hcat([pdeLoss(y[:,i]) for i in 1:size(y,2)]...); # have to do this to use NeuralPDE.get_loss_function, returns a row vector of losses
+    tmp = permutedims([pdeLoss(y[:,i]) for i in 1:size(y,2)]);
+    # tmp = hcat([pdeLoss(y[:,i]) for i in 1:size(y,2)]...); # have to do this to use NeuralPDE.get_loss_function, returns a row vector of losses for each state in set
     return tmp
 end
 @show _pde_loss_function_custom([xbar[ind_x] xbar[ind_x]], initθ)
