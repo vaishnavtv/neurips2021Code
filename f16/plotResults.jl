@@ -17,13 +17,13 @@ pygui(true);
 activFunc = tanh;
 dx = 0.05;
 suff = string(activFunc);
-nn = 100;
+nn = 50;
 optFlag = 1;
 
-Q = 0.3;
+Q_fpke = 0.3f0; # Q = σ^2
 
 cd(@__DIR__);
-fileLoc = "data/baseline_f16_ADAM_gpu_5_100.jld2";
+fileLoc = "dataQuad/quad_baseline_f16_ADAM_4.jld2";
 
 println("Loading file");
 file = jldopen(fileLoc, "r");
@@ -47,7 +47,7 @@ tight_layout();
 # savefig("figs/ADAM_100k.png");
 ## Neural network
 dim = 4;
-chain = Chain(Dense(dim, nn, activFunc), Dense(nn, nn, activFunc), Dense(nn, nn, activFunc), Dense(nn, 1));#|> gpu;
+chain = Chain(Dense(dim, nn, activFunc), Dense(nn, nn, activFunc), Dense(nn, 1));
 parameterless_type_θ = DiffEqBase.parameterless_type(optParam);
 phi = NeuralPDE.get_phi(chain, parameterless_type_θ);
 
@@ -62,14 +62,9 @@ function f16Model_4x(x4, xbar, ubar, Kc)
     uFull = Vector{Real}(undef, length(ubar))
     uFull .= ubar
     u = (Kc * (Array(x4) .- xbar[ind_x])) # controller
-    # u[2] = rad2deg(u[2]);
-    # @show u
     uFull[ind_u] .+= u
-    # @show uFull[ind_u]
     uFull[ind_u] = contSat(uFull[ind_u])
     xdotFull = F16Model.Dynamics(xFull, uFull)
-    # xdotFull = F16ModelDynamics_sym(xFull, uFull)
-    # return u
     return xdotFull[ind_x] # return the 4 state dynamics
 end
 
@@ -90,17 +85,41 @@ function ρ_pdeErr_fns(optParam)
     function ηNetS(x)
         return first(phi(x, optParam))
     end
-    ρNetS(x) = exp(ηNetS(x)) # solution after first iteration
-    # df(x) = ForwardDiff.jacobian(f, x)
-    # dη(x) = ForwardDiff.gradient(ηNetS, x)
-    # d2η(x) = ForwardDiff.jacobian(dη, x)
-
-    # pdeErrFn(x) = tr(df(x)) + dot(f(x), dη(x)) - Q / 2 * (d2η(x)[end] + (dη(x)[end])^2)
-    return ρNetS#, pdeErrFn
+    ρNetS(x) = exp(ηNetS(x)) 
+    df(x) = ForwardDiff.jacobian(f, x)
+    dη(x) = ForwardDiff.gradient(ηNetS, x)
+    d2η(x) = ForwardDiff.jacobian(dη, x)
+    
+    pdeErrFn(x) = (tr(df(x)) + dot(f(x), dη(x)) - Q_fpke / 2 * (sum(d2η(x)) + sum(dη(x)*dη(x)')))^2
+    term1_pdeErrFn(x) = (tr(df(x)) + dot(f(x), dη(x)))^2
+    term2_pdeErrFn(x) = (Q_fpke / 2 * (sum(d2η(x)) + sum(dη(x)*dη(x)')))^2
+    
+    
+    # type 2
+    fxρ(x) = f(x)*ρNetS(x);
+    dfxρ(x) = ForwardDiff.jacobian(fxρ, x);
+    d2ρ(x) = Q_fpke/2*ForwardDiff.hessian(ρNetS,x);
+    pdeErrFn2(x) = (-tr(dfxρ(x)) + sum(d2ρ(x)))^2;
+    return ρNetS, pdeErrFn, term1_pdeErrFn, term2_pdeErrFn
 end
-ρFn = ρ_pdeErr_fns(optParam);
+# tr(df(xbar[ind_x])) + dot(f(xbar[ind_x]), dη(xbar[ind_x]))
+# (sum(d2η(xbar[ind_x])) + sum(dη(xbar[ind_x])*dη(xbar[ind_x])'))
+# sum(d2η(xbar[ind_x]))
+
+ρFn, pdeErrFn, term1_pdeErrFn, term2_pdeErrFn = ρ_pdeErr_fns(optParam);
 @show ρFn(xbar[ind_x])
-@show exp(phi(xbar[ind_x], optParam)[1]) # should be same as line above
+@show pdeErrFn(xbar[ind_x])
+@show pdeErrFn2(xbar[ind_x])
+@show term1_pdeErrFn(xbar[ind_x])
+@show term2_pdeErrFn(xbar[ind_x])
+
+## Compute pdeErr over domain using quadrature (taking forever to compute, investigate alternative?)
+pdeErrQuad(y,p) = term1_pdeErrFn(y);
+prob = QuadratureProblem(pdeErrQuad, [xV_min,xα_min,xθ_min, xq_min], [xV_max, xα_max, xθ_max, xq_max], p = 0);
+# sol = solve(prob,HCubatureJL(),reltol=1e-3,abstol=1e-3)
+# pdeErrTotal = sol.u; @show pdeErrTotal
+
+
 ## Domains
 xV_min = 100;
 xV_max = 1500;
@@ -120,19 +139,17 @@ xVFine = collect(xV_min:dx[1]:xV_max);#range(xV_min, xV_max, length = nEvalFine)
 xαFine = collect(xα_min:dx[2]:xα_max); #range(xα_min, xα_max, length = nEvalFine);
 xθFine = collect(xα_min:dx[3]:xα_max);# range(xθ_min, xθ_max, length = nEvalFine);
 xqFine = collect(xq_min:dx[4]:xq_max); #range(xq_min, xq_max, length = nEvalFine);
-##
-RHOFine = [ρFn([xvg, xαg, xθg, xqg]) for xvg in xVFine, xαg in xαFine, xθg in xθFine, xqg in xqFine];
 
-ρFnQuad(x,p) = ρFn(x);
+# RHOFine = [ρFn([xvg, xαg, xθg, xqg]) for xvg in xVFine, xαg in xαFine, xθg in xθFine, xqg in xqFine]; # no need to compute true ρ for full state
+
+## Normalize
+ρFnQuad(x,p) = ρFn(x); # to obtain normalization constant
 prob = QuadratureProblem(ρFnQuad, [xV_min,xα_min,xθ_min, xq_min], [xV_max, xα_max, xθ_max, xq_max], p = 0);
 sol = solve(prob,HCubatureJL(),reltol=1e-3,abstol=1e-3)
-
-# normalize
-RHOFine = RHOFine/sol.u;
-# FFFine = [pdeErrFn([x, y])^2 for x in xxFine, y in yyFine];
+println("Found normalizing constant.");
 
 ## Quadrature technique to obtain marginal pdf, requires integration for every set of states
-# Supposing we want the marginal pdf for the first two states(V, α)
+# Marginal pdf for the first two states(V, α)
 function ρ12(xV,xα)
     # p = [xV, xα]; y = [xθ, xq]
     ρFnQuad34(y,p) = ρFn([xV;xα;y])
@@ -140,47 +157,77 @@ function ρ12(xV,xα)
     sol = solve(prob,HCubatureJL(),reltol=1e-3,abstol=1e-3)
     return sol.u
 end
-vBar = xbar[ind_x][1]; αBar = xbar[ind_x][2];
-ρ12(vBar,αBar)
-
 RHO12Fine = [ρ12(xvg, xαg) for xvg in xVFine, xαg in xαFine];
-# println("The mean squared equation error with dx=$(dx) is:")
-# mseEqErr = sum(FFFine[:] .^ 2) / length(FFFine);
-# @show mseEqErr;
-# mseEqErrStr = @sprintf "%.2e" mseEqErr;
-##
-xvFine_XX = similar(RHO12Fine);
-xαFine_YY = similar(RHO12Fine);
+# RHO12Fine = RHO12Fine/sol.u; # normalizing
+println("Marginal pdf for V and α computed.")
 
-for i = 1:length(xVFine), j = 1:length(xαFine)
-    xvFine_XX[i, j] = xVFine[i]
-    xαFine_YY[i, j] = xαFine[j]
+## Marginal pdf for the states(V, q)
+function ρ14(xV,xq)
+    # p = [xV, xα]; y = [xθ, xq]
+    ρFnQuad23(y,p) = ρFn([xV;y;xq])
+    prob = QuadratureProblem(ρFnQuad23, [xα_min; xθ_min], [xα_max; xθ_max], p = 0)
+    sol = solve(prob,HCubatureJL(),reltol=1e-3,abstol=1e-3)
+    return sol.u
 end
+RHO14Fine = [ρ14(xvg, xqg) for xvg in xVFine, xqg in xqFine];
+RHO14Fine = RHO14Fine/sol.u; # normalizing
+println("Marginal pdf for V and q computed.")
+
+## Marginal pdf for the states(α, q)
+function ρ24(xα,xq)
+    ρFnQuad13(y,p) = ρFn([y[1];xα;y[2];xq])
+    prob = QuadratureProblem(ρFnQuad13, [xV_min; xθ_min], [xV_max; xθ_max], p = 0)
+    sol = solve(prob,HCubatureJL(),reltol=1e-3,abstol=1e-3)
+    return sol.u
+end
+RHO24Fine = [ρ24(xαg, xqg) for xαg in xαFine, xqg in xqFine];
+RHO24Fine = RHO24Fine/sol.u; # normalizing
+println("Marginal pdf for α and q computed.")
+
+## Marginal pdf for the states(α, θ)
+function ρ23(xα, xθ)
+    ρFnQuad14(y,p) = ρFn([y[1];xα;xθ;y[2]])
+    prob = QuadratureProblem(ρFnQuad14, [xV_min; xq_min], [xV_max; xq_max], p = 0)
+    sol = solve(prob,HCubatureJL(),reltol=1e-3,abstol=1e-3)
+    return sol.u
+end
+RHO23Fine = [ρ23(xαg, xθg) for xαg in xαFine, xθg in xθFine];
+RHO23Fine = RHO23Fine/sol.u; # normalizing
+println("Marginal pdf for α and θ computed.")
+
+
 
 ## Plot shown in paper
-function plotDistErr(figNum)
+function plotDistErr(figNum,x1Fine,x2Fine,RHOFine, label1, label2)
+    XX = similar(RHOFine);
+    YY = similar(RHOFine);
+
+    for i = 1:length(x1Fine), j = 1:length(x2Fine)
+        XX[i, j] = x1Fine[i]
+        YY[i, j] = x2Fine[j]
+    end
 
     figure(figNum, [8, 4])
     clf()
-    # subplot(1, 2, 1)
-    # figure(figNum); clf();
-    pcolor(xvFine_XX, xαFine_YY, RHO12Fine, shading = "auto", cmap = "inferno")
+    pcolor(XX, YY, RHOFine, shading = "auto", cmap = "inferno")
+    # pcolor(xvFine_XX, xαFine_YY, RHO12Fine, shading = "auto", cmap = "inferno")
     colorbar()
-    xlabel("V")
-    ylabel(L"$α$")
+    xlabel(label1)
+    ylabel(label2)
     axis("auto")
     title("Steady-State Solution (ρ)")
-
-    # subplot(1, 2, 2)
-    # pcolormesh(XXFine, YYFine, FFFine, cmap = "inferno", shading = "auto")
-    # colorbar()
-    # axis("auto")
-    # title(L"Equation Error; $ϵ_{pde}$ = %$(mseEqErrStr)")
-    # xlabel("x1")
-    # ylabel("x2")
 
     tight_layout()
 
 end
-plotDistErr(3);
+plotDistErr(12, xVFine,xαFine, RHO12Fine, "V (ft/s)", "α (rad)");
+plotDistErr(14, xVFine,xqFine, RHO14Fine, "V (ft/s)", "q (rad/s)");
+plotDistErr(24, xαFine,xqFine, RHO24Fine, "α (rad)", "q (rad/s)");
+plotDistErr(23, xαFine,xθFine, RHO23Fine, "α (rad)", "θ (rad");
 
+# any(isnan.(RHO24Fine))
+##
+# ρ12_int = trapz((xVFine,xαFine), RHO12Fine); @show ρ12_int
+# ρ14_int = trapz((xVFine,xqFine), RHO12Fine); @show ρ14_int
+# ρ24_int = trapz((xαFine,xqFine), RHO24Fine); @show ρ24_int
+# ρ23_int = trapz((xαFine,xθFine), RHO23Fine); @show ρ23_int
