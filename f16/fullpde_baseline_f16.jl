@@ -22,7 +22,7 @@ maxOptIters = 2000; # maximum number of training iterations
 # opt = Optim.LBFGS(); # Optimizer used for training
 opt = ADAM(1e-3); 
 expNum = 1;
-saveFile = "data_fullpde/baseline_f16_ADAM_gpu_$(expNum)_$(maxOptIters).jld2";
+saveFile = "data_fullpde/fullpde_f16_cpu_$(expNum).jld2";
 runExp = false; # flag to check if running batch file
 if runExp
     open("out_fullpde/log$(expNum).txt", "a+") do io
