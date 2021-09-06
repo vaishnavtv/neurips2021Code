@@ -43,3 +43,10 @@ cont_vdp/batch.slurm
 f16/baseline_f16_2.jl
 f16/quad_batch.slurm
 f16/outQuad
+f16/out_fullpde
+f16/fullpde_batch.slurm
+quad_f16_self
+f16/ll_quad_batch.slurm
+f16/data
+f16/dataQuad
+f16/out_ll_quad
