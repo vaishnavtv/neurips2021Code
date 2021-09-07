@@ -25,9 +25,9 @@ maxOpt1Iters = 10000; # maximum number of training iterations for opt1
 opt2 = Optim.LBFGS(); # second optimizer used for fine-tuning
 maxOpt2Iters = 1000; # maximum number of training iterations for opt2
 
-expNum = 5;
+expNum = 6;
 saveFile = "data_ll_quad/ll_quad_f16_$(expNum).jld2";
-runExp = false; # flag to check if running batch file
+runExp = true; # flag to check if running batch file
 runExp_fileName = ("out_ll_quad/log$(expNum).txt");
 if runExp
     open(runExp_fileName, "a+") do io
