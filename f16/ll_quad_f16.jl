@@ -18,14 +18,14 @@ import Random: seed!;
 seed!(1);
 
 # parameters for neural network
-nn = 50; # number of neurons in the hidden layers
-activFunc = tanh; # activation function
+nn = 100; # number of neurons in the hidden layers
+activFunc = relu; # activation function
 opt1 = ADAM(1e-5); # primary optimizer used for training
 maxOpt1Iters = 10000; # maximum number of training iterations for opt1
 opt2 = Optim.LBFGS(); # second optimizer used for fine-tuning
 maxOpt2Iters = 1000; # maximum number of training iterations for opt2
 
-expNum = 3;
+expNum = 4;
 saveFile = "data_ll_quad/ll_quad_f16_$(expNum).jld2";
 runExp = true; # flag to check if running batch file
 runExp_fileName = ("out_ll_quad/log$(expNum).txt");
@@ -122,7 +122,7 @@ bcs = [
 
 ## Neural network
 dim = length(domains) # number of dimensions
-quadrature_strategy = NeuralPDE.QuadratureTraining(quadrature_alg=CubatureJLh(),reltol=1e-3,abstol=1e-3,maxiters =50, batch=100)
+quadrature_strategy = NeuralPDE.QuadratureTraining(quadrature_alg=CubatureJLh(),reltol=1,abstol=1e-4,maxiters =50, batch=100)
 chain = Chain(Dense(dim, nn, activFunc), Dense(nn, nn, activFunc),Dense(nn, nn, activFunc), Dense(nn, 1));;
 
 initθ = DiffEqFlux.initial_params(chain) #|> gpu;
