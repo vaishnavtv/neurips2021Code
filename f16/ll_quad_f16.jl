@@ -24,9 +24,9 @@ opt1 = ADAM(1e-5); # primary optimizer used for training
 maxOpt1Iters = 10000; # maximum number of training iterations for opt1
 opt2 = Optim.LBFGS(); # second optimizer used for fine-tuning
 maxOpt2Iters = 1000; # maximum number of training iterations for opt2
-α_bc = 0.1;
+α_bc = 0.01;
 
-expNum = 7;
+expNum = 8;
 saveFile = "data_ll_quad/ll_quad_f16_$(expNum).jld2";
 runExp = true; # flag to check if running batch file
 runExp_fileName = ("out_ll_quad/log$(expNum).txt");
