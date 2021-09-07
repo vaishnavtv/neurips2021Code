@@ -24,14 +24,15 @@ opt1 = ADAM(1e-5); # primary optimizer used for training
 maxOpt1Iters = 10000; # maximum number of training iterations for opt1
 opt2 = Optim.LBFGS(); # second optimizer used for fine-tuning
 maxOpt2Iters = 1000; # maximum number of training iterations for opt2
+α_bc = 0.1;
 
-expNum = 6;
+expNum = 7;
 saveFile = "data_ll_quad/ll_quad_f16_$(expNum).jld2";
 runExp = true; # flag to check if running batch file
 runExp_fileName = ("out_ll_quad/log$(expNum).txt");
 if runExp
     open(runExp_fileName, "a+") do io
-        write(io, "Running ll_quad_f16_ using Quadrature strategy on CPU. pdelossfunction fixed. Diffusion only in V.
+        write(io, "Running ll_quad_f16_ using Quadrature strategy on CPU. pdelossfunction fixed. BC_losses coefficient: $(α_bc).
         $(nn) neurons in the 3 hidden layers. $(maxOpt1Iters) iterations with ADAM (1e-5) and then $(maxOpt2Iters) iterations with LBFGS. \nExperiment number: $(expNum).\n")
     end
 end
@@ -211,7 +212,7 @@ bc_loss_function_sum = θ -> sum(map(l -> l(θ), bc_loss_functions))
 @show bc_loss_function_sum(initθ)
 
 function loss_function_(θ, p)
-    return pde_loss_function_custom(θ) + bc_loss_function_sum(θ)
+    return pde_loss_function_custom(θ) + α_bc*bc_loss_function_sum(θ)
 end
 @show loss_function_(initθ, 0)
 
@@ -231,11 +232,11 @@ cb_ = function (p, l)
         "Individual losses are: PDE loss:",
         pde_loss_function_custom(p),
         "; BC loss:",
-        bc_loss_function_sum(p),
+        α_bc*bc_loss_function_sum(p),
     )
 
     push!(PDE_losses, pde_loss_function_custom(p))
-    push!(BC_losses, bc_loss_function_sum(p))
+    push!(BC_losses, α_bc*bc_loss_function_sum(p))
     
     if runExp # if running job file
         open(runExp_fileName, "a+") do io
