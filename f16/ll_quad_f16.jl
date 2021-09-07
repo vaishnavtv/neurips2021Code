@@ -27,7 +27,7 @@ maxOpt2Iters = 1000; # maximum number of training iterations for opt2
 
 expNum = 5;
 saveFile = "data_ll_quad/ll_quad_f16_$(expNum).jld2";
-runExp = true; # flag to check if running batch file
+runExp = false; # flag to check if running batch file
 runExp_fileName = ("out_ll_quad/log$(expNum).txt");
 if runExp
     open(runExp_fileName, "a+") do io
@@ -76,17 +76,19 @@ f(x) = f16Model_4x(x, xbar, ubar, Kc)
 
 ## PDE
 function g(x)
-    return Float32.([1.0; 0.0; 0.0; 0.0]) # diffusion in all states(?)
+    return Float32.(1.0I(4)); #Float32.([1.0; 1.0; 1.0; 1.0]) # diffusion in all states(?)
 end
 
 D_xV = Differential(xV);
 D_xα = Differential(xα);
 D_xθ = Differential(xθ);
 D_xq = Differential(xq);
-Q_fpke = 0.3f0; # Q = σ^2
+Q_fpke = 0.3f0*1.0I(4); # Q = σ^2
 
 ρ(x) = exp(η(x...));
-G = 0.5f0 * (g(xSym) * Q_fpke * g(xSym)') * ρ(xSym);
+diffC = 1/2*g(xSym)*Q_fpke*g(xSym)'; # diffusion coefficient D
+G = diffC*ρ(xSym);
+# G = 0.5f0 * (g(xSym) * Q_fpke * g(xSym)') * ρ(xSym);
 pde = D_xV(η(xSym...))~ 0.0f0; # placeholder pde
 ## Domain
 xV_min = 100;
@@ -182,7 +184,8 @@ function _pde_loss_function_custom(y, θ)
     end
     function term2(y) 
         # tmp = Q_fpke/2*sum(ForwardDiff.hessian(ρFn,y))
-        tmp = Q_fpke/2*(ForwardDiff.hessian(ρFn,y))[1]
+        tmp = sum(diffC.*ForwardDiff.hessian(ρFn,y))
+        # @show size(tmp)
         return tmp
     end
     pdeLoss(y) = (1/ρFn(y)*(-term1(y) + term2(y))); # pdeErr evaluated at state y (not squared)
