@@ -51,3 +51,4 @@ f16/ll_quad_batch.slurm
 f16/data
 f16/dataQuad
 f16/out_ll_quad
+f16/ll_quasi_batch.slurm
