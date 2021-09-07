@@ -24,9 +24,9 @@ opt1 = ADAM(1e-5); # primary optimizer used for training
 maxOpt1Iters = 10000; # maximum number of training iterations for opt1
 opt2 = Optim.LBFGS(); # second optimizer used for fine-tuning
 maxOpt2Iters = 1000; # maximum number of training iterations for opt2
-α_bc = 0.0; # weight on boundary loss
+α_bc = 1.0; # weight on boundary loss
 
-expNum = 1;
+expNum = 2;
 saveFile = "data_ll_quasi/ll_quasi_f16$(expNum).jld2";
 runExp = true; # flag to check if running batch file
 runExp_fileName = ("out_ll_quasi/log$(expNum).txt");
