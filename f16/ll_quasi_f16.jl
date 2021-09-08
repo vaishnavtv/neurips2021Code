@@ -18,7 +18,7 @@ import Random:seed!;
 seed!(1);
 
 # parameters for neural network
-nn = 20; # number of neurons in the hidden layers
+nn = 100; # number of neurons in the hidden layers
 activFunc = tanh; # activation function
 opt1 = ADAM(1e-3); # primary optimizer used for training
 maxOpt1Iters = 10000; # maximum number of training iterations for opt1
@@ -26,7 +26,7 @@ opt2 = Optim.LBFGS(); # second optimizer used for fine-tuning
 maxOpt2Iters = 1000; # maximum number of training iterations for opt2
 α_bc = 0.1; # weight on boundary loss
 
-expNum = 8;
+expNum = 9;
 saveFile = "data_ll_quasi/ll_quasi_f16$(expNum).jld2";
 runExp = true; # flag to check if running batch file
 runExp_fileName = ("out_ll_quasi/log$(expNum).txt");
