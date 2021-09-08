@@ -26,7 +26,7 @@ opt2 = Optim.LBFGS(); # second optimizer used for fine-tuning
 maxOpt2Iters = 1000; # maximum number of training iterations for opt2
 α_bc = 0.1; # weight on boundary loss
 
-expNum = 6;
+expNum = 7;
 saveFile = "data_ll_quasi/ll_quasi_f16$(expNum).jld2";
 runExp = true; # flag to check if running batch file
 runExp_fileName = ("out_ll_quasi/log$(expNum).txt");
@@ -129,7 +129,7 @@ bcs = [
 dim = length(domains) # number of dimensions
 quasirandom_strategy = NeuralPDE.QuasiRandomTraining(100;
                                                      sampling_alg=UniformSample(),
-                                                     resampling=false,
+                                                     resampling=true,
                                                      minibatch=100
                                                     )
 chain = Chain(Dense(dim, nn, activFunc), Dense(nn, nn, activFunc), Dense(nn, nn, activFunc), Dense(nn, 1));
