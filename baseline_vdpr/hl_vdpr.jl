@@ -2,6 +2,7 @@
 
 using NeuralPDE, Flux, ModelingToolkit, GalacticOptim, Optim, DiffEqFlux, Symbolics, JLD2
 using CUDA
+using Quadrature, Cubature
 
 import Random: seed!;
 seed!(1);
@@ -18,6 +19,9 @@ dx = 0.05
 
 suff = string(activFunc);
 saveFile = "data/dx5eM2_vdpr_$(suff)_$(nn)_gpu_hl_LB_quad.jld2";
+runExp = true;
+expNum = 1;
+runExp_fileName = ("out/log$(expNum).txt");
 
 # Van der Pol Rayleigh Dynamics
 @parameters x1, x2
@@ -62,9 +66,9 @@ bcs = [
 
 ## Neural network
 dim = 2 # number of dimensions
-chain = Chain(Dense(dim, nn, activFunc), Dense(nn, nn, activFunc), Dense(nn, 1)) |> gpu;
+chain = Chain(Dense(dim, nn, activFunc), Dense(nn, nn, activFunc), Dense(nn, 1)) #|> gpu;
 
-initθ = DiffEqFlux.initial_params(chain) |> gpu;
+initθ = DiffEqFlux.initial_params(chain) #|> gpu;
 
 # strategy = NeuralPDE.GridTraining(dx);
 strategy = NeuralPDE.QuadratureTraining(quadrature_alg=HCubatureJL(), reltol=1, abstol=1e-4, maxiters=500, batch=0)
@@ -74,12 +78,21 @@ discretization = NeuralPDE.PhysicsInformedNN(chain, strategy, init_params = init
 indvars = [x1, x2]
 depvars = [η]
 
+nSteps = 0;
 cb_ = function (p,l)
+    global nSteps = nSteps + 1;
     println("Current loss is: $l")
+    if runExp # if running job file
+        open(runExp_fileName, "a+") do io
+            write(io, "[$nSteps] Current loss is: $l \n")
+        end;
+        
+        jldsave(saveFile; optParam=Array(p));#, PDE_losses, BC_losses);
+    end
     return false
 end
 
-pde_system = PDESystem(pde, bcs, domains, indvars, depvars);
+@named pde_system = PDESystem(pde, bcs, domains, indvars, depvars);
 prob = NeuralPDE.discretize(pde_system, discretization);
 res = GalacticOptim.solve(prob, opt, cb = cb_, maxiters = maxOptIters);
 phi = discretization.phi;
@@ -87,4 +100,6 @@ phi = discretization.phi;
 
 ## Save data
 cd(@__DIR__)
-jldsave(saveFile;optParam = Array(res.minimizer));#, PDE_losses, BC_losses);
+if runExp
+    jldsave(saveFile;optParam = Array(res.minimizer));#, PDE_losses, BC_losses);
+end
