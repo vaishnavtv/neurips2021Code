@@ -12,7 +12,7 @@ using F16Model
 using CUDA
 CUDA.allowscalar(false)
     
-import Random: seed!;
+import Random:seed!;
 seed!(1);
 
 # parameters for neural network
@@ -21,12 +21,12 @@ activFunc = tanh; # activation function
 maxOptIters = 2000; # maximum number of training iterations
 # opt = Optim.LBFGS(); # Optimizer used for training
 opt = ADAM(1e-4); 
-expNum = 3;
+expNum = 4;
 saveFile = "data_fullpde/fullpde_f16_cpu_$(expNum).jld2";
-runExp = true; # flag to check if running batch file
+runExp = false; # flag to check if running batch file
 if runExp
     open("out_fullpde/log$(expNum).txt", "a+") do io
-        write(io, "Running everything on CPU with $(nn) neurons in 2 hidden layers for $(maxOptIters) iterations. Using just ADAM with lr 1e-3. Discretization size updated 0.5dx. \n")
+        write(io, "Running everything on CPU with $(nn) neurons in 2 hidden layers for $(maxOptIters) iterations. Using just ADAM with lr $(opt.eta). Discretization size updated 0.5dx. \n")
     end;
 end
 ##
@@ -40,7 +40,7 @@ function f16Model_4x(x4, xbar, ubar, Kc)
     # x4 are the states, not perturbations
     xFull = Vector{Real}(undef, length(xbar))
     xFull .= xbar
-    xFull[ind_x] .= Array(x4)#(x4)
+    xFull[ind_x] .= Array(x4)# (x4)
     uFull = Vector{Real}(undef, length(ubar))
     uFull .= ubar
     u = (Kc * (Array(x4) .- xbar[ind_x])) # controller
@@ -81,9 +81,10 @@ D_xV = Differential(xV);
 D_xα = Differential(xα);
 D_xθ = Differential(xθ);
 D_xq = Differential(xq);
-Q_fpke = 0.3f0; # Q = σ^2
+Q_fpke = 0.3f0 * 1.0I(4); # Q = σ^2
 
 ρ(x) = exp(η(x...));
+diffC = 1 / 2 * g(xSym) * Q_fpke * g(xSym)'; # diffusion coefficient D
 pde = D_xV(η(xSym...)) ~ 0.0f0; # placeholder pde
 
 ## Domain
@@ -93,19 +94,20 @@ xα_min = deg2rad(-20);
 xα_max = deg2rad(40);
 xθ_min = xα_min;
 xθ_max = xα_max;
-xq_min = -pi/6;
-xq_max = pi/6;
+xq_min = -pi / 6;
+xq_max = pi / 6;
 domains = [
     xV ∈ IntervalDomain(xV_min, xV_max),
     xα ∈ IntervalDomain(xα_min, xα_max),
     xθ ∈ IntervalDomain(xθ_min, xθ_max),
     xq ∈ IntervalDomain(xq_min, xq_max),
 ];
+diffC = 1 / 2 * g(xSym) * Q_fpke * g(xSym)'; # diffusion coefficient D
 
 ## Grid discretization
 dV = 100.0; dα = deg2rad(10); 
 dθ = dα; dq = deg2rad(10);
-dx = 0.5*[dV; dα; dθ; dq]; # grid discretization in V (ft/s), α (rad), θ (rad), q (rad/s)
+dx = 0.5 * [dV; dα; dθ; dq]; # grid discretization in V (ft/s), α (rad), θ (rad), q (rad/s)
 
 
 # Boundary conditions
@@ -124,7 +126,7 @@ bcs = [
 dim = length(domains) # number of dimensions
 chain = Chain(Dense(dim, nn, activFunc), Dense(nn, nn, activFunc), Dense(nn, 1));;
 
-initθ = DiffEqFlux.initial_params(chain) #|> gpu;
+initθ = DiffEqFlux.initial_params(chain) # |> gpu;
 eltypeθ = eltype(initθ)
 
 parameterless_type_θ = DiffEqBase.parameterless_type(initθ);
@@ -152,15 +154,15 @@ _bc_loss_functions = [
         chain,
         initθ,
         strategy,
-        bc_indvars = bc_indvar,
+        bc_indvars=bc_indvar,
     ) for (bc, bc_indvar) in zip(bcs, bc_indvars)
 ]
 
 train_domain_set, train_bound_set =
     NeuralPDE.generate_training_sets(domains, dx, [pde], bcs, eltypeθ, indvars, depvars);
-train_domain_set = train_domain_set #|> gpu
+# train_domain_set = train_domain_set |> gpu
 train_domain_set_cpu = Array(train_domain_set[1])
-nTrainDomainSet = size(train_domain_set[1],2)
+nTrainDomainSet = size(train_domain_set[1], 2)
 
 function pde_loss_function_custom(θ)
     # custom self-written pde loss function
@@ -178,8 +180,9 @@ function pde_loss_function_custom(θ)
 
     # # TYPE 2
     ρFn(y) = exp(first(Array(phi(y, θ)))); # phi is the NN representing η
+    # ρFn(y) = exp.(phi(y, θ)); # phi is the NN representing η (GPU)
 
-    fxρ(y) = f(y)*ρFn(y);
+    fxρ(y) = f(y) * ρFn(y);
     gxρ(y) = 0.5 * (g(y) * Q * g(y)') * ρFn(y);
     
     function term1(y)
@@ -187,24 +190,23 @@ function pde_loss_function_custom(θ)
         return sum(diag(tmp))
     end
     function term2(y) # takes too long to compute
-        tmp = Q_fpke/2*sum(ForwardDiff.hessian(ρFn,y))
+        tmp = sum(diffC .* ForwardDiff.hessian(ρFn, y))
         return tmp
     end
-    pdeErr(y) = (1/ρFn(y)*((-term1(y)) + term2(y)))^2; # pdeErr evaluated at state y
+    pdeErr(y) = (1 / ρFn(y) * ((-term1(y)) + term2(y)))^2; # pdeErr evaluated at state y
         
     # errCols = mapslices(pdeErr, train_domain_set_cpu, dims = 1); # pde error for each column/state in training set (slightly better than map)
     # errCols = map(pdeErr, eachslice(train_domain_set_cpu, dims = 2)); # pde error for each column/state in training set
     # tmp = Float32(sum(errCols)/nTrainDomainSet); # mean squared error
 
-    tmp = (sum(pdeErr(train_domain_set_cpu[:,i]) for i in 1:nTrainDomainSet)/nTrainDomainSet) #mean squared error
+    tmp = (sum(pdeErr(train_domain_set_cpu[:,i]) for i in 1:nTrainDomainSet) / nTrainDomainSet) # mean squared error
     return Float32.(tmp)
 end
 
 @show pde_loss_function_custom(initθ)
 ##
 bc_loss_functions = [
-    NeuralPDE.get_loss_function(loss, set, eltypeθ, parameterless_type_θ, strategy) for
-    (loss, set) in zip(_bc_loss_functions, train_bound_set)
+    NeuralPDE.get_loss_function(loss, set, eltypeθ, parameterless_type_θ, strategy) for (loss, set) in zip(_bc_loss_functions, train_bound_set)
 ]
 bc_loss_function_sum = θ -> sum(map(l -> l(θ), bc_loss_functions))
 @show bc_loss_function_sum(initθ)
@@ -241,17 +243,17 @@ cb_ = function (p, l)
             write(io, "[$nSteps] Current loss is: $l \n")
         end;
         
-        jldsave(saveFile; optParam = Array(p), PDE_losses, BC_losses); ## save for checking.
+        jldsave(saveFile; optParam=Array(p), PDE_losses, BC_losses); ## save for checking.
     end
     return false
 end
 
 println("Calling GalacticOptim()");
-res = GalacticOptim.solve(prob, opt, cb = cb_, maxiters = maxOptIters);
+res = GalacticOptim.solve(prob, opt, cb=cb_, maxiters=maxOptIters);
 println("Optimization done.");
 
 ## Save data
 cd(@__DIR__);
 if runExp
-    jldsave(saveFile; optParam = Array(res.minimizer), PDE_losses, BC_losses);
+    jldsave(saveFile; optParam=Array(res.minimizer), PDE_losses, BC_losses);
 end
