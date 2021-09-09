@@ -19,21 +19,21 @@ seed!(1);
 
 # parameters for neural network
 nn = 100; # number of neurons in the hidden layers
-activFunc = sigmoid; # activation function
+activFunc = tanh; # activation function
 opt1 = ADAM(1e-3); # primary optimizer used for training
 maxOpt1Iters = 10000; # maximum number of training iterations for opt1
 opt2 = Optim.BFGS(); # second optimizer used for fine-tuning
 maxOpt2Iters = 1000; # maximum number of training iterations for opt2
 α_bc = 0.01;
 
-expNum = 19;
+expNum = 20;
 saveFile = "data_ll_quad/ll_quad_f16_$(expNum).jld2";
 runExp = true; # flag to check if running batch file
 runExp_fileName = ("out_ll_quad/log$(expNum).txt");
 if runExp
     open(runExp_fileName, "a+") do io
         write(io, "Running ll_quad_f16_ using Quadrature strategy on CPU. pdelossfunction fixed. BC_losses coefficient: $(α_bc).
-        $(nn) neurons in the 3 hidden layers with $(activFunc). $(maxOpt1Iters) iterations with ADAM $(opt1.eta) and then $(maxOpt2Iters) iterations with BFGS. Using HCubatureJL. \nExperiment number: $(expNum).\n")
+        $(nn) neurons in 5 hidden layers with $(activFunc). $(maxOpt1Iters) iterations with ADAM $(opt1.eta) and then $(maxOpt2Iters) iterations with BFGS. Using HCubatureJL. \nExperiment number: $(expNum).\n")
     end
 end
 
@@ -128,7 +128,7 @@ bcs = [
 ## Neural network
 dim = length(domains) # number of dimensions
 quadrature_strategy = NeuralPDE.QuadratureTraining(quadrature_alg=HCubatureJL(),reltol=1,abstol=1e-4,maxiters =50, batch=0)
-chain = Chain(Dense(dim, nn, activFunc), Dense(nn, nn, activFunc),Dense(nn, nn, activFunc), Dense(nn, 1));;
+chain = Chain(Dense(dim, nn, activFunc), Dense(nn, nn, activFunc),Dense(nn, nn, activFunc), Dense(nn, nn, activFunc), Dense(nn, nn, activFunc), Dense(nn, 1));;
 
 initθ = DiffEqFlux.initial_params(chain) #|> gpu;
 eltypeθ = eltype(initθ)
