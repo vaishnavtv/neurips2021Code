@@ -18,22 +18,22 @@ import Random:seed!;
 seed!(1);
 
 # parameters for neural network
-nn = 100; # number of neurons in the hidden layers
+nn = 50; # number of neurons in the hidden layers
 activFunc = tanh; # activation function
 opt1 = ADAM(1e-3); # primary optimizer used for training
 maxOpt1Iters = 10000; # maximum number of training iterations for opt1
 opt2 = Optim.LBFGS(); # second optimizer used for fine-tuning
 maxOpt2Iters = 1000; # maximum number of training iterations for opt2
-α_bc = 0.1; # weight on boundary loss
+α_bc = 0.01; # weight on boundary loss
 
-expNum = 9;
+expNum = 10;
 saveFile = "data_ll_quasi/ll_quasi_f16$(expNum).jld2";
 runExp = true; # flag to check if running batch file
 runExp_fileName = ("out_ll_quasi/log$(expNum).txt");
 if runExp
     open(runExp_fileName, "a+") do io
         write(io, "Running ll_quasi_f16_ using QuasiMonteCarlo strategy on CPU. pdelossfunction fixed. BC_losses coefficient: $(α_bc).
-        $(nn) neurons in the 3 hidden layers with $(activFunc) activation. $(maxOpt1Iters) iterations with ADAM $(opt1.eta) and then $(maxOpt2Iters) iterations with LBFGS. Updated quadrature strategy to use UniformSample() alg. Resampling. \nExperiment number: $(expNum).\n")
+        $(nn) neurons in 2 hidden layers with $(activFunc) activation. $(maxOpt1Iters) iterations with ADAM $(opt1.eta) and then $(maxOpt2Iters) iterations with LBFGS. Updated quadrature strategy to use LatinHypercubeSample() alg. Resampling false. \nExperiment number: $(expNum).\n")
     end
 end
 
@@ -128,11 +128,11 @@ bcs = [
 ## Neural network
 dim = length(domains) # number of dimensions
 quasirandom_strategy = NeuralPDE.QuasiRandomTraining(100;
-                                                     sampling_alg=UniformSample(),
-                                                     resampling=true,
-                                                     minibatch=100
+                                                     sampling_alg=LatinHypercubeSample(),
+                                                     resampling=false,
+                                                     minibatch=1000
                                                     )
-chain = Chain(Dense(dim, nn, activFunc), Dense(nn, nn, activFunc), Dense(nn, nn, activFunc), Dense(nn, 1));
+chain = Chain(Dense(dim, nn, activFunc), Dense(nn, nn, activFunc), Dense(nn, 1));
 # chain = Chain(Dense(dim, nn, activFunc), Dense(nn, nn, activFunc), Dense(nn, nn, activFunc), Dense(nn, nn, activFunc), Dense(nn, nn, activFunc), Dense(nn, 1));;
 
 initθ = DiffEqFlux.initial_params(chain)  # |> gpu;
