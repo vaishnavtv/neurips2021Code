@@ -17,7 +17,7 @@ CUDA.allowscalar(false)
 dx = 0.05
 
 suff = string(activFunc);
-saveFile = "data/dx5eM2_vdpr_$(suff)_$(nn)_gpu_hl_LB.jld2";
+saveFile = "data/dx5eM2_vdpr_$(suff)_$(nn)_gpu_hl_LB_quad.jld2";
 
 # Van der Pol Rayleigh Dynamics
 @parameters x1, x2
@@ -66,7 +66,8 @@ chain = Chain(Dense(dim, nn, activFunc), Dense(nn, nn, activFunc), Dense(nn, 1))
 
 initθ = DiffEqFlux.initial_params(chain) |> gpu;
 
-strategy = NeuralPDE.GridTraining(dx);
+# strategy = NeuralPDE.GridTraining(dx);
+strategy = NeuralPDE.QuadratureTraining(quadrature_alg=HCubatureJL(), reltol=1, abstol=1e-4, maxiters=500, batch=0)
 
 discretization = NeuralPDE.PhysicsInformedNN(chain, strategy, init_params = initθ);
 
