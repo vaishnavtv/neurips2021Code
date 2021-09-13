@@ -23,8 +23,8 @@ dx = [dM; dα] # grid discretization in M, α (rad)
 
 
 suff = string(activFunc);
-saveFile = "data/ll_grid_missile_$(suff)_$(nn).jld2";
 runExp = true; expNum = 2;
+saveFile = "data/ll_grid_missile_$(suff)_$(nn)_exp$(expNum).jld2";
 runExp_fileName = "out/log$(expNum).txt";
 if runExp
     open(runExp_fileName, "a+") do io
@@ -124,7 +124,10 @@ _bc_loss_functions = [
 train_domain_set, train_bound_set =
     NeuralPDE.generate_training_sets(domains, dx, [pde], bcs, eltypeθ, indvars, depvars);# |> gpu;
 train_domain_set = train_domain_set #|> gpu
-
+if runExp
+    open(runExp_fileName, "a+") do io
+        write(io, "Size of training dataset: $(size(train_domain_set[1],2))\n")
+end;
 
 pde_loss_function = NeuralPDE.get_loss_function(
     _pde_loss_function,
@@ -184,5 +187,8 @@ println("Optimization done.");
 ## Save data
 cd(@__DIR__);
 if runExp
+    open(runExp_fileName, "a+") do io
+        write(io, "Size of training dataset: $(size(train_domain_set[1],2))\n")
+    end;
     jldsave(saveFile;optParam = Array(res.minimizer), PDE_losses, BC_losses);
 end
