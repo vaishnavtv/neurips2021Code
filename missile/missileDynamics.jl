@@ -10,7 +10,7 @@ function dynamicsMissile(x, u)
     a = x[2];
     g = xTrim[3];
     Q = xTrim[4];
-    abs_a = a*sign(x1) #sqrt(a^2)
+    abs_a = a*sign(a) #sqrt(a^2)
     xdot = Vector(undef, length(x));
 
     Mdot = 0.4008*M^2*a^3*sin(a)-0.6419*M^2*abs_a*a*sin(a)-0.2010*M^2*(2-M/3)*a*sin(a)-0.0062*M^2-0.0403*M^2*sin(a)*u[1]-0.0311*sin(g);
