@@ -18,17 +18,17 @@ opt = Optim.LBFGS(); # Optimizer used for training
 α_bc = 1.0;
 
 ## Grid discretization
-dM = 0.05; dα = 0.05;
+dM = 0.01; dα = 0.01;
 dx = [dM; dα] # grid discretization in M, α (rad)
 
 
 suff = string(activFunc);
 saveFile = "data/ll_grid_missile_$(suff)_$(nn).jld2";
-runExp = true; expNum = 1;
+runExp = true; expNum = 2;
 runExp_fileName = "out/log$(expNum).txt";
 if runExp
     open(runExp_fileName, "a+") do io
-        write(io, "Missile with GridTraining and dx = $(dx). 1 HL with $(nn) neurons in the hl and $(tanh) activation. Boundary loss coefficient: (α_bc). Optimizer: $(opt). 
+        write(io, "Missile with GridTraining and dx = $(dx). 1 HL with $(nn) neurons in the hl and $(tanh) activation. Boundary loss coefficient: (α_bc). Optimizer: LBFGS.. 
         Experiment number: $(expNum)\n")
     end
 end
