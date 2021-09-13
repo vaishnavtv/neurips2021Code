@@ -23,12 +23,13 @@ dx = [dM; dα] # grid discretization in M, α (rad)
 
 
 suff = string(activFunc);
-runExp = true; expNum = 3;
+runExp = true; 
+expNum = 4;
 saveFile = "data/ll_grid_missile_$(suff)_$(nn)_exp$(expNum).jld2";
 runExp_fileName = "out/log$(expNum).txt";
 if runExp
     open(runExp_fileName, "a+") do io
-        write(io, "Missile with GridTraining and dx = $(dx). 1 HL with $(nn) neurons in the hl and $(tanh) activation. Boundary loss coefficient: (α_bc). Optimizer: LBFGS.. 
+        write(io, "Missile with GridTraining and dx = $(dx). 1 HL with $(nn) neurons in the hl and $(tanh) activation. Boundary loss coefficient: (α_bc). Optimizer: LBFGS. Running on GPU. 
         Experiment number: $(expNum)\n")
     end
 end
@@ -73,7 +74,7 @@ bcs = [
 dim = 2 # number of dimensions
 chain = Chain(Dense(dim, nn, activFunc), Dense(nn, nn, activFunc), Dense(nn, 1)) ;#|> gpu;
 
-initθ = DiffEqFlux.initial_params(chain) #|> gpu;
+initθ = DiffEqFlux.initial_params(chain) |> gpu;
 flat_initθ = if (typeof(chain) <: AbstractVector)
     reduce(vcat, initθ)
 else
@@ -123,7 +124,7 @@ _bc_loss_functions = [
 
 train_domain_set, train_bound_set =
     NeuralPDE.generate_training_sets(domains, dx, [pde], bcs, eltypeθ, indvars, depvars);# |> gpu;
-train_domain_set = train_domain_set #|> gpu
+train_domain_set = train_domain_set |> gpu
 if runExp
     open(runExp_fileName, "a+") do io
         write(io, "Size of training dataset: $(size(train_domain_set[1],2))\n")
@@ -182,6 +183,10 @@ cb_ = function (p, l)
 end
 
 println("Calling GalacticOptim()");
+# res = GalacticOptim.solve(prob, opt1, cb=cb_, maxiters=maxOpt1Iters);
+# prob = remake(prob, u0=res.minimizer)
+# res = GalacticOptim.solve(prob, opt2, cb=cb_, maxiters=maxOpt2Iters);
+
 res = GalacticOptim.solve(prob, opt, cb = cb_, maxiters = maxOptIters);
 println("Optimization done.");
 
