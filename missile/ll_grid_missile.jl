@@ -23,7 +23,7 @@ dx = [dM; dα] # grid discretization in M, α (rad)
 
 
 suff = string(activFunc);
-runExp = true; expNum = 2;
+runExp = true; expNum = 3;
 saveFile = "data/ll_grid_missile_$(suff)_$(nn)_exp$(expNum).jld2";
 runExp_fileName = "out/log$(expNum).txt";
 if runExp
