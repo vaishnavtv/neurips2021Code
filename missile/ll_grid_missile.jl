@@ -127,6 +127,7 @@ train_domain_set = train_domain_set #|> gpu
 if runExp
     open(runExp_fileName, "a+") do io
         write(io, "Size of training dataset: $(size(train_domain_set[1],2))\n")
+    end
 end;
 
 pde_loss_function = NeuralPDE.get_loss_function(
