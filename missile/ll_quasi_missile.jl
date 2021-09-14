@@ -191,8 +191,5 @@ println("Optimization done.");
 ## Save data
 cd(@__DIR__);
 if runExp
-    open(runExp_fileName, "a+") do io
-        write(io, "Size of training dataset: $(size(train_domain_set[1],2))\n")
-    end;
     jldsave(saveFile;optParam = Array(res.minimizer), PDE_losses, BC_losses);
 end
