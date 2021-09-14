@@ -58,3 +58,5 @@ f16/out_ll_quasi
 missile/batch.slurm
 missile/out
 missile/gpu_batch.slurm
+missile/outQuad
+missile/quad_batch.slurm
