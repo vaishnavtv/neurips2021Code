@@ -28,7 +28,7 @@ dx = [dM; dα] # grid discretization in M, α (rad)
 
 
 suff = string(activFunc);
-runExp = false; 
+runExp = true; 
 expNum = 1;
 saveFile = "dataQuad/ll_quad_missile_$(suff)_$(nn)_exp$(expNum).jld2";
 runExp_fileName = "outQuad/log$(expNum).txt";
