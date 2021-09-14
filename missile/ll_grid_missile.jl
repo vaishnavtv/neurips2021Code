@@ -11,13 +11,13 @@ seed!(1);
 
 ## parameters for neural network
 nn = 48; # number of neurons in the hidden layer
-activFunc = tanh; # activation function
-opt1 = ADAM(1e-3); # primary optimizer used for training
+activFunc = sigmoid; # activation function
+# opt1 = ADAM(1e-3); # primary optimizer used for training
 maxOpt1Iters = 10000; # maximum number of training iterations for opt1
-opt2 = Optim.BFGS(); # second optimizer used for fine-tuning
-maxOpt2Iters = 1000; # maximum number of training iterations for opt2
+# opt2 = Optim.BFGS(); # second optimizer used for fine-tuning
+# maxOpt2Iters = 1000; # maximum number of training iterations for opt2
 # maxOptIters = 50000; # maximum number of training iterations
-# opt = Optim.LBFGS(); # Optimizer used for training
+opt1 = Optim.LBFGS(); # Optimizer used for training
 # opt = ADAM(1e-3); 
 α_bc = 1.0;
 
@@ -28,12 +28,12 @@ dx = [dM; dα] # grid discretization in M, α (rad)
 
 suff = string(activFunc);
 runExp = true; 
-expNum = 5;
+expNum = 6;
 saveFile = "data/ll_grid_missile_$(suff)_$(nn)_exp$(expNum).jld2";
 runExp_fileName = "out/log$(expNum).txt";
 if runExp
     open(runExp_fileName, "a+") do io
-        write(io, "Missile with GridTraining and dx = $(dx). 1 HL with $(nn) neurons in the hl and $(tanh) activation. Boundary loss coefficient: (α_bc). $(maxOpt1Iters) iterations with ADAM $(opt1.eta) and then $(maxOpt2Iters) iterations with BFGS.
+        write(io, "Missile with GridTraining and dx = $(dx). 1 HL with $(nn) neurons in the hl and $(tanh) activation. Boundary loss coefficient: $(α_bc). $(maxOpt1Iters) iterations with ADAM $(opt1.eta).
         Experiment number: $(expNum)\n")
     end
 end
@@ -188,8 +188,8 @@ end
 
 println("Calling GalacticOptim()");
 res = GalacticOptim.solve(prob, opt1, cb=cb_, maxiters=maxOpt1Iters);
-prob = remake(prob, u0=res.minimizer)
-res = GalacticOptim.solve(prob, opt2, cb=cb_, maxiters=maxOpt2Iters);
+# prob = remake(prob, u0=res.minimizer)
+# res = GalacticOptim.solve(prob, opt2, cb=cb_, maxiters=maxOpt2Iters);
 
 # res = GalacticOptim.solve(prob, opt, cb = cb_, maxiters = maxOptIters);
 println("Optimization done.");
