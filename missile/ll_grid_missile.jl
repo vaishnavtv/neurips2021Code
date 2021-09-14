@@ -33,7 +33,7 @@ saveFile = "data/ll_grid_missile_$(suff)_$(nn)_exp$(expNum).jld2";
 runExp_fileName = "out/log$(expNum).txt";
 if runExp
     open(runExp_fileName, "a+") do io
-        write(io, "Missile with GridTraining and dx = $(dx). 1 HL with $(nn) neurons in the hl and $(tanh) activation. Boundary loss coefficient: $(α_bc). $(maxOpt1Iters) iterations with ADAM $(opt1.eta).
+        write(io, "Missile with GridTraining and dx = $(dx). 1 HL with $(nn) neurons in the hl and $(tanh) activation. Boundary loss coefficient: $(α_bc). $(maxOpt1Iters) iterations with LBFGS.
         Experiment number: $(expNum)\n")
     end
 end
