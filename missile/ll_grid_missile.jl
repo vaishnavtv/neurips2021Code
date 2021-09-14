@@ -10,7 +10,7 @@ import Random: seed!;
 seed!(1);
 
 ## parameters for neural network
-nn = 48; # number of neurons in the hidden layer
+nn = 100; # number of neurons in the hidden layer
 activFunc = tanh; # activation function
 # opt1 = ADAM(1e-3); # primary optimizer used for training
 maxOpt1Iters = 10000; # maximum number of training iterations for opt1
@@ -28,7 +28,7 @@ dx = [dM; dα] # grid discretization in M, α (rad)
 
 suff = string(activFunc);
 runExp = true; 
-expNum = 8;
+expNum = 9;
 saveFile = "data/ll_grid_missile_$(suff)_$(nn)_exp$(expNum).jld2";
 runExp_fileName = "out/log$(expNum).txt";
 if runExp
