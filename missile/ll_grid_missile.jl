@@ -10,7 +10,7 @@ import Random: seed!;
 seed!(1);
 
 ## parameters for neural network
-nn = 100; # number of neurons in the hidden layer
+nn = 20; # number of neurons in the hidden layer
 activFunc = tanh; # activation function
 # opt1 = ADAM(1e-3); # primary optimizer used for training
 maxOpt1Iters = 10000; # maximum number of training iterations for opt1
@@ -19,7 +19,7 @@ maxOpt1Iters = 10000; # maximum number of training iterations for opt1
 # maxOptIters = 50000; # maximum number of training iterations
 opt1 = Optim.LBFGS(); # Optimizer used for training
 # opt = ADAM(1e-3); 
-α_bc = 0.0;
+α_bc = 1.0;
 
 ## Grid discretization
 dM = 0.01; dα = 0.01;
@@ -28,12 +28,12 @@ dx = [dM; dα] # grid discretization in M, α (rad)
 
 suff = string(activFunc);
 runExp = true; 
-expNum = 10;
+expNum = 11;
 saveFile = "data/ll_grid_missile_$(suff)_$(nn)_exp$(expNum).jld2";
 runExp_fileName = "out/log$(expNum).txt";
 if runExp
     open(runExp_fileName, "a+") do io
-        write(io, "Missile with GridTraining and dx = $(dx). 1 HL with $(nn) neurons in the hl and $(tanh) activation. Boundary loss coefficient: $(α_bc). $(maxOpt1Iters) iterations with LBFGS.
+        write(io, "Missile with GridTraining and dx = $(dx). 2 HL with $(nn) neurons in the hl and $(tanh) activation. Boundary loss coefficient: $(α_bc). $(maxOpt1Iters) iterations with LBFGS.
         Experiment number: $(expNum)\n")
     end
 end
@@ -76,7 +76,7 @@ bcs = [
 
 ## Neural network
 dim = 2 # number of dimensions
-chain = Chain(Dense(dim, nn, activFunc), Dense(nn, nn, activFunc), Dense(nn, 1)) ;#|> gpu;
+chain = Chain(Dense(dim, nn, activFunc), Dense(nn, nn, activFunc), Dense(nn, nn, activFunc), Dense(nn, 1)) ;#|> gpu;
 
 initθ = DiffEqFlux.initial_params(chain) #|> gpu;
 flat_initθ = if (typeof(chain) <: AbstractVector)
