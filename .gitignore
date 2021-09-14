@@ -60,3 +60,5 @@ missile/out
 missile/gpu_batch.slurm
 missile/outQuad
 missile/quad_batch.slurm
+missile/quasi_batch.slurm
+missile/outQuasi
