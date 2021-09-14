@@ -11,7 +11,7 @@ seed!(1);
 
 ## parameters for neural network
 nn = 48; # number of neurons in the hidden layer
-activFunc = sigmoid; # activation function
+activFunc = tanh; # activation function
 # opt1 = ADAM(1e-3); # primary optimizer used for training
 maxOpt1Iters = 10000; # maximum number of training iterations for opt1
 # opt2 = Optim.BFGS(); # second optimizer used for fine-tuning
@@ -19,7 +19,7 @@ maxOpt1Iters = 10000; # maximum number of training iterations for opt1
 # maxOptIters = 50000; # maximum number of training iterations
 opt1 = Optim.LBFGS(); # Optimizer used for training
 # opt = ADAM(1e-3); 
-α_bc = 1.0;
+α_bc = 0.0;
 
 ## Grid discretization
 dM = 0.01; dα = 0.01;
@@ -28,7 +28,7 @@ dx = [dM; dα] # grid discretization in M, α (rad)
 
 suff = string(activFunc);
 runExp = true; 
-expNum = 6;
+expNum = 8;
 saveFile = "data/ll_grid_missile_$(suff)_$(nn)_exp$(expNum).jld2";
 runExp_fileName = "out/log$(expNum).txt";
 if runExp
