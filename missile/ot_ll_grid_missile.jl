@@ -171,7 +171,7 @@ cb_ = function (p, l)
             write(io, "[$nSteps] Current loss is: $l \n")
         end;
         
-        jldsave(saveFile; optParam=Array(p), PDE_losses, BC_losses);
+        jldsave(saveFile; optParam=Array(p), PDE_losses1, BC_losses1);
     end
     return false
 end
