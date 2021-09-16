@@ -33,7 +33,7 @@ function f(x) # controlled nonlinear dynamics
 end
 
 function g(x)
-    return [0.0; 0.0].*1.0I(2); # diffusion in alpha
+    return [1.0; 0.0].*1.0I(2); # diffusion in alpha
     # M = x[1]; a = x[2];
     # return [-0.0403f0*M^2*sin(a); 0.0f0] 
 end
