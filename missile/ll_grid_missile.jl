@@ -28,12 +28,12 @@ dx = [dM; dα] # grid discretization in M, α (rad)
 
 suff = string(activFunc);
 runExp = true; 
-expNum = 13;
+expNum = 14;
 saveFile = "data/ll_grid_missile_$(suff)_$(nn)_exp$(expNum).jld2";
 runExp_fileName = "out/log$(expNum).txt";
 if runExp
     open(runExp_fileName, "a+") do io
-        write(io, "Missile with GridTraining and dx = $(dx). 2 HL with $(nn) neurons in the hl and $(suff) activation. Boundary loss coefficient: $(α_bc). $(maxOpt1Iters) iterations with ADAM and $(maxOpt2Iters) with BFGS.
+        write(io, "Missile with GridTraining and dx = $(dx). 2 HL with $(nn) neurons in the hl and $(suff) activation. Boundary loss coefficient: $(α_bc). $(maxOpt1Iters) iterations with ADAM and $(maxOpt2Iters) with BFGS. Fixed diffusion term. 
         Experiment number: $(expNum)\n")
     end
 end
@@ -45,7 +45,7 @@ xSym = [x1; x2]
 
 # PDE
 ρ(x) = exp(η(x...));
-Q_fpke = 0.1f0*1.0I(2); # σ^2
+Q_fpke = 0.01f0;#*1.0I(2); # σ^2
 F = f(xSym) * ρ(xSym); # drift term
 diffC = 0.5 * (g(xSym) * Q_fpke * g(xSym)'); # diffusion coefficient
 G = diffC * ρ(xSym); # diffusion term

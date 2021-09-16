@@ -11,8 +11,12 @@ seed!(1);
 ## parameters for neural network
 nn = 20; # number of neurons in the hidden layer
 activFunc = tanh; # activation function
-maxOptIters = 20; # maximum number of training iterations
-opt = Optim.LBFGS(); # Optimizer used for training
+maxOptIters = 1000; # maximum number of training iterations
+opt1 = ADAM(1e-3); # primary optimizer used for training
+maxOpt1Iters = 2000; # maximum number of training iterations for opt1
+opt2 = Optim.BFGS(); # second optimizer used for fine-tuning
+maxOpt2Iters = 1000; # maximum number of training iterations for opt2
+opt = Optim.LBFGS(); # Optimizer used for training in OT
 α_bc = 1.0;
 otIters = 20;
 maxNewPts = 200;
@@ -22,12 +26,12 @@ dx = [dM; dα] # grid discretization in M, α (rad)
 
 suff = string(activFunc);
 runExp = true; 
-expNum = 1;
+expNum = 2;
 saveFile = "dataOT/ll_grid_missile_$(suff)_$(nn)_exp$(expNum).jld2";
 runExp_fileName = "outOT/log$(expNum).txt";
 if runExp
     open(runExp_fileName, "a+") do io
-        write(io, "Missile with GridTraining and dx = $(dx). 2 HL with $(nn) neurons in the hl and $(suff) activation. Boundary loss coefficient: $(α_bc). Running OT for $(otIters) iters, $(maxNewPts) each iter. opt: LBFGS for $(maxOptIters).
+        write(io, "Missile with GridTraining and dx = $(dx). 2 HL with $(nn) neurons in the hl and $(suff) activation. Boundary loss coefficient: $(α_bc). Iteration 0 with 2 opts. $(maxOpt1Iters) iterations with ADAM and $(maxOpt2Iters) with BFGS. Then, running OT for $(otIters) iters, $(maxNewPts) each iter. opt: LBFGS for $(maxOptIters).
         Experiment number: $(expNum)\n")
     end
 end
@@ -177,7 +181,9 @@ cb_ = function (p, l)
 end
 
 println("Calling GalacticOptim()");
-res = GalacticOptim.solve(prob, opt, cb = cb_, maxiters = maxOptIters);
+res = GalacticOptim.solve(prob, opt1, cb=cb_, maxiters=maxOpt1Iters);
+prob = remake(prob, u0=res.minimizer)
+res = GalacticOptim.solve(prob, opt2, cb=cb_, maxiters=maxOpt2Iters);
 println("Optimization 0 done.");
 optParam1 = res.minimizer;
 
