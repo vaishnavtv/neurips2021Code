@@ -27,7 +27,7 @@ dx = [dM; dα] # grid discretization in M, α (rad)
 suff = string(activFunc);
 runExp = true; 
 expNum = 2;
-saveFile = "dataOT/ll_grid_missile_$(suff)_$(nn)_exp$(expNum).jld2";
+saveFile = "dataOT/ot_ll_grid_missile_$(suff)_$(nn)_exp$(expNum).jld2";
 runExp_fileName = "outOT/log$(expNum).txt";
 if runExp
     open(runExp_fileName, "a+") do io
