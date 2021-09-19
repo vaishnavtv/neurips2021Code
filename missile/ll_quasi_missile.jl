@@ -30,7 +30,7 @@ dx = [dM; dα] # grid discretization in M, α (rad)
 
 suff = string(activFunc);
 runExp = true; 
-expNum = 23;
+expNum = 24;
 saveFile = "dataQuasi/ll_quasi_missile_$(suff)_$(nn)_exp$(expNum).jld2";
 runExp_fileName = "outQuasi/log$(expNum).txt";
 if runExp
