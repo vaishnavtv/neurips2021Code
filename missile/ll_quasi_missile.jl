@@ -30,12 +30,12 @@ dx = [dM; dα] # grid discretization in M, α (rad)
 
 suff = string(activFunc);
 runExp = true; 
-expNum = 15;
+expNum = 16;
 saveFile = "dataQuasi/ll_quasi_missile_$(suff)_$(nn)_exp$(expNum).jld2";
 runExp_fileName = "outQuasi/log$(expNum).txt";
 if runExp
     open(runExp_fileName, "a+") do io
-        write(io, "Missile with QuasiMonteCarlo training. 2 HL with $(nn) neurons in the hl and $(suff) activation. Boundary loss coefficient: $(α_bc). $(maxOpt1Iters) iterations with ADAM and then $(maxOpt2Iters) with BFGS. Diffusion term g = [1,0]. Q_fpke = $(Q_fpke).
+        write(io, "Missile with QuasiMonteCarlo training. 2 HL with $(nn) neurons in the hl and $(suff) activation. Boundary loss coefficient: $(α_bc). $(maxOpt1Iters) iterations with ADAM and then $(maxOpt2Iters) with BFGS. Diffusion term g = [1,0]. Q_fpke = $(Q_fpke). Resampling.
         Experiment number: $(expNum)\n")
     end
 end
@@ -89,7 +89,7 @@ eltypeθ = eltype(flat_initθ)
 
 parameterless_type_θ = DiffEqBase.parameterless_type(flat_initθ);
 
-strategy = NeuralPDE.QuasiRandomTraining(100;sampling_alg=LatinHypercubeSample(), resampling=false,minibatch=1000)
+strategy = NeuralPDE.QuasiRandomTraining(100;sampling_alg=LatinHypercubeSample(), resampling=true,minibatch=1000)
 
 phi = NeuralPDE.get_phi(chain, parameterless_type_θ);
 derivative = NeuralPDE.get_numeric_derivative();
