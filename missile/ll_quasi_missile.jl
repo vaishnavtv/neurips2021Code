@@ -21,6 +21,7 @@ maxOpt2Iters = 1000; # maximum number of training iterations for opt2
 # opt1 = Optim.LBFGS(); # Optimizer used for training
 # opt = ADAM(1e-3); 
 α_bc = 1.0;
+Q_fpke = 0.1f0;#*1.0I(2); # σ^2
 
 ## Grid discretization
 dM = 0.01; dα = 0.01;
@@ -46,7 +47,6 @@ xSym = [x1; x2]
 
 # PDE
 ρ(x) = exp(η(x...));
-Q_fpke = 0.1f0;#*1.0I(2); # σ^2
 F = f(xSym) * ρ(xSym); # drift term
 diffC = 0.5 * (g(xSym) * Q_fpke * g(xSym)'); # diffusion coefficient
 G = diffC * ρ(xSym); # diffusion term
