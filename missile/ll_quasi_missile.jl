@@ -21,7 +21,7 @@ maxOpt2Iters = 1000; # maximum number of training iterations for opt2
 # opt1 = Optim.LBFGS(); # Optimizer used for training
 # opt = ADAM(1e-3); 
 α_bc = 1.0;
-Q_fpke = 0.1f0;#*1.0I(2); # σ^2
+Q_fpke = 0.01f0;#*1.0I(2); # σ^2
 
 ## Grid discretization
 dM = 0.01; dα = 0.01;
@@ -30,12 +30,12 @@ dx = [dM; dα] # grid discretization in M, α (rad)
 
 suff = string(activFunc);
 runExp = true; 
-expNum = 20;
+expNum = 21;
 saveFile = "dataQuasi/ll_quasi_missile_$(suff)_$(nn)_exp$(expNum).jld2";
 runExp_fileName = "outQuasi/log$(expNum).txt";
 if runExp
     open(runExp_fileName, "a+") do io
-        write(io, "Missile with QuasiMonteCarlo training. 2 HL with $(nn) neurons in the hl and $(suff) activation. Boundary loss coefficient: $(α_bc). $(maxOpt1Iters) iterations with ADAM and then $(maxOpt2Iters) with BFGS. Diffusion term g = [0,0]. Q_fpke = $(Q_fpke). Forward Time. No resampling.
+        write(io, "Missile with QuasiMonteCarlo training. 2 HL with $(nn) neurons in the hl and $(suff) activation. Boundary loss coefficient: $(α_bc). $(maxOpt1Iters) iterations with ADAM and then $(maxOpt2Iters) with BFGS. Diffusion term g = [0,1]. Q_fpke = $(Q_fpke). Forward Time. No resampling.
         Experiment number: $(expNum)\n")
     end
 end
