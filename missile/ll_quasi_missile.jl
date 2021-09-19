@@ -30,12 +30,12 @@ dx = [dM; dα] # grid discretization in M, α (rad)
 
 suff = string(activFunc);
 runExp = true; 
-expNum = 11;
+expNum = 12;
 saveFile = "dataQuasi/ll_quasi_missile_$(suff)_$(nn)_exp$(expNum).jld2";
 runExp_fileName = "outQuasi/log$(expNum).txt";
 if runExp
     open(runExp_fileName, "a+") do io
-        write(io, "Missile with QuasiMonteCarlo training. 2 HL with $(nn) neurons in the hl and $(suff) activation. Boundary loss coefficient: $(α_bc). $(maxOpt1Iters) iterations with ADAM and then $(maxOpt2Iters) with BFGS. Diffusion term g =[0,1]. Q_fpke = $(Q_fpke).
+        write(io, "Missile with QuasiMonteCarlo training. 2 HL with $(nn) neurons in the hl and $(suff) activation. Boundary loss coefficient: $(α_bc). $(maxOpt1Iters) iterations with ADAM and then $(maxOpt2Iters) with BFGS. Diffusion term g =[0,0]. Q_fpke = $(Q_fpke).
         Experiment number: $(expNum)\n")
     end
 end
