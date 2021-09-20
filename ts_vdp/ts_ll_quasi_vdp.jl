@@ -10,7 +10,7 @@ using QuasiMonteCarlo
 import Random:seed!; seed!(1);
 
 ## parameters for neural network
-nn = 48; # number of neurons in the hidden layer
+nn = 20; # number of neurons in the hidden layer
 activFunc = tanh; # activation function
 opt1 = ADAM(1e-3); # primary optimizer used for training
 maxOpt1Iters = 10000; # maximum number of training iterations for opt1
@@ -22,14 +22,14 @@ Q_fpke = 0.1f0; # Q_fpke = σ^2
 
 # file location to save data
 suff = string(activFunc);
-expNum = 1;
+expNum = 2;
 runExp = true;
 cd(@__DIR__);
 saveFile = "dataTS_quasi/ll_ts_vdp_exp$(expNum).jld2";
 runExp_fileName = "out_quasi/log$(expNum).txt";
 if runExp
     open(runExp_fileName, "a+") do io
-        write(io, "Transient vdp with QuasiMonteCarlo training. 2 HL with $(nn) neurons in the hl and $(suff) activation. $(maxOpt1Iters) iterations with ADAM and then $(maxOpt2Iters) with LBFGS.  Q_fpke = $(Q_fpke). 
+        write(io, "Transient vdp with QuasiMonteCarlo training. 3 HL with $(nn) neurons in the hl and $(suff) activation. $(maxOpt1Iters) iterations with ADAM and then $(maxOpt2Iters) with LBFGS.  Q_fpke = $(Q_fpke). 
         Experiment number: $(expNum)\n")
     end
 end
@@ -73,7 +73,7 @@ bcs = [ρ([-maxval,x2]) ~ 0.0f0, ρ([maxval,x2]) ~ 0.0f0,
 
 ## Neural network
 dim = 3 # number of dimensions
-chain = Chain(Dense(dim,nn,activFunc), Dense(nn,nn,activFunc), Dense(nn,1));
+chain = Chain(Dense(dim,nn,activFunc), Dense(nn,nn,activFunc), Dense(nn,nn,activFunc), Dense(nn,1));
 
 initθ = DiffEqFlux.initial_params(chain) |> gpu;
 flat_initθ = if (typeof(chain) <: AbstractVector)
