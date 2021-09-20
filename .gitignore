@@ -68,3 +68,5 @@ missile/outOT
 missile/test.jl
 ts_vdp/ts_grid_batch.slurm
 ts_vdp/out_grid
+ts_vdp/ts_quasi_batch.slurm
+ts_vdp/out_quasi
