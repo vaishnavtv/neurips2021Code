@@ -14,23 +14,24 @@ pygui(true);
 # @variables x1, x2
 
 # Load data 
-activFunc = tanh;
+activFunc = relu;
 dx = 0.05;
 suff = string(activFunc);
-nn = 50;
+nn = 100;
 optFlag = 1;
 
-Q_fpke = 0.3f0; # Q = σ^2
+Q_fpke = 0.3f0*1.0I(4); # Q = σ^2
 
+expNum = 7;
 cd(@__DIR__);
-fileLoc = "dataQuad/quad_baseline_f16_ADAM_4.jld2";
+fileLoc = "data_ll_quad/ll_quad_f16_$(expNum).jld2";
 
 println("Loading file");
 file = jldopen(fileLoc, "r");
 optParam = read(file, "optParam");
 PDE_losses = read(file, "PDE_losses");
-term1_losses = read(file, "term1_losses");
-term2_losses = read(file, "term2_losses");
+# term1_losses = read(file, "term1_losses");
+# term2_losses = read(file, "term2_losses");
 BC_losses = read(file, "BC_losses");
 close(file);
 
@@ -39,17 +40,30 @@ close(file);
 figure(1); clf();
 nIters = length(PDE_losses)
 semilogy(1:nIters, PDE_losses, label= "PDE_losses");
-semilogy(1:nIters, term1_losses, label= "term1_losses");
-semilogy(1:nIters, term2_losses, label= "term2_losses");
+# semilogy(1:nIters, term1_losses, label= "term1_losses");
+# semilogy(1:nIters, term2_losses, label= "term2_losses");
 semilogy(1:nIters, BC_losses, label = "BC_losses");
 legend();
+title("Quadrature with 3 hls with $(nn) neurons in each layer, $(activFunc) activation.")
 tight_layout();
 # savefig("figs/ADAM_100k.png");
 ## Neural network
 dim = 4;
-chain = Chain(Dense(dim, nn, activFunc), Dense(nn, nn, activFunc), Dense(nn, 1));
+# chain = Chain(Dense(dim, nn, activFunc), Dense(nn, nn, activFunc), Dense(nn, 1));
+chain = Chain(Dense(dim, nn, activFunc), Dense(nn, nn, activFunc),Dense(nn, nn, activFunc), Dense(nn, 1))
 parameterless_type_θ = DiffEqBase.parameterless_type(optParam);
 phi = NeuralPDE.get_phi(chain, parameterless_type_θ);
+
+## Domains
+xV_min = 100;
+xV_max = 1500;
+xα_min = deg2rad(-20);
+xα_max = deg2rad(40);
+xθ_min = xα_min;
+xθ_max = xα_max;
+xq_min = -pi/6;
+xq_max = pi/6;
+
 
 ## System Dynamics
 include("f16_controller.jl")
@@ -90,9 +104,9 @@ function ρ_pdeErr_fns(optParam)
     dη(x) = ForwardDiff.gradient(ηNetS, x)
     d2η(x) = ForwardDiff.jacobian(dη, x)
     
-    pdeErrFn(x) = (tr(df(x)) + dot(f(x), dη(x)) - Q_fpke / 2 * (sum(d2η(x)) + sum(dη(x)*dη(x)')))^2
+    pdeErrFn(x) = (tr(df(x)) + dot(f(x), dη(x)) - 1/2*sum(Q_fpke.*(d2η(x) + dη(x)*dη(x)')));  #* (sum(d2η(x)) + sum(dη(x)*dη(x)')))^2
     term1_pdeErrFn(x) = (tr(df(x)) + dot(f(x), dη(x)))^2
-    term2_pdeErrFn(x) = (Q_fpke / 2 * (sum(d2η(x)) + sum(dη(x)*dη(x)')))^2
+    term2_pdeErrFn(x) = 1/2*sum(Q_fpke.*(d2η(x) + dη(x)*dη(x)'))#(Q_fpke / 2 * (sum(d2η(x)) + sum(dη(x)*dη(x)')))^2
     
     
     # type 2
@@ -109,28 +123,19 @@ end
 ρFn, pdeErrFn, term1_pdeErrFn, term2_pdeErrFn = ρ_pdeErr_fns(optParam);
 @show ρFn(xbar[ind_x])
 @show pdeErrFn(xbar[ind_x])
-@show pdeErrFn2(xbar[ind_x])
+# s@show pdeErrFn2(xbar[ind_x])
 @show term1_pdeErrFn(xbar[ind_x])
 @show term2_pdeErrFn(xbar[ind_x])
 
 ## Compute pdeErr over domain using quadrature (taking forever to compute, investigate alternative?)
-pdeErrQuad(y,p) = term1_pdeErrFn(y);
+pdeErrQuad(y,p) = pdeErrFn(y);
 prob = QuadratureProblem(pdeErrQuad, [xV_min,xα_min,xθ_min, xq_min], [xV_max, xα_max, xθ_max, xq_max], p = 0);
 # sol = solve(prob,HCubatureJL(),reltol=1e-3,abstol=1e-3)
 # pdeErrTotal = sol.u; @show pdeErrTotal
 
 
-## Domains
-xV_min = 100;
-xV_max = 1500;
-xα_min = deg2rad(-20);
-xα_max = deg2rad(40);
-xθ_min = xα_min;
-xθ_max = xα_max;
-xq_min = -pi/6;
-xq_max = pi/6;
 
-# Grid discretization
+## Grid discretization (not necessary if using Quadrature)
 dV = 100.0; dα = deg2rad(5); 
 dθ = dα; dq = deg2rad(5);
 dx = 0.1*[dV; dα; dθ; dq]; # grid discretization in V (ft/s), α (rad), θ (rad), q (rad/s)
