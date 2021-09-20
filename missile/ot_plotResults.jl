@@ -9,7 +9,7 @@ suff = string(activFunc);
 nn = 20;
 otIters = 20;
 maxNewPts = 200;
-expNum = 1;
+expNum = 2;
 
 cd(@__DIR__);
 include("missileDynamics.jl")
@@ -33,6 +33,7 @@ parameterless_type_θ = DiffEqBase.parameterless_type(optParams[1]);
 phi = NeuralPDE.get_phi(chain, parameterless_type_θ);
 
 Q_fpke = 0.1f0*1.0I(2); # σ^2
+diffC = 0.5 * (g(rand(2)) * Q_fpke * g(rand(2))'); # diffusion coefficient (constant in our case, not a fn of x)
 
 # Domain
 minM = 1.2; maxM = 2.5;

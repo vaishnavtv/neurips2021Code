@@ -1,4 +1,6 @@
-## Plot the results of the baseline-PINNs implementation for the Van der Pol oscillator
+## Plot the results of the baseline-PINNs implementation for the missile
+include("cpu_missileDynamics.jl")
+
 using JLD2,
     PyPlot,
     NeuralPDE,
@@ -11,20 +13,21 @@ using JLD2,
     ForwardDiff
 pygui(true);
 @variables x1, x2
+xSym = [x1, x2];
 
 # Load data 
 activFunc = tanh;
 dx = 0.01;
 suff = string(activFunc);
 nn = 20;
-expNum = 11;
-strategy = "grid";
+expNum = 9;
+strategy = "quasi";
 
-Q_fpke = 0.1f0*1.0I(2); # σ^2
+Q_fpke = 0.01f0#*1.0I(2); # σ^2
+diffC = 0.5 * (g(xSym) * Q_fpke * g(xSym)'); # diffusion coefficient (constant in our case, not a fn of x)
 
 cd(@__DIR__);
-include("missileDynamics.jl")
-fileLoc = "data/ll_$(strategy)_missile_$(suff)_$(nn)_exp$(expNum).jld2";
+fileLoc = "dataQuasi/ll_$(strategy)_missile_$(suff)_$(nn)_exp$(expNum).jld2";
 
 println("Loading file");
 file = jldopen(fileLoc, "r");
@@ -58,10 +61,15 @@ function ρ_pdeErr_fns(optParam)
     end
     ρNetS(x) = exp(ηNetS(x)) # solution after first iteration
     df(x) = ForwardDiff.jacobian(f, x)
+    dρ(x) = ForwardDiff.gradient(ρNetS,x) 
     dη(x) = ForwardDiff.gradient(ηNetS, x)
     d2η(x) = ForwardDiff.jacobian(dη, x)
 
-    pdeErrFn(x) = (tr(df(x)) + dot(f(x), dη(x)) - 1/2*sum(Q_fpke.*(d2η(x) + dη(x)*dη(x)')))#
+    pdeErrFn(x) = (tr(df(x)) + dot(f(x), dη(x)) - sum(diffC.*(d2η(x) + dη(x)*dη(x)')))#
+
+    # diffCTerm(x) = (0.5*g(x)*Q_fpke*g(x)');
+    # diffC1(x) = first(diffCTerm(x));
+    # pdeErrFn(x) = tr(df(x)) + dot(f(x), dη(x)) - (sum(diffCTerm(x).*(d2η(x) + dη(x)*dη(x)')) + first(ForwardDiff.hessian(diffC1, x))+ 2*first(dρ(x))*first(ForwardDiff.gradient(diffC1,x)))
     return ρNetS, pdeErrFn
 end
 ρFn, pdeErrFn = ρ_pdeErr_fns(optParam);
@@ -73,17 +81,16 @@ xxFine = range(minM, maxM, length = nEvalFine);
 yyFine = range(minα, maxα, length = nEvalFine);
 
 RHOPred = [ρFn([x, y]) for x in xxFine, y in yyFine];
-FFFine = [pdeErrFn([x, y])^2 for x in xxFine, y in yyFine];
+FFFine = [pdeErrFn([x, y])^2 for x in xxFine, y in yyFine]; # squared equation error on the evaluation grid
 @show maximum(RHOPred)
 maximum(FFFine)
-ρFn(xTrim[ii])
-@show ρFn([1,0])
+@show ρFn(xTrim[ii])
 # normalize
 normC = trapz((xxFine, yyFine), RHOPred)
 RHOFine = RHOPred / normC;
 
 println("The mean squared equation error with dx=$(dx) is:")
-mseEqErr = sum(FFFine[:] .^ 2) / length(FFFine);
+mseEqErr = sum(FFFine[:]) / length(FFFine);
 @show mseEqErr;
 mseEqErrStr = @sprintf "%.2e" mseEqErr;
 XXFine = similar(RHOFine);
@@ -101,7 +108,7 @@ function plotDistErr(figNum)
     clf()
     subplot(1, 2, 1)
     # figure(figNum); clf();
-    pcolor(XXFine, YYFine, RHOPred, shading = "auto", cmap = "inferno")
+    contourf(XXFine, YYFine, RHOPred, shading = "auto", cmap = "inferno")
     colorbar()
     xlabel("M")
     ylabel("α (rad)")
@@ -115,7 +122,8 @@ function plotDistErr(figNum)
     title(L"Equation Error; $ϵ_{pde}$ = %$(mseEqErrStr)")
     xlabel("M")
     ylabel("α (rad)")
-
+    # suptitle("FT; g = g(x); Q_fpke = $(Q_fpke);")
+    suptitle("FT; g = $(diag(g(xSym))); Q_fpke = $(Q_fpke);")
     tight_layout()
 
 end
