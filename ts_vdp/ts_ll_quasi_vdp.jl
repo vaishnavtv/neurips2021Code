@@ -22,8 +22,8 @@ Q_fpke = 0.1f0; # Q_fpke = σ^2
 
 # file location to save data
 suff = string(activFunc);
-expNum = 2;
-runExp = true;
+expNum = 3;
+runExp = false;
 cd(@__DIR__);
 saveFile = "dataTS_quasi/ll_ts_vdp_exp$(expNum).jld2";
 runExp_fileName = "out_quasi/log$(expNum).txt";
@@ -36,7 +36,7 @@ end
 
 ## set up the NeuralPDE framework using low-level API
 @parameters x1, x2, t
-@variables  u(..)
+@variables  η(..)
 
 x = [x1;x2]
 
@@ -49,15 +49,14 @@ end
 
 # PDE
 Dt = Differential(t); 
-ρ(x) = u(x[1],x[2],t); # time-varying density
+ρ(x) = exp(η(x[1],x[2],t)); # time-varying density
 F = f(x)*ρ(x);
 G = 0.5f0*(g(x)*Q_fpke*g(x)')*ρ(x);
 
 T1 = sum([Differential(x[i])(F[i]) for i in 1:length(x)]);
 T2 = sum([(Differential(x[i])*Differential(x[j]))(G[i,j]) for i in 1:length(x), j=1:length(x)]);
 
-Eqn = expand_derivatives(-T1+T2); # + dx*u(x1,x2)-1 ~ 0;
-pdeOrig = Dt(u(x1,x2,t)) + T1 - T2 ~ 0.0f0;
+pdeOrig = (Dt(η(x1,x2,t)) + T1 - T2)/ρ(x) ~ 0.0f0;
 pde = pdeOrig;
 
 ## Domain
@@ -68,8 +67,8 @@ domains = [x1 ∈ IntervalDomain(-maxval,maxval),
 
 # Initial and Boundary conditions
 bcs = [ρ([-maxval,x2]) ~ 0.0f0, ρ([maxval,x2]) ~ 0.0f0,
-       ρ([x1,-maxval]) ~ 0.0f0, ρ([x1,maxval]) ~ 0.0f0,
-       u(x1,x2,0) ~ 1.0f0];
+       ρ([x1,-maxval]) ~ 0.0f0, ρ([x1,maxval]) ~ 0.0f0];
+       
 
 ## Neural network
 dim = 3 # number of dimensions
@@ -90,7 +89,7 @@ phi = NeuralPDE.get_phi(chain, parameterless_type_θ);
 derivative = NeuralPDE.get_numeric_derivative();
 
 indvars = [x1, x2]
-depvars = [u(x1,x2,t)]
+depvars = [η(x1,x2,t)]
 
 integral = NeuralPDE.get_numeric_integral(strategy, indvars, depvars, chain, derivative);
 
