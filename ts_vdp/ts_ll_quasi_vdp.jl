@@ -22,14 +22,14 @@ Q_fpke = 0.1f0; # Q_fpke = σ^2
 
 # file location to save data
 suff = string(activFunc);
-expNum = 10;
+expNum = 11;
 runExp = true;
 cd(@__DIR__);
 saveFile = "dataTS_quasi/ll_ts_vdp_exp$(expNum).jld2";
 runExp_fileName = "out_quasi/log$(expNum).txt";
 if runExp
     open(runExp_fileName, "a+") do io
-        write(io, "Transient vdp with QuasiMonteCarlo training. 3 HL with $(nn) neurons in the hl and $(suff) activation. $(maxOpt1Iters) iterations with ADAM and then $(maxOpt2Iters) with LBFGS.  Q_fpke = $(Q_fpke). GPU giving NaN. Not using GPU. BC: ρ = 0 on boundary ∀ t > 0. Removing initial condition. Added steady state condition in symbolic expression form (dη/dt ~ 0 at tEnd). Resampling. tEnd = $(tEnd).
+        write(io, "Transient vdp with QuasiMonteCarlo training. 3 HL with $(nn) neurons in the hl and $(suff) activation. $(maxOpt1Iters) iterations with ADAM and then $(maxOpt2Iters) with LBFGS.  Q_fpke = $(Q_fpke). GPU giving NaN. Not using GPU. BC: ρ = 0 on boundary ∀ t > 0. Removing initial condition. Added steady state condition in symbolic expression form (dη/dt ~ 0 at tEnd). No Resampling. tEnd = $(tEnd).
         Experiment number: $(expNum)\n")
     end
 end
@@ -93,7 +93,7 @@ flat_initθ = initθ;
 eltypeθ = eltype(flat_initθ);
 parameterless_type_θ = DiffEqBase.parameterless_type(flat_initθ);
 
-strategy = NeuralPDE.QuasiRandomTraining(100;sampling_alg=LatinHypercubeSample(), resampling=true,minibatch=1000)
+strategy = NeuralPDE.QuasiRandomTraining(100;sampling_alg=LatinHypercubeSample(), resampling=false,minibatch=1000)
 
 phi = NeuralPDE.get_phi(chain, parameterless_type_θ);
 derivative = NeuralPDE.get_numeric_derivative();
