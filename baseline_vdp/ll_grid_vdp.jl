@@ -19,13 +19,13 @@ dx = 0.05; # discretization size used for training
 
 # file location to save data
 suff = string(activFunc);
-expNum = 1;
+expNum = 2;
 saveFile = "data_grid/ll_grid_vdp_exp$(expNum).jld2";
 runExp = true;
 runExp_fileName = "out_grid/log$(expNum).txt";
 if runExp
     open(runExp_fileName, "a+") do io
-        write(io, "Steady State vdp with Grid training. 2 HL with $(nn) neurons in the hl and $(suff) activation. $(maxOpt1Iters) iterations with ADAM and then $(maxOpt2Iters) with LBFGS. Using GPU. 
+        write(io, "Steady State vdp with Grid training. 2 HL with $(nn) neurons in the hl and $(suff) activation. $(maxOpt1Iters) iterations with ADAM and then $(maxOpt2Iters) with LBFGS. Not Using GPU. 
         Experiment number: $(expNum)\n")
     end
 end
@@ -68,7 +68,7 @@ bcs = [ρ([-maxval,x2]) ~ 0.f0, ρ([maxval,x2]) ~ 0,
 dim = 2 # number of dimensions
 chain = Chain(Dense(dim,nn,activFunc), Dense(nn,nn,activFunc), Dense(nn,1));
 
-initθ = DiffEqFlux.initial_params(chain) |> gpu;
+initθ = DiffEqFlux.initial_params(chain) #|> gpu;
 flat_initθ = initθ
 eltypeθ = eltype(flat_initθ);
 parameterless_type_θ = DiffEqBase.parameterless_type(flat_initθ);
@@ -114,8 +114,8 @@ _bc_loss_functions = [
 
 train_domain_set, train_bound_set =
     NeuralPDE.generate_training_sets(domains, dx, [pde], bcs, eltypeθ, indvars, depvars) ;
-train_domain_set = train_domain_set |> gpu;
-train_bound_set = train_bound_set |> gpu;
+train_domain_set = train_domain_set #|> gpu;
+train_bound_set = train_bound_set #|> gpu;
 
 pde_loss_function = NeuralPDE.get_loss_function(
     _pde_loss_function,
