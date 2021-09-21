@@ -6,6 +6,7 @@ using CUDA
 CUDA.allowscalar(false)
 
 import Random:seed!; seed!(1);
+using QuasiMonteCarlo
 
 ## parameters for neural network
 nn = 48; # number of neurons in the hidden layer
