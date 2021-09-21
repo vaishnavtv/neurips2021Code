@@ -2,8 +2,8 @@
 
 using NeuralPDE, Flux, ModelingToolkit, GalacticOptim, Optim, Symbolics, JLD2, DiffEqFlux
 
-# using CUDA
-# CUDA.allowscalar(false)
+using CUDA
+CUDA.allowscalar(false)
 
 import Random:seed!; seed!(1);
 using QuasiMonteCarlo
