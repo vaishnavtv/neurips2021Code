@@ -17,19 +17,19 @@ maxOpt1Iters = 10000; # maximum number of training iterations for opt1
 opt2 = Optim.LBFGS(); # second optimizer used for fine-tuning
 maxOpt2Iters = 1000; # maximum number of training iterations for opt2
 
-tEnd = 500.0f0 # 
+tEnd = 10.0f0 # 
 Q_fpke = 0.1f0; # Q_fpke = σ^2
 
 # file location to save data
 suff = string(activFunc);
-expNum = 9;
+expNum = 10;
 runExp = true;
 cd(@__DIR__);
 saveFile = "dataTS_quasi/ll_ts_vdp_exp$(expNum).jld2";
 runExp_fileName = "out_quasi/log$(expNum).txt";
 if runExp
     open(runExp_fileName, "a+") do io
-        write(io, "Transient vdp with QuasiMonteCarlo training. 3 HL with $(nn) neurons in the hl and $(suff) activation. $(maxOpt1Iters) iterations with ADAM and then $(maxOpt2Iters) with LBFGS.  Q_fpke = $(Q_fpke). GPU giving NaN. Not using GPU. BC: ρ = 0 on boundary ∀ t > 0. Removing initial condition. Added steady state condition in symbolic expression form (T1_ss - T2_ss ~ 0). Resampling. Very large tEnd = $(tEnd).
+        write(io, "Transient vdp with QuasiMonteCarlo training. 3 HL with $(nn) neurons in the hl and $(suff) activation. $(maxOpt1Iters) iterations with ADAM and then $(maxOpt2Iters) with LBFGS.  Q_fpke = $(Q_fpke). GPU giving NaN. Not using GPU. BC: ρ = 0 on boundary ∀ t > 0. Removing initial condition. Added steady state condition in symbolic expression form (dη/dt ~ 0 at tEnd). Resampling. tEnd = $(tEnd).
         Experiment number: $(expNum)\n")
     end
 end
@@ -66,14 +66,14 @@ domains = [x1 ∈ IntervalDomain(-maxval,maxval),
            t ∈ IntervalDomain(0, tEnd)];
 
 # Initial and Boundary conditions
-ρ_ss(x) = exp(η(x[1],x[2],tEnd)); # density at tEnd
-F_ss = f(xSym)*ρ_ss(xSym);
-G_ss = 0.5f0*(g(xSym)*Q_fpke*g(xSym)')*ρ_ss(xSym);
+# ρ_ss(x) = exp(η(x[1],x[2],tEnd)); # density at tEnd
+# F_ss = f(xSym)*ρ_ss(xSym);
+# G_ss = 0.5f0*(g(xSym)*Q_fpke*g(xSym)')*ρ_ss(xSym);
 
-T1_ss = sum([Differential(xSym[i])(F_ss[i]) for i in 1:length(xSym)]);
-T2_ss = sum([(Differential(xSym[i])*Differential(xSym[j]))(G_ss[i,j]) for i in 1:length(xSym), j=1:length(xSym)]);
-ssExp = (T1_ss - T2_ss)/ρ_ss(xSym); # steady state condition
-# ssρ  = Dt(exp(η(x1,x2,tEnd)));
+# T1_ss = sum([Differential(xSym[i])(F_ss[i]) for i in 1:length(xSym)]);
+# T2_ss = sum([(Differential(xSym[i])*Differential(xSym[j]))(G_ss[i,j]) for i in 1:length(xSym), j=1:length(xSym)]);
+# ssExp = (T1_ss - T2_ss)/ρ_ss(xSym); # steady state condition
+ssExp  =  Dt((η(x1,x2,tEnd)));
 
 
 bcs = [ρ([-maxval,x2]) ~ 0.0f0, ρ([maxval,x2]) ~ 0.0f0,
