@@ -22,14 +22,14 @@ Q_fpke = 0.1f0; # Q_fpke = σ^2
 
 # file location to save data
 suff = string(activFunc);
-expNum = 6;
+expNum = 7;
 runExp = true;
 cd(@__DIR__);
 saveFile = "dataTS_quasi/ll_ts_vdp_exp$(expNum).jld2";
 runExp_fileName = "out_quasi/log$(expNum).txt";
 if runExp
     open(runExp_fileName, "a+") do io
-        write(io, "Transient vdp with QuasiMonteCarlo training. 3 HL with $(nn) neurons in the hl and $(suff) activation. $(maxOpt1Iters) iterations with ADAM and then $(maxOpt2Iters) with LBFGS.  Q_fpke = $(Q_fpke). GPU giving NaN. Not using GPU. BC: ρ = 0 on boundary ∀ t > 0. Adding initial condition. Added steady state condition (Dt(ρ(tEnd)) == 0). Resampling. 
+        write(io, "Transient vdp with QuasiMonteCarlo training. 3 HL with $(nn) neurons in the hl and $(suff) activation. $(maxOpt1Iters) iterations with ADAM and then $(maxOpt2Iters) with LBFGS.  Q_fpke = $(Q_fpke). GPU giving NaN. Not using GPU. BC: ρ = 0 on boundary ∀ t > 0. Removing initial condition. Added steady state condition (Dt(ρ(tEnd)) == 0). Resampling. 
         Experiment number: $(expNum)\n")
     end
 end
@@ -78,7 +78,7 @@ ssρ  = Dt(exp(η(x1,x2,tEnd)));
 
 bcs = [ρ([-maxval,x2]) ~ 0.0f0, ρ([maxval,x2]) ~ 0.0f0,
        ρ([x1,-maxval]) ~ 0.0f0, ρ([x1,maxval]) ~ 0.0f0,
-       exp(η(x1,x2,0)) ~ 0.01, # initial condition
+    #    exp(η(x1,x2,0)) ~ 0.01, # initial condition
        ssρ ~ 0.0f0]; # staedy-state condition
 
 # bcs = [exp(η(x1,x2, 0)) ~ 1.0f0];
