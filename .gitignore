@@ -72,3 +72,5 @@ ts_vdp/ts_quasi_batch.slurm
 ts_vdp/out_quasi
 baseline_vdp/quasi_batch.slurm
 baseline_vdp/out_quasi
+baseline_vdp/grid_batch.slurm
+baseline_vdp/out_grid
