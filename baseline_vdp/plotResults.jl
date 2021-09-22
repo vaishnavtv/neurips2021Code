@@ -18,11 +18,12 @@ dx = 0.05;
 suff = string(activFunc);
 nn = 48;
 optFlag = 1;
-
+expNum = 3;
 Q = 0.1;
+strat = "grid";
 
 cd(@__DIR__);
-fileLoc = "data/dx5eM2_vdp_$(suff)_$(nn)_gpu_ll_LB.jld2";
+fileLoc = "data_$(strat)/ll_$(strat)_vdp_exp$(expNum).jld2";
 
 println("Loading file");
 file = jldopen(fileLoc, "r");
@@ -30,6 +31,7 @@ optParam = read(file, "optParam");
 PDE_losses = read(file, "PDE_losses");
 BC_losses = read(file, "BC_losses");
 close(file);
+println("Are any of the parameters NaN? $(any(isnan.(optParam)))")
 
 # Neural network
 chain = Chain(Dense(2, nn, activFunc), Dense(nn, nn, activFunc), Dense(nn, 1));
