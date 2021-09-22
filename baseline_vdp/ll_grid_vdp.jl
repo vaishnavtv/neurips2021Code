@@ -9,7 +9,7 @@ import Random:seed!; seed!(1);
 ## parameters for neural network
 nn = 48; # number of neurons in the hidden layer
 activFunc = tanh; # activation function
-opt1 = Optim.LBFGS(); # primary optimizer used for training
+opt1 = Optim.BFGS() ; # primary optimizer used for training
 maxOpt1Iters = 50000; # maximum number of training iterations for opt1
 opt2 = Optim.LBFGS(); # second optimizer used for fine-tuning
 maxOpt2Iters = 1000; # maximum number of training iterations for opt2
@@ -19,13 +19,13 @@ dx = 0.05; # discretization size used for training
 
 # file location to save data
 suff = string(activFunc);
-expNum = 3;
+expNum = 4;
 saveFile = "data_grid/ll_grid_vdp_exp$(expNum).jld2";
 runExp = true;
 runExp_fileName = "out_grid/log$(expNum).txt";
 if runExp
     open(runExp_fileName, "a+") do io
-        write(io, "Steady State vdp with Grid training. 2 HL with $(nn) neurons in the hl and $(suff) activation. $(maxOpt1Iters) iterations with ADAM and then $(maxOpt2Iters) with LBFGS. Not Using GPU. 
+        write(io, "Steady State vdp with Grid training. 2 HL with $(nn) neurons in the hl and $(suff) activation. $(maxOpt1Iters) iterations with BFGS and then $(maxOpt2Iters) with LBFGS. Not Using GPU. 
         Experiment number: $(expNum)\n")
     end
 end
