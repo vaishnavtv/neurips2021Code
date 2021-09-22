@@ -10,8 +10,8 @@ import Random:seed!; seed!(1);
 ## parameters for neural network
 nn = 48; # number of neurons in the hidden layer
 activFunc = tanh; # activation function
-opt1 = Optim.BFGS(); # primary optimizer used for training
-maxOpt1Iters = 50000; # maximum number of training iterations for opt1
+opt1 = ADAM(1e-3); # primary optimizer used for training
+maxOpt1Iters = 10000; # maximum number of training iterations for opt1
 opt2 = Optim.LBFGS(); # second optimizer used for fine-tuning
 maxOpt2Iters = 1000; # maximum number of training iterations for opt2
 
@@ -21,14 +21,14 @@ Q_fpke = 0.1f0; # Q_fpke = σ^2
 
 # file location to save data
 suff = string(activFunc);
-expNum = 3;
+expNum = 2;
 runExp = true;
 cd(@__DIR__);
 saveFile = "dataTS_grid/ll_ts_vdp_exp$(expNum).jld2";
 runExp_fileName = "out_grid/log$(expNum).txt";
 if runExp
     open(runExp_fileName, "a+") do io
-        write(io, "Transient vdp with grid training in η. 2 HL with $(nn) neurons in the hl and $(suff) activation. $(maxOpt1Iters) iterations with BFGS and then $(maxOpt2Iters) with LBFGS.  Q_fpke = $(Q_fpke). 
+        write(io, "Transient vdp with grid training in η. 2 HL with $(nn) neurons in the hl and $(suff) activation. $(maxOpt1Iters) iterations with ADAM and then $(maxOpt2Iters) with LBFGS.  Q_fpke = $(Q_fpke). Not running GPU. 
         Experiment number: $(expNum)\n")
     end
 end
@@ -75,7 +75,7 @@ bcs = [ρ([-maxval,x2]) ~ 0.0f0, ρ([maxval,x2]) ~ 0.0f0,
 dim = 3 # number of dimensions
 chain = Chain(Dense(dim,nn,activFunc), Dense(nn,nn,activFunc), Dense(nn,1));
 
-initθ = DiffEqFlux.initial_params(chain) |> gpu;
+initθ = DiffEqFlux.initial_params(chain) #|> gpu;
 flat_initθ = initθ
 eltypeθ = eltype(flat_initθ);
 parameterless_type_θ = DiffEqBase.parameterless_type(flat_initθ);
@@ -121,8 +121,8 @@ _bc_loss_functions = [
 
 train_domain_set, train_bound_set =
     NeuralPDE.generate_training_sets(domains, dx, [pde], bcs, eltypeθ, indvars, depvars) ;
-train_domain_set = train_domain_set |> gpu;
-train_bound_set = train_bound_set |> gpu;
+train_domain_set = train_domain_set #|> gpu;
+train_bound_set = train_bound_set #|> gpu;
 
 pde_loss_function = NeuralPDE.get_loss_function(
     _pde_loss_function,
