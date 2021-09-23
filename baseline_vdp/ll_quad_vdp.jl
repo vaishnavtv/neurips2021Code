@@ -80,8 +80,8 @@ strategy = NeuralPDE.QuadratureTraining(quadrature_alg=HCubatureJL(), reltol=1, 
 phi = NeuralPDE.get_phi(chain, parameterless_type_θ);
 derivative = NeuralPDE.get_numeric_derivative();
 
-indvars = xSym
-depvars = [η(xSym...)]
+indvars = x
+depvars = [η(x...)]
 
 integral = NeuralPDE.get_numeric_integral(strategy, indvars, depvars, chain, derivative);
 
