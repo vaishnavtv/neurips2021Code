@@ -133,7 +133,7 @@ bc_loss_functions = [
 bc_loss_function_sum = θ -> sum(map(l -> l(θ), bc_loss_functions))
 typeof(bc_loss_function_sum(initθ))
 function loss_function_(θ, p)
-    return pde_loss_function(θ) + α_bc*bc_loss_function_sum(θ)  
+    return pde_loss_function(θ) + bc_loss_function_sum(θ)  
 end
 @show bc_loss_function_sum(initθ)
 @show loss_function_(initθ,0)
