@@ -21,14 +21,14 @@ Q_fpke = 0.1f0; # Q_fpke = σ^2
 
 # file location to save data
 suff = string(activFunc);
-expNum = 5;
+expNum = 6;
 runExp = true;
 cd(@__DIR__);
 saveFile = "dataTS_grid/ll_ts_vdp_exp$(expNum).jld2";
 runExp_fileName = "out_grid/log$(expNum).txt";
 if runExp
     open(runExp_fileName, "a+") do io
-        write(io, "Transient vdp with grid training in η. 2 HL with $(nn) neurons in the hl and $(suff) activation. $(maxOpt1Iters) iterations with BFGS and then $(maxOpt2Iters) with LBFGS.  Q_fpke = $(Q_fpke). Not running GPU. Rerunning exp3 but giving it far more time to run. 
+        write(io, "Transient vdp with grid training in η. 2 HL with $(nn) neurons in the hl and $(suff) activation. $(maxOpt1Iters) iterations with BFGS and then $(maxOpt2Iters) with LBFGS.  Q_fpke = $(Q_fpke). Not running GPU. Added initial condition.
         Experiment number: $(expNum)\n")
     end
 end
@@ -64,11 +64,13 @@ domains = [x1 ∈ IntervalDomain(-maxval,maxval),
            x2 ∈ IntervalDomain(-maxval,maxval),
            t ∈ IntervalDomain(0, tEnd)];
 
-ssExp  =  Dt((η(x1,x2,tEnd)));
+ssExp  =  Dt((η(x1,x2,tEnd))); # steady-state expression
+icExp = exp(η(x1,x2,0)); # initial value
 
 # Initial and Boundary conditions
 bcs = [ρ([-maxval,x2]) ~ 0.0f0, ρ([maxval,x2]) ~ 0.0f0,
        ρ([x1,-maxval]) ~ 0.0f0, ρ([x1,maxval]) ~ 0.0f0,
+       icExp ~ 3.9555398f-5, # initial condition
        ssExp ~ 0.0f0]; # steady-state condition
 
 ## Neural network
