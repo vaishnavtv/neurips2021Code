@@ -20,13 +20,13 @@ maxOpt2Iters = 1000; # maximum number of training iterations for opt2
 
 # file location to save data
 suff = string(activFunc);
-expNum = 2;
+expNum = 3;
 saveFile = "data_quad/ll_quad_vdp_exp$(expNum).jld2";
 runExp = true;
 runExp_fileName = "out_quad/log$(expNum).txt";
 if runExp
     open(runExp_fileName, "a+") do io
-        write(io, "Steady State vdp with Quadrature training. 2 HL with $(nn) neurons in the hl and $(suff) activation. $(maxOpt1Iters) iterations with ADAM and then $(maxOpt2Iters) with LBFGS. Not using GPU. 
+        write(io, "Steady State vdp with Quadrature training. 2 HL with $(nn) neurons in the hl and $(suff) activation. $(maxOpt1Iters) iterations with ADAM and then $(maxOpt2Iters) with LBFGS. Using CubatureJlh.
         Experiment number: $(expNum)\n")
     end
 end
@@ -75,7 +75,7 @@ eltypeθ = eltype(flat_initθ)
 
 parameterless_type_θ = DiffEqBase.parameterless_type(flat_initθ);
 
-strategy = NeuralPDE.QuadratureTraining(quadrature_alg=HCubatureJL(), reltol=1, abstol=1e-4, maxiters=500, batch=0)
+strategy = NeuralPDE.QuadratureTraining(quadrature_alg=CubatureJLh(), reltol=1, abstol=1e-4, maxiters=500)
 
 phi = NeuralPDE.get_phi(chain, parameterless_type_θ);
 derivative = NeuralPDE.get_numeric_derivative();
