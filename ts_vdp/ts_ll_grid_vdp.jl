@@ -2,8 +2,8 @@
 
 using NeuralPDE, Flux, ModelingToolkit, GalacticOptim, Optim, Symbolics, JLD2, DiffEqFlux
 
-# using CUDA
-# CUDA.allowscalar(false)
+using CUDA
+CUDA.allowscalar(false)
 
 import Random:seed!; seed!(1);
 
@@ -11,24 +11,27 @@ import Random:seed!; seed!(1);
 nn = 48; # number of neurons in the hidden layer
 activFunc = tanh; # activation function
 opt1 = Optim.BFGS(); # primary optimizer used for training
+# opt1 = ADAM(1e-3) #Flux.Optimiser(ADAM(1e-3));
 maxOpt1Iters = 10000; # maximum number of training iterations for opt1
 opt2 = Optim.LBFGS(); # second optimizer used for fine-tuning
 maxOpt2Iters = 1000; # maximum number of training iterations for opt2
 
-dx = [0.05; 0.05; 0.1]; # discretization size used for training
-tEnd = 10.0 # 
+dx = [0.05f0; 0.05f0; 0.1f0]; # discretization size used for training
+tEnd = 10.0f0; 
 Q_fpke = 0.1f0; # Q_fpke = σ^2
 
 # file location to save data
 suff = string(activFunc);
-expNum = 6;
+expNum = 7;
 runExp = true;
+useGPU = false;
 cd(@__DIR__);
 saveFile = "dataTS_grid/ll_ts_vdp_exp$(expNum).jld2";
 runExp_fileName = "out_grid/log$(expNum).txt";
 if runExp
     open(runExp_fileName, "a+") do io
-        write(io, "Transient vdp with grid training in η. 2 HL with $(nn) neurons in the hl and $(suff) activation. $(maxOpt1Iters) iterations with BFGS and then $(maxOpt2Iters) with LBFGS.  Q_fpke = $(Q_fpke). Not running GPU. Added initial condition.
+        write(io, "Transient vdp with grid training in η. 2 HL with $(nn) neurons in the hl and $(suff) activation. $(maxOpt1Iters) iterations with ADAM and then $(maxOpt2Iters) with LBFGS.  Q_fpke = $(Q_fpke). Without GPU, check if gradients/losses match with previous experiments.
+        dx = $(dx). tEnd = $(tEnd).
         Experiment number: $(expNum)\n")
     end
 end
@@ -48,15 +51,31 @@ end
 
 # PDE
 Dt = Differential(t); 
+Dx2 = Differential(x2);
 ρ(x) = exp(η(x[1],x[2],t)); # time-varying density
 F = f(xSym)*ρ(xSym);
 G = 0.5f0*(g(xSym)*Q_fpke*g(xSym)')*ρ(xSym);
 
 T1 = sum([Differential(xSym[i])(F[i]) for i in 1:length(xSym)]);
 T2 = sum([(Differential(xSym[i])*Differential(xSym[j]))(G[i,j]) for i in 1:length(xSym), j=1:length(xSym)]);
+# T1 = sum([Symbolics.derivative(F[i], xSym[i]) for i = 1:length(xSym)]); # pde drift term
+# T2 = sum([
+#     Symbolics.derivative(Symbolics.derivative(G[i, j], xSym[i]), xSym[j]) for i = 1:length(xSym), j = 1:length(xSym)
+# ]); # pde diffusion term
 
 pdeOrig = (Dt(ρ(xSym)) + T1 - T2)/ρ(xSym) ~ 0.0f0;
-pde = pdeOrig;
+# pde = pdeOrig;
+
+# pde = (Differential(t)(exp(η(x1, x2, t))) + Differential(x1)(x2*exp(η(x1, x2, t))) + Differential(x2)(exp(η(x1, x2, t))*(x2*(1 - (x1^2)) - x1)))*(exp(η(x1, x2, t))^-1) ~ 0.0f0 # drift term works
+# diffTerm = 0.5f0*Q_fpke^2*(Differential(x2)(Differential(x2)(η(x1,x2,t))))# diffusion hessian term works
+# diffTerm = ((Differential(x2)(η(x1,x2,t)))*(Differential(x2)(η(x1,x2,t)))) # square of derivative doesn't work
+
+driftTerm = (Differential(t)(exp(η(x1, x2, t))) + Differential(x1)(x2*exp(η(x1, x2, t))) + Differential(x2)(exp(η(x1, x2, t))*(x2*(1 - (x1^2)) - x1)))*(exp(η(x1, x2, t))^-1)
+diffTerm1 = Differential(x2)(Differential(x2)(η(x1,x2,t))) 
+diffTerm2 = abs2(Differential(x2)(η(x1,x2,t))) # works
+diffTerm = Q_fpke/2*(diffTerm1 + diffTerm2); # diffusion term
+
+pde = Dt(η(x1,x2,t)) + driftTerm - diffTerm ~ 0.0f0 # full pde
 
 ## Domain
 maxval = 4.0; 
@@ -64,20 +83,24 @@ domains = [x1 ∈ IntervalDomain(-maxval,maxval),
            x2 ∈ IntervalDomain(-maxval,maxval),
            t ∈ IntervalDomain(0, tEnd)];
 
-ssExp  =  Dt((η(x1,x2,tEnd))); # steady-state expression
-icExp = exp(η(x1,x2,0)); # initial value
-
+ssExp  =  Dt((η(x1,x2,tEnd)));
+ρ_ic(x) = exp(η(x[1],x[2],0.0)); 
+icExp = ρ_ic(xSym)
 # Initial and Boundary conditions
 bcs = [ρ([-maxval,x2]) ~ 0.0f0, ρ([maxval,x2]) ~ 0.0f0,
-       ρ([x1,-maxval]) ~ 0.0f0, ρ([x1,maxval]) ~ 0.0f0,
-       icExp ~ 3.9555398f-5, # initial condition
+       ρ([x1,-maxval]) ~ 0.0f0, ρ([x1,maxval]) ~ 0.0f0, 
+       icExp ~ 1.5864454104134276e-5, # initial condition
        ssExp ~ 0.0f0]; # steady-state condition
 
 ## Neural network
 dim = 3 # number of dimensions
-chain = Chain(Dense(dim,nn,activFunc), Dense(nn,nn,activFunc), Dense(nn,1));
+chain = Chain(Dense(dim,nn, activFunc), Dense(nn,nn,activFunc), Dense(nn,1));
+# chain = Chain(Dense(dim,nn, activFunc), Dense(nn,nn,activFunc), Dense(nn,nn,activFunc), Dense(nn,1));
 
 initθ = DiffEqFlux.initial_params(chain) #|> gpu;
+if useGPU
+    initθ = initθ |> gpu;
+end
 flat_initθ = initθ
 eltypeθ = eltype(flat_initθ);
 parameterless_type_θ = DiffEqBase.parameterless_type(flat_initθ);
@@ -123,8 +146,10 @@ _bc_loss_functions = [
 
 train_domain_set, train_bound_set =
     NeuralPDE.generate_training_sets(domains, dx, [pde], bcs, eltypeθ, indvars, depvars) ;
-train_domain_set = train_domain_set #|> gpu;
-train_bound_set = train_bound_set #|> gpu;
+if useGPU
+    train_domain_set = train_domain_set |> gpu;
+    train_bound_set = train_bound_set |> gpu;
+end
 
 pde_loss_function = NeuralPDE.get_loss_function(
     _pde_loss_function,
@@ -156,6 +181,10 @@ nSteps = 0;
 PDE_losses = Float32[];
 BC_losses = Float32[];
 cb_ = function (p, l)
+    if any(isnan.(p))
+        println("SOME PARAMETERS ARE NaN.")
+    end
+
     global nSteps = nSteps + 1
     println("[$nSteps] Current loss is: $l")
     println(
