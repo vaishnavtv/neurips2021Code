@@ -3,7 +3,7 @@
 using NeuralPDE, Flux, ModelingToolkit, GalacticOptim, Optim, Symbolics, JLD2, DiffEqFlux
 
 using CUDA
-CUDA.allowscalar(true)
+CUDA.allowscalar(false)
 
 import Random:seed!; seed!(1);
 
@@ -23,7 +23,7 @@ Q_fpke = 0.1f0; # Q_fpke = σ^2
 # file location to save data
 suff = string(activFunc);
 expNum = 13;
-runExp = tfue;
+runExp = true;
 useGPU = true;
 cd(@__DIR__);
 saveFile = "dataTS_grid/ll_ts_vdp_exp$(expNum).jld2";
