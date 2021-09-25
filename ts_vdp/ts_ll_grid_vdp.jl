@@ -3,26 +3,26 @@
 using NeuralPDE, Flux, ModelingToolkit, GalacticOptim, Optim, Symbolics, JLD2, DiffEqFlux
 
 using CUDA
-CUDA.allowscalar(false)
+CUDA.allowscalar(true)
 
 import Random:seed!; seed!(1);
 
 ## parameters for neural network
 nn = 48; # number of neurons in the hidden layer
 activFunc = tanh; # activation function
-opt1 = Optim.LBFGS(); # primary optimizer used for training
+opt1 = Optim.BFGS(); # primary optimizer used for training
 # opt1 = ADAM(1e-3) #Flux.Optimiser(ADAM(1e-3));
 maxOpt1Iters = 10000; # maximum number of training iterations for opt1
 opt2 = Optim.LBFGS(); # second optimizer used for fine-tuning
 maxOpt2Iters = 1000; # maximum number of training iterations for opt2
 
-dx = [0.05f0; 0.05f0; 0.1f0]; # discretization size used for training
+dx = [0.1f0; 0.1f0; 0.1f0]; # discretization size used for training
 tEnd = 10.0f0; 
 Q_fpke = 0.1f0; # Q_fpke = σ^2
 
 # file location to save data
 suff = string(activFunc);
-expNum = 11;
+expNum = 12;
 runExp = true;
 useGPU = true;
 cd(@__DIR__);
@@ -31,7 +31,7 @@ runExp_fileName = "out_grid/log$(expNum).txt";
 if runExp
     open(runExp_fileName, "a+") do io
         write(io, "Transient vdp with grid training in η. 2 HL with $(nn) neurons in the hl and $(suff) activation. $(maxOpt1Iters) iterations with LBFGS and then $(maxOpt2Iters) with LBFGS.  Q_fpke = $(Q_fpke). Using GPU.
-        dx = $(dx). tEnd = $(tEnd). Trying with 2 GPUs. Don't know how it will work. 
+        dx = $(dx). tEnd = $(tEnd). BFGS with allowing scalar indexing. See how long it takes.
         Experiment number: $(expNum)\n")
     end
 end
