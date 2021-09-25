@@ -10,20 +10,20 @@ import Random:seed!; seed!(1);
 ## parameters for neural network
 nn = 48; # number of neurons in the hidden layer
 activFunc = tanh; # activation function
-opt1 = Optim.BFGS(); # primary optimizer used for training
+opt1 = Optim.LBFGS(); # primary optimizer used for training
 # opt1 = ADAM(1e-3) #Flux.Optimiser(ADAM(1e-3));
 maxOpt1Iters = 10000; # maximum number of training iterations for opt1
 opt2 = Optim.LBFGS(); # second optimizer used for fine-tuning
 maxOpt2Iters = 1000; # maximum number of training iterations for opt2
 
-dx = [0.1f0; 0.1f0; 0.1f0]; # discretization size used for training
-tEnd = 10.0f0; 
+dx = [0.1f0; 0.1f0; 1.0f0]; # discretization size used for training
+tEnd = 100.0f0; 
 Q_fpke = 0.1f0; # Q_fpke = σ^2
 
 # file location to save data
 suff = string(activFunc);
-expNum = 12;
-runExp = true;
+expNum = 13;
+runExp = tfue;
 useGPU = true;
 cd(@__DIR__);
 saveFile = "dataTS_grid/ll_ts_vdp_exp$(expNum).jld2";
@@ -31,7 +31,7 @@ runExp_fileName = "out_grid/log$(expNum).txt";
 if runExp
     open(runExp_fileName, "a+") do io
         write(io, "Transient vdp with grid training in η. 2 HL with $(nn) neurons in the hl and $(suff) activation. $(maxOpt1Iters) iterations with LBFGS and then $(maxOpt2Iters) with LBFGS.  Q_fpke = $(Q_fpke). Using GPU.
-        dx = $(dx). tEnd = $(tEnd). BFGS with allowing scalar indexing. See how long it takes.
+        dx = $(dx). Large tEnd = $(tEnd). tDomain from 1.0f0. Separating IC from PDE. 
         Experiment number: $(expNum)\n")
     end
 end
@@ -81,7 +81,7 @@ pde = Dt(η(x1,x2,t)) + driftTerm - diffTerm ~ 0.0f0 # full pde
 maxval = 4.0; 
 domains = [x1 ∈ IntervalDomain(-maxval,maxval),
            x2 ∈ IntervalDomain(-maxval,maxval),
-           t ∈ IntervalDomain(0, tEnd)];
+           t ∈ IntervalDomain(1.0f0, tEnd)];
 
 ssExp  =  Dt((η(x1,x2,tEnd)));
 ρ_ic(x) = exp(η(x[1],x[2],0.0)); 
@@ -89,7 +89,7 @@ icExp = ρ_ic(xSym)
 # Initial and Boundary conditions
 bcs = [ρ([-maxval,x2]) ~ 0.0f0, ρ([maxval,x2]) ~ 0.0f0,
        ρ([x1,-maxval]) ~ 0.0f0, ρ([x1,maxval]) ~ 0.0f0, 
-       icExp ~ 1.5864454104134276e-5, # initial condition
+       icExp ~ 1.5864454104134276f-5, # initial condition
        ssExp ~ 0.0f0]; # steady-state condition
 
 ## Neural network
