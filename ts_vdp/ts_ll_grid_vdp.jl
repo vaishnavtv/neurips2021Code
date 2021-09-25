@@ -22,7 +22,7 @@ Q_fpke = 0.1f0; # Q_fpke = σ^2
 
 # file location to save data
 suff = string(activFunc);
-expNum = 13;
+expNum = 14;
 runExp = true;
 useGPU = true;
 cd(@__DIR__);
@@ -31,7 +31,7 @@ runExp_fileName = "out_grid/log$(expNum).txt";
 if runExp
     open(runExp_fileName, "a+") do io
         write(io, "Transient vdp with grid training in η. 2 HL with $(nn) neurons in the hl and $(suff) activation. $(maxOpt1Iters) iterations with LBFGS and then $(maxOpt2Iters) with LBFGS.  Q_fpke = $(Q_fpke). Using GPU.
-        dx = $(dx). Large tEnd = $(tEnd). tDomain from 1.0f0. Separating IC from PDE. 
+        dx = $(dx). Large tEnd = $(tEnd). ρ(t0) = 1.
         Experiment number: $(expNum)\n")
     end
 end
@@ -81,7 +81,7 @@ pde = Dt(η(x1,x2,t)) + driftTerm - diffTerm ~ 0.0f0 # full pde
 maxval = 4.0; 
 domains = [x1 ∈ IntervalDomain(-maxval,maxval),
            x2 ∈ IntervalDomain(-maxval,maxval),
-           t ∈ IntervalDomain(1.0f0, tEnd)];
+           t ∈ IntervalDomain(0.0f0, tEnd)];
 
 ssExp  =  Dt((η(x1,x2,tEnd)));
 ρ_ic(x) = exp(η(x[1],x[2],0.0)); 
@@ -89,7 +89,7 @@ icExp = ρ_ic(xSym)
 # Initial and Boundary conditions
 bcs = [ρ([-maxval,x2]) ~ 0.0f0, ρ([maxval,x2]) ~ 0.0f0,
        ρ([x1,-maxval]) ~ 0.0f0, ρ([x1,maxval]) ~ 0.0f0, 
-       icExp ~ 1.5864454104134276f-5, # initial condition
+       icExp ~ 1.0f0, # initial condition
        ssExp ~ 0.0f0]; # steady-state condition
 
 ## Neural network
