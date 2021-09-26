@@ -19,11 +19,11 @@ maxOpt2Iters = 1000; # maximum number of training iterations for opt2
 dx = [0.1f0; 0.1f0; 0.1f0]; # discretization size used for training
 tEnd = 10.0f0; 
 Q_fpke = 0.1f0; # Q_fpke = σ^2
-α_ic = 10.0; # weight on initial loss
+α_ic = 100.0; # weight on initial loss
 
 # file location to save data
 suff = string(activFunc);
-expNum = 16;
+expNum = 17;
 runExp = true;
 useGPU = true;
 cd(@__DIR__);
