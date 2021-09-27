@@ -19,11 +19,11 @@ maxOpt2Iters = 1000; # maximum number of training iterations for opt2
 dx = [0.1f0; 0.1f0; 0.1f0]; # discretization size used for training
 tEnd = 10.0f0; 
 Q_fpke = 0.1f0; # Q_fpke = σ^2
-α_ic = 100.0; # weight on initial loss
+α_ic = 0.0; # weight on initial loss
 
 # file location to save data
 suff = string(activFunc);
-expNum = 17;
+expNum = 18;
 runExp = true;
 useGPU = true;
 cd(@__DIR__);
@@ -32,7 +32,7 @@ runExp_fileName = "out_grid/log$(expNum).txt";
 if runExp
     open(runExp_fileName, "a+") do io
         write(io, "Transient vdp with grid training in η. 2 HL with $(nn) neurons in the hl and $(suff) activation. $(maxOpt1Iters) iterations with LBFGS and then $(maxOpt2Iters) with LBFGS.  Q_fpke = $(Q_fpke). Using GPU.
-        dx = $(dx). tEnd = $(tEnd). Adding IC loss function separately with weight α_ic = $(α_ic). Using MSE.
+        dx = $(dx). tEnd = $(tEnd). Not enforcing steady-state. Not enforcing IC separately.
         Experiment number: $(expNum)\n")
     end
 end
@@ -90,8 +90,8 @@ icExp = ρ_ic(xSym)
 # Initial and Boundary conditions
 bcs = [ρ([-maxval,x2]) ~ 0.0f0, ρ([maxval,x2]) ~ 0.0f0,
        ρ([x1,-maxval]) ~ 0.0f0, ρ([x1,maxval]) ~ 0.0f0, 
-       icExp ~ 0.00015625f0, # initial condition
-       ssExp ~ 0.0f0]; # steady-state condition
+       icExp ~ 0.00015625f0];#, # initial condition
+    #    ssExp ~ 0.0f0]; # steady-state condition
 
 ## Neural network
 dim = 3 # number of dimensions
