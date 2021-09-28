@@ -23,7 +23,7 @@ Q_fpke = 0.1f0; # Q_fpke = σ^2
 
 # file location to save data
 suff = string(activFunc);
-expNum = 24;
+expNum = 25;
 runExp = true;
 useGPU = true;
 cd(@__DIR__);
@@ -32,7 +32,7 @@ runExp_fileName = "out_grid/log$(expNum).txt";
 if runExp
     open(runExp_fileName, "a+") do io
         write(io, "Transient vdp with grid training in η. 2 HL with $(nn) neurons in the hl and $(suff) activation. $(maxOpt1Iters) iterations with LBFGS and then $(maxOpt2Iters) with LBFGS.  Q_fpke = $(Q_fpke). Using GPU.
-        dx = $(dx). tEnd = $(tEnd). Not enforcing steady-state. Enforcing BC. Fixed drift term. 
+        dx = $(dx). tEnd = $(tEnd). Enforcing steady-state. Enforcing BC. Fixed drift term. 
         α_ic = $(α_ic). No extra weight on IC.
         Experiment number: $(expNum)\n")
     end
@@ -91,8 +91,8 @@ icExp = ρ_ic(xSym)
 # Initial and Boundary conditions
 bcs = [ρ([-maxval,x2]) ~ 0.0f0, ρ([maxval,x2]) ~ 0.0f0,
        ρ([x1,-maxval]) ~ 0.0f0, ρ([x1,maxval]) ~ 0.0f0, 
-       icExp ~ 0.00015625f0];#, # initial condition
-    #    ssExp ~ 0.0f0]; # steady-state condition
+       icExp ~ 0.00015625f0, # initial condition
+       ssExp ~ 0.0f0]; # steady-state condition
 
 ## Neural network
 dim = 3 # number of dimensions
