@@ -49,7 +49,7 @@ end
 Q_fpke = 0.1f0; # Q = σ^2
 ρ(x) = exp(η(x[1],x[2]));
 F = f(x)*ρ(x);
-G = 0.5f0*(g(x)*Q*g(x)')*ρ(x);
+G = 0.5f0*(g(x)*Q_fpke*g(x)')*ρ(x);
 
 T1 = sum([Differential(x[i])(F[i]) for i in 1:length(x)]);
 T2 = sum([(Differential(x[i])*Differential(x[j]))(G[i,j]) for i in 1:length(x), j=1:length(x)]);
