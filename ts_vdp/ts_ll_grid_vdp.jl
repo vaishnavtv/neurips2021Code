@@ -23,7 +23,7 @@ Q_fpke = 0.1f0; # Q_fpke = σ^2
 
 # file location to save data
 suff = string(activFunc);
-expNum = 20;
+expNum = 21;
 runExp = true;
 useGPU = true;
 cd(@__DIR__);
@@ -32,7 +32,7 @@ runExp_fileName = "out_grid/log$(expNum).txt";
 if runExp
     open(runExp_fileName, "a+") do io
         write(io, "Transient vdp with grid training in η. 2 HL with $(nn) neurons in the hl and $(suff) activation. $(maxOpt1Iters) iterations with LBFGS and then $(maxOpt2Iters) with LBFGS.  Q_fpke = $(Q_fpke). Using GPU.
-        dx = $(dx). Large tEnd = $(tEnd). Not enforcing steady-state. 
+        dx = $(dx). Large tEnd = $(tEnd). Not enforcing steady-state. Not enforcing BC.
         α_ic = $(α_ic). No extra weight on IC.
         Experiment number: $(expNum)\n")
     end
@@ -174,7 +174,8 @@ bc_loss_function_sum = θ -> sum(map(l -> l(θ), bc_loss_functions))
 @show bc_loss_function_sum(initθ)
 
 function loss_function_(θ, p)
-    return pde_loss_function(θ) + bc_loss_function_sum(θ) + α_ic*ic_loss_function(θ)
+    return pde_loss_function(θ) + α_ic*ic_loss_function(θ)
+    # return pde_loss_function(θ) + bc_loss_function_sum(θ) + α_ic*ic_loss_function(θ)
 end
 @show loss_function_(initθ,0)
 
