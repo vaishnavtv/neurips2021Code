@@ -24,7 +24,7 @@ Q_fpke = 0.1f0; # Q_fpke = σ^2
 # file location to save data
 suff = string(activFunc);
 expNum = 27;
-runExp = false;
+runExp = true;
 useGPU = true;
 cd(@__DIR__);
 saveFile = "dataTS_grid/ll_ts_vdp_exp$(expNum).jld2";
