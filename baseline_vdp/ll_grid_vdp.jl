@@ -2,8 +2,8 @@
 cd(@__DIR__);
 using NeuralPDE, Flux, ModelingToolkit, GalacticOptim, Optim, Symbolics, JLD2, DiffEqFlux
 
-using CUDA
-CUDA.allowscalar(false)
+# using CUDA
+# CUDA.allowscalar(false)
 import Random:seed!; seed!(1);
 
 using Quadrature, Cubature
@@ -162,7 +162,7 @@ function norm_loss_function(θ)
     end
     prob = QuadratureProblem(inner_f, lbs, ubs, θ)
     norm2 = solve(prob, HCubatureJL(), reltol = 1e-3, abstol = 1e-3);
-    return abs2(norm2.u - 1)
+    return abs2(norm2[1] - 1)
 end
 @show norm_loss_function(initθ)
 
