@@ -24,7 +24,7 @@ Q_fpke = 0.1f0; # Q_fpke = σ^2
 # file location to save data
 suff = string(activFunc);
 expNum = 27;
-runExp = true;
+runExp = false;
 useGPU = true;
 cd(@__DIR__);
 saveFile = "dataTS_grid/ll_ts_vdp_exp$(expNum).jld2";
@@ -38,9 +38,9 @@ if runExp
     end
 end
 ## IC non-zero location gaussian
-μ_ss = [-2,2];
-Σ_ss = 0.001 * 1.0I(2);
-rho0(x) = exp(-1 / 2 * (x - μ_ss)' * inv(Σ_ss) * (x - μ_ss)) / (2 * pi * sqrt(det(Σ_ss)));
+μ_ss = [-2.0f0,2.0f0];
+Σ_ss = Float32.(0.001 * 1.0I(2));
+rho0(x) = exp(-0.5f0 * (x - μ_ss)' * inv(Σ_ss) * (x - μ_ss)) / Float32(2 * pi * sqrt(det(Σ_ss)));
 
 
 ## set up the NeuralPDE framework using low-level API
