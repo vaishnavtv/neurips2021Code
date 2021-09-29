@@ -6,7 +6,7 @@ using NeuralPDE, Flux, ModelingToolkit, GalacticOptim, Optim, Symbolics, JLD2, D
 # CUDA.allowscalar(false)
 import Random:seed!; seed!(1);
 
-using Quadrature, Cubature
+using Quadrature, Cubature, Cuba
 
 ## parameters for neural network
 nn = 48; # number of neurons in the hidden layer
@@ -20,7 +20,7 @@ dx = 0.05; # discretization size used for training
 
 # file location to save data
 suff = string(activFunc);
-expNum = 7;
+expNum = 8;
 saveFile = "data_grid/ll_grid_vdp_exp$(expNum).jld2";
 useGPU = false;
 runExp = true;
@@ -28,7 +28,7 @@ runExp_fileName = "out_grid/log$(expNum).txt";
 if runExp
     open(runExp_fileName, "a+") do io
         write(io, "Steady State vdp with Grid training. 2 HL with $(nn) neurons in the hl and $(suff) activation. $(maxOpt1Iters) iterations with BFGS and then $(maxOpt2Iters) with LBFGS. Not using GPU. 
-        Adding norm loss. Removing maxIters from kwarg.
+        Adding norm loss. Using CubaDivonne.
         Experiment number: $(expNum)\n")
     end
 end
@@ -161,7 +161,7 @@ function norm_loss_function(θ)
          return exp(sum(phi(x, θ))) # density
     end
     prob = QuadratureProblem(inner_f, lbs, ubs, θ)
-    norm2 = solve(prob, HCubatureJL(), reltol = 1e-3, abstol = 1e-3);
+    norm2 = solve(prob, CubaDivonne(), reltol = 1e-3, abstol = 1e-3);
     return abs2(norm2[1] - 1)
 end
 @show norm_loss_function(initθ)
