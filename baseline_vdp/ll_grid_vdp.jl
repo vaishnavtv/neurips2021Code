@@ -20,7 +20,7 @@ dx = 0.05; # discretization size used for training
 
 # file location to save data
 suff = string(activFunc);
-expNum = 6;
+expNum = 7;
 saveFile = "data_grid/ll_grid_vdp_exp$(expNum).jld2";
 useGPU = false;
 runExp = true;
@@ -28,7 +28,7 @@ runExp_fileName = "out_grid/log$(expNum).txt";
 if runExp
     open(runExp_fileName, "a+") do io
         write(io, "Steady State vdp with Grid training. 2 HL with $(nn) neurons in the hl and $(suff) activation. $(maxOpt1Iters) iterations with BFGS and then $(maxOpt2Iters) with LBFGS. Not using GPU. 
-        Not adding norm loss. Using equation copied from ts_ll_grid_vdp.
+        Adding norm loss. Removing maxIters from kwarg.
         Experiment number: $(expNum)\n")
     end
 end
@@ -161,13 +161,13 @@ function norm_loss_function(θ)
          return exp(sum(phi(x, θ))) # density
     end
     prob = QuadratureProblem(inner_f, lbs, ubs, θ)
-    norm2 = solve(prob, HCubatureJL(), reltol = 1e-8, abstol = 1e-8, maxiters =10);
-    return abs2(norm2[1] - 1)
+    norm2 = solve(prob, HCubatureJL(), reltol = 1e-3, abstol = 1e-3);
+    return abs2(norm2.u - 1)
 end
 @show norm_loss_function(initθ)
 
 function loss_function_(θ, p)
-    return pde_loss_function(θ) + bc_loss_function_sum(θ) #+ norm_loss_function(θ)
+    return pde_loss_function(θ) + bc_loss_function_sum(θ) + norm_loss_function(θ)
 end
 @show loss_function_(initθ,0)
 
