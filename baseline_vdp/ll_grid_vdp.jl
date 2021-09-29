@@ -20,7 +20,7 @@ dx = 0.05; # discretization size used for training
 
 # file location to save data
 suff = string(activFunc);
-expNum = 5;
+expNum = 6;
 saveFile = "data_grid/ll_grid_vdp_exp$(expNum).jld2";
 useGPU = false;
 runExp = true;
@@ -28,7 +28,7 @@ runExp_fileName = "out_grid/log$(expNum).txt";
 if runExp
     open(runExp_fileName, "a+") do io
         write(io, "Steady State vdp with Grid training. 2 HL with $(nn) neurons in the hl and $(suff) activation. $(maxOpt1Iters) iterations with BFGS and then $(maxOpt2Iters) with LBFGS. Not using GPU. 
-        Adding norm loss function.
+        Not adding norm loss. Using equation copied from ts_ll_grid_vdp.
         Experiment number: $(expNum)\n")
     end
 end
@@ -167,7 +167,7 @@ end
 @show norm_loss_function(initθ)
 
 function loss_function_(θ, p)
-    return pde_loss_function(θ) + bc_loss_function_sum(θ) + norm_loss_function(θ)
+    return pde_loss_function(θ) + bc_loss_function_sum(θ) #+ norm_loss_function(θ)
 end
 @show loss_function_(initθ,0)
 
