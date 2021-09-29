@@ -1,6 +1,6 @@
 ## Solve the FPKE for the Van der Pol oscillator using baseline PINNs (large training set)
 
-using NeuralPDE, Flux, ModelingToolkit, GalacticOptim, Optim, Symbolics, JLD2, DiffEqFlux, Statistics
+using NeuralPDE, Flux, ModelingToolkit, GalacticOptim, Optim, Symbolics, JLD2, DiffEqFlux, Statistics, LinearAlgebra
 
 using CUDA
 CUDA.allowscalar(false)
@@ -23,7 +23,7 @@ Q_fpke = 0.1f0; # Q_fpke = σ^2
 
 # file location to save data
 suff = string(activFunc);
-expNum = 26;
+expNum = 27;
 runExp = true;
 useGPU = true;
 cd(@__DIR__);
@@ -33,10 +33,15 @@ if runExp
     open(runExp_fileName, "a+") do io
         write(io, "Transient vdp with grid training in η. 2 HL with $(nn) neurons in the hl and $(suff) activation. $(maxOpt1Iters) iterations with LBFGS and then $(maxOpt2Iters) with LBFGS.  Q_fpke = $(Q_fpke). Using GPU.
         dx = $(dx). tEnd = $(tEnd). Enforcing steady-state. Enforcing BC. Fixed drift term. 
-        α_ic = $(α_ic). NO IC.
+        α_ic = $(α_ic). IC at non-zero location, Gaussian. No extra weight. IC coming through BC definitions.
         Experiment number: $(expNum)\n")
     end
 end
+## IC non-zero location gaussian
+μ_ss = [-2,2];
+Σ_ss = 0.001 * 1.0I(2);
+rho0(x) = exp(-1 / 2 * (x - μ_ss)' * inv(Σ_ss) * (x - μ_ss)) / (2 * pi * sqrt(det(Σ_ss)));
+
 
 ## set up the NeuralPDE framework using low-level API
 @parameters x1, x2, t
@@ -91,7 +96,7 @@ icExp = ρ_ic(xSym)
 # Initial and Boundary conditions
 bcs = [ρ([-maxval,x2]) ~ 0.0f0, ρ([maxval,x2]) ~ 0.0f0,
        ρ([x1,-maxval]) ~ 0.0f0, ρ([x1,maxval]) ~ 0.0f0, 
-       icExp ~ 0.00015625f0, # initial condition
+       icExp ~ rho0([x1,x2]), #0.00015625f0, # initial condition
        ssExp ~ 0.0f0]; # steady-state condition
 
 ## Neural network
