@@ -33,7 +33,7 @@ if runExp
     open(runExp_fileName, "a+") do io
         write(io, "Transient vdp with grid training in η. 2 HL with $(nn) neurons in the hl and $(suff) activation. $(maxOpt1Iters) iterations with BFGS and then $(maxOpt2Iters) with LBFGS.  Q_fpke = $(Q_fpke). Not using GPU. Will run for 3 days.
         dx = $(dx). tEnd = $(tEnd). Enforcing steady-state. Enforcing BC. Fixed drift term. 
-        α_ic = $(α_ic). No IC. IC_losses shows SS_losses. Adding norm loss with Quadrature.
+        α_ic = $(α_ic). No IC. IC_losses shows SS_losses. Adding norm loss with Quadrature (Mse).
         Experiment number: $(expNum)\n")
     end
 end
@@ -194,7 +194,7 @@ function _norm_loss_function(cord_t, θ) # build_loss_function
 
     return out
 end
-norm_loss_function = (θ) -> sum(abs2,_norm_loss_function(tSet, θ)); # get_loss_function
+norm_loss_function = (θ) -> mean(abs2,_norm_loss_function(tSet, θ)); # get_loss_function
 @show norm_loss_function(initθ);
 
 function loss_function_(θ, p)
