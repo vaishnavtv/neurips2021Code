@@ -1,16 +1,16 @@
 ## Solve the FPKE for the Van der Pol oscillator using baseline PINNs (large training set)
 
-using NeuralPDE, Flux, ModelingToolkit, GalacticOptim, Optim, Symbolics, JLD2, DiffEqFlux, Statistics, LinearAlgebra
+using NeuralPDE, Flux, ModelingToolkit, GalacticOptim, Optim, Symbolics, JLD2, DiffEqFlux, Statistics, LinearAlgebra, Trapz
 
-using CUDA
-CUDA.allowscalar(false)
-using Quadrature, Cubature
+# using CUDA
+# CUDA.allowscalar(false)
+# using Quadrature, Cubature, Cuba
 import Random:seed!; seed!(1);
 
 ## parameters for neural network
 nn = 48; # number of neurons in the hidden layer
 activFunc = tanh; # activation function
-opt1 = Optim.LBFGS(); # primary optimizer used for training
+opt1 = Optim.BFGS(); # primary optimizer used for training
 # opt1 = ADAM(1e-3) #Flux.Optimiser(ADAM(1e-3));
 maxOpt1Iters = 10000; # maximum number of training iterations for opt1
 opt2 = Optim.LBFGS(); # second optimizer used for fine-tuning
@@ -25,23 +25,18 @@ Q_fpke = 0.1f0; # Q_fpke = σ^2
 suff = string(activFunc);
 expNum = 29;
 runExp = true;
-useGPU = true;
+useGPU = false;
 cd(@__DIR__);
 saveFile = "dataTS_grid/ll_ts_vdp_exp$(expNum).jld2";
 runExp_fileName = "out_grid/log$(expNum).txt";
 if runExp
     open(runExp_fileName, "a+") do io
-        write(io, "Transient vdp with grid training in η. 2 HL with $(nn) neurons in the hl and $(suff) activation. $(maxOpt1Iters) iterations with LBFGS and then $(maxOpt2Iters) with LBFGS.  Q_fpke = $(Q_fpke). Using GPU.
+        write(io, "Transient vdp with grid training in η. 2 HL with $(nn) neurons in the hl and $(suff) activation. $(maxOpt1Iters) iterations with BFGS and then $(maxOpt2Iters) with LBFGS.  Q_fpke = $(Q_fpke). Not using GPU. Will run for 3 days.
         dx = $(dx). tEnd = $(tEnd). Enforcing steady-state. Enforcing BC. Fixed drift term. 
-        α_ic = $(α_ic). No IC. IC_losses shows SS_losses. Adding norm loss. 
+        α_ic = $(α_ic). No IC. IC_losses shows SS_losses. Adding norm loss with Trapz.
         Experiment number: $(expNum)\n")
     end
 end
-## IC non-zero location gaussian
-μ_ss = [-2.0f0,2.0f0];
-Σ_ss = Float32.(0.001 * 1.0I(2));
-rho0(x) = exp(-0.5f0 * (x - μ_ss)' * inv(Σ_ss) * (x - μ_ss)) / Float32(2 * pi * sqrt(det(Σ_ss)));
-
 
 ## set up the NeuralPDE framework using low-level API
 @parameters x1, x2, t
@@ -179,16 +174,19 @@ bc_loss_function_sum = θ -> sum(map(l -> l(θ), bc_loss_functions))
 @show bc_loss_function_sum(initθ)
 
 ## additional loss function
-lbs = [-maxval, -maxval]; ubs = [maxval, maxval];
-function norm_loss_function(θ)
-    function inner_f(x,θ)
-         return exp(sum(phi(x, θ))) # density
-    end
-    prob = QuadratureProblem(inner_f, lbs, ubs, θ)
-    norm2 = solve(prob, HCubatureJL(), reltol = 1e-3, abstol = 1e-3);
-    return abs2(norm2[1] - 1)
+xx, yy = [collect(ModelingToolkit.infimum(domains[i].domain):dx[i]:ModelingToolkit.supremum(domains[i].domain)) for i in 1:2];
+tSet = collect(ModelingToolkit.infimum(domains[3].domain):dx[3]:ModelingToolkit.supremum(domains[3].domain));
+function _norm_loss_function(cord_t, θ) # build_loss_function
+    # Trapz
+    nT = length(cord_t);
+    ρFn(xt) = exp(sum(phi(xt, θ))) 
+    RHOPred = [ρFn([x,y,t]) for x in xx, y in yy, t in cord_t];
+    out = permutedims([trapz((xx,yy), RHOPred[:,:,i]) for i in 1:nT]);
+
+    return out
 end
-@show norm_loss_function(initθ)
+norm_loss_function = (θ) -> sum(abs2,_norm_loss_function(tSet, θ)); # get_loss_function
+@show norm_loss_function(initθ);
 
 function loss_function_(θ, p)
     # return pde_loss_function(θ) + α_ic*ic_loss_function(θ)
