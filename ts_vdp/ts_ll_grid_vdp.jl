@@ -19,11 +19,11 @@ maxOpt2Iters = 1000; # maximum number of training iterations for opt2
 dx = [0.1f0; 0.1f0; 0.1f0]; # discretization size used for training
 tEnd = 10.0f0; 
 Q_fpke = 0.1f0; # Q_fpke = σ^2
-α_ic = 0.0f0; # weight on initial loss
+α_ic = 1000.0f0; # weight on initial loss
 
 # file location to save data
 suff = string(activFunc);
-expNum = 29;
+expNum = 31;
 runExp = true;
 useGPU = false;
 cd(@__DIR__);
@@ -33,7 +33,8 @@ if runExp
     open(runExp_fileName, "a+") do io
         write(io, "Transient vdp with grid training in η. 2 HL with $(nn) neurons in the hl and $(suff) activation. $(maxOpt1Iters) iterations with BFGS and then $(maxOpt2Iters) with LBFGS.  Q_fpke = $(Q_fpke). Not using GPU. Will run for 3 days.
         dx = $(dx). tEnd = $(tEnd). Enforcing steady-state. Enforcing BC. Fixed drift term. 
-        α_ic = $(α_ic). No IC. IC_losses shows SS_losses. Adding norm loss with Quadrature (Mse).
+        α_ic = $(α_ic). IC using SE.
+        Adding norm loss with Quadrature (Mse) from t0+dt.
         Experiment number: $(expNum)\n")
     end
 end
@@ -91,7 +92,7 @@ icExp = ρ_ic(xSym)
 # Initial and Boundary conditions
 bcs = [ρ([-maxval,x2]) ~ 0.0f0, ρ([maxval,x2]) ~ 0.0f0,
        ρ([x1,-maxval]) ~ 0.0f0, ρ([x1,maxval]) ~ 0.0f0, 
-    #    icExp ~ 0.00015625f0, # initial condition
+       icExp ~ 0.00015625f0, # initial condition
        ssExp ~ 0.0f0]; # steady-state condition
 
 ## Neural network
@@ -174,7 +175,7 @@ bc_loss_function_sum = θ -> sum(map(l -> l(θ), bc_loss_functions))
 @show bc_loss_function_sum(initθ)
 
 ## additional loss function
-tSet = collect(ModelingToolkit.infimum(domains[3].domain):dx[3]:ModelingToolkit.supremum(domains[3].domain));
+tSet = collect(ModelingToolkit.infimum(domains[3].domain)+dx[3]:dx[3]:ModelingToolkit.supremum(domains[3].domain));
 function _norm_loss_function(cord_t, θ) # build_loss_function
     nT = length(cord_t);
     x_lb = [-maxval, -maxval]; 
