@@ -57,7 +57,7 @@ rho_f16/ll_quad_rho_f16.jl
 f16/out_ll_quasi
 missile/batch.slurm
 missile/out
-missile/gpu_batch.slurm
+missile/ss_miss_grid_batch.slurm
 missile/outQuad
 missile/quad_batch.slurm
 missile/quasi_batch.slurm
@@ -65,6 +65,7 @@ missile/outQuasi
 missile/figs
 missile/ot_batch.slurm
 missile/outOT
+missile/out_grid
 missile/test.jl
 ts_vdp/ts_grid_batch.slurm
 ts_vdp/out_grid
