@@ -25,7 +25,7 @@ activFunc = tanh;
 dx = 0.01;
 suff = string(activFunc);
 nn = 48;
-expNum = 13;
+expNum = 28;
 strategy = "grid";
 # chain = Chain(Dense(3, nn, activFunc), Dense(nn, nn, activFunc), Dense(nn, nn, activFunc), Dense(nn, 1));
 chain = Chain(Dense(3, nn, activFunc), Dense(nn, nn, activFunc), Dense(nn, 1));
@@ -42,6 +42,7 @@ file = jldopen(fileLoc, "r");
 optParam = read(file, "optParam");
 PDE_losses = read(file, "PDE_losses");
 BC_losses = read(file, "BC_losses");
+IC_losses = read(file, "IC_losses");
 close(file);
 println("Are any of the parameters NaN? $(any(isnan.(optParam)))")
 ## plot losses
@@ -49,6 +50,7 @@ nIters = length(PDE_losses);
 figure(1); clf();
 semilogy(1:nIters, PDE_losses, label =  "PDE");
 semilogy(1:nIters, BC_losses, label = "BC");
+semilogy(1:nIters, IC_losses, label = "IC");
 xlabel("Iterations");
 ylabel("ϵ");
 title(string(strategy," Exp $(expNum)"));
@@ -90,24 +92,28 @@ end
 # sum(ρNetS(xt0).*df(x0))
 # pdeErrFn(xt0)
 # Domain
-nEvalFine = 100;
+nEvalFine = 100; # pts along x,y
+ntFine = 10; # pts along t
 maxval = 4.0f0;
 t0 = 0.0; tEnd = 10.0
-xxFine = range(-maxval, maxval, length = nEvalFine);
-yyFine = range(-maxval, maxval, length = nEvalFine);
-ttFine = range(t0, tEnd, length = 10);
-
+xxFine = collect(-maxval:0.1:maxval); #range(-maxval, maxval, length = nEvalFine);
+yyFine = collect(-maxval:0.1:maxval);#range(-maxval, maxval, length = nEvalFine);
+ttFine = range(t0, tEnd, length = ntFine);
+nEvalFine = length(xxFine);
 RHOPred = [ρFn([x, y, t]) for x in xxFine, y in yyFine, t in ttFine];
 pdeErrFine = [pdeErrFn([x, y, t])^2 for x in xxFine, y in yyFine, t in ttFine]; # squared equation error on the evaluation grid
 pdeErrFine_tEnd = [pdeErrFn_tEnd([x, y, tEnd])^2 for x in xxFine, y in yyFine]; # squared equation error on the evaluation grid
 @show maximum(RHOPred)
 
 # normalize
-# normC = trapz((xxFine, yyFine), RHOPred)
-# RHOFine = RHOPred / normC;
+RHOFine = deepcopy(RHOPred);
+for i in 1:length(ttFine)
+    normC = trapz((xxFine, yyFine), RHOPred[:,:,i])
+    RHOFine[:,:,i] = RHOPred[:,:,i] / normC;
+end
 
 # initial condition error
-mseICErr = sum(RHOPred[:,:,1] .- 1f-5)/(nEvalFine^2);
+mseICErr = sum(abs2, RHOPred[:,:,1] .- 0.00015625f0);#/(nEvalFine^2);
 @show mseICErr;
 
 println("The mean squared equation error with dx=$(dx) is:")
@@ -127,12 +133,13 @@ end
 ## Plot shown in paper
 function plotDistErr(figNum)
     # tInd = 3
-    for (tInd,tVal) in enumerate(ttFine)
+    for (tInd,tVal) in enumerate(ttFine[1])
+    # tInd = 10; tVal = ttFine[tInd]
         figure(figNum, [8, 4])
         clf()
         subplot(1, 2, 1)
         # figure(figNum); clf();
-        pcolor(XXFine, YYFine, RHOPred[:,:,tInd], shading = "auto", cmap = "inferno")
+        pcolor(XXFine, YYFine, RHOFine[:,:,tInd], shading = "auto", cmap = "inferno")
         colorbar()
         xlabel("x1")
         ylabel("x2")
@@ -160,29 +167,7 @@ function plotDistErr(figNum)
 end
 plotDistErr(expNum);
 
-## plotting in plots.
-# function plot_(res)
-#     # Animate
-#     anim = @animate for (i, t) in enumerate(ttFine)
-#         @info "Animating frame $i..."
-#         # u_real = reshape([analytic_sol_func(t,x,y) for x in xs for y in ys], (length(xs),length(ys)))
-#         # u_predict = reshape([Array(phi([t, x, y], res.minimizer))[1] for x in xs for y in ys], length(xs), length(ys))
-#         # u_error = abs.(u_predict .- u_real)
-#         title = @sprintf("predict, t = %.3f", t)
-#         p1 = Plots.plot(xxFine, yyFine, RHOPred[:,:,i],st=:surface, label="", title=title)
-#         title = @sprintf("error")
-#         p2 = Plots.plot(xxFine, yyFine, pdeErrFine[:,:,i],st=:surface, label="", title=title)
-#         # title = @sprintf("error")
-#         # p3 = plot(xs, ys, u_error, st=:contourf,label="", title=title)
-#         Plots.plot(p1,p2)
-#     end
-#     # gif(anim,"3pde.gif", fps=10)
-# end
-# plot_(1)
-# savefig("figs/quasi_exp$(expNum).png");
-##
-
-# ## normalisation as quadrature problem  
+## normalisation as quadrature problem  
 # using Quadrature
 # ρFnQuad(z,p) = ρFn(z)#/normC
 # prob = QuadratureProblem(ρFnQuad, [minM, minα], [maxM, maxα], p = 0);
