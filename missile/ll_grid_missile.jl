@@ -27,7 +27,7 @@ Q_fpke = 0.01f0;#*1.0I(2); # σ^2
 
 
 suff = string(activFunc);
-expNum = 1;
+expNum = 2;
 useGPU = false;
 runExp = true; 
 saveFile = "data_grid/ll_grid_missile_exp$(expNum).jld2";
@@ -35,7 +35,7 @@ runExp_fileName = "out_grid/log$(expNum).txt";
 if runExp
     open(runExp_fileName, "a+") do io
         write(io, "Missile with GridTraining and dx = $(dx). 2 HL with $(nn) neurons in the hl and $(suff) activation. Boundary loss coefficient: $(α_bc). $(maxOpt1Iters) iterations with BFGS and $(maxOpt2Iters) with LBFGS. 
-        Diffusion coefficient Q_fpke = $(Q_fpke) in both states.
+        Diffusion coefficient Q_fpke = $(Q_fpke) in just M.
         dx = $(dx). Not using GPU.
         Experiment number: $(expNum)\n")
     end
