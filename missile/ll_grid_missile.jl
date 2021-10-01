@@ -2,38 +2,41 @@
 
 using NeuralPDE, Flux, ModelingToolkit, GalacticOptim, Optim, DiffEqFlux, Symbolics, JLD2
 cd(@__DIR__);
-include("missileDynamics.jl");
-using CUDA
-CUDA.allowscalar(false)
+include("cpu_missileDynamics.jl");
+# using CUDA
+# CUDA.allowscalar(false)
 
 import Random: seed!;
 seed!(1);
 
 ## parameters for neural network
-nn = 20; # number of neurons in the hidden layer
+nn = 48; # number of neurons in the hidden layer
 activFunc = tanh; # activation function
-opt1 = ADAM(1e-3); # primary optimizer used for training
-maxOpt1Iters = 10000; # maximum number of training iterations for opt1
-opt2 = Optim.BFGS(); # second optimizer used for fine-tuning
-maxOpt2Iters = 1000; # maximum number of training iterations for opt2
-# maxOptIters = 50000; # maximum number of training iterations
-# opt1 = Optim.LBFGS(); # Optimizer used for training
-# opt = ADAM(1e-3); 
+opt1 = Optim.BFGS(); # primary optimizer used for training
+maxOpt1Iters = 10000 # maximum number of training iterations for opt1
+opt2 = Optim.LBFGS(); # second optimizer used for fine-tuning
+maxOpt2Iters = 10000; # maximum number of training iterations for opt2
+
 α_bc = 1.0;
 
 ## Grid discretization
 dM = 0.01; dα = 0.01;
 dx = [dM; dα] # grid discretization in M, α (rad)
 
+Q_fpke = 0.01f0;#*1.0I(2); # σ^2
+
 
 suff = string(activFunc);
+expNum = 1;
+useGPU = false;
 runExp = true; 
-expNum = 14;
-saveFile = "data/ll_grid_missile_$(suff)_$(nn)_exp$(expNum).jld2";
-runExp_fileName = "out/log$(expNum).txt";
+saveFile = "data_grid/ll_grid_missile_exp$(expNum).jld2";
+runExp_fileName = "out_grid/log$(expNum).txt";
 if runExp
     open(runExp_fileName, "a+") do io
-        write(io, "Missile with GridTraining and dx = $(dx). 2 HL with $(nn) neurons in the hl and $(suff) activation. Boundary loss coefficient: $(α_bc). $(maxOpt1Iters) iterations with ADAM and $(maxOpt2Iters) with BFGS. Fixed diffusion term. 
+        write(io, "Missile with GridTraining and dx = $(dx). 2 HL with $(nn) neurons in the hl and $(suff) activation. Boundary loss coefficient: $(α_bc). $(maxOpt1Iters) iterations with BFGS and $(maxOpt2Iters) with LBFGS. 
+        Diffusion coefficient Q_fpke = $(Q_fpke) in both states.
+        dx = $(dx). Not using GPU.
         Experiment number: $(expNum)\n")
     end
 end
@@ -45,9 +48,8 @@ xSym = [x1; x2]
 
 # PDE
 ρ(x) = exp(η(x...));
-Q_fpke = 0.01f0;#*1.0I(2); # σ^2
 F = f(xSym) * ρ(xSym); # drift term
-diffC = 0.5 * (g(xSym) * Q_fpke * g(xSym)'); # diffusion coefficient
+diffC = 0.5f0 * (g(xSym) * Q_fpke * g(xSym)'); # diffusion coefficient
 G = diffC * ρ(xSym); # diffusion term
 
 T1 = sum([Symbolics.derivative(F[i], xSym[i]) for i = 1:length(xSym)]); # pde drift term
@@ -76,14 +78,14 @@ bcs = [
 
 ## Neural network
 dim = 2 # number of dimensions
-chain = Chain(Dense(dim, nn, activFunc), Dense(nn, nn, activFunc), Dense(nn, nn, activFunc), Dense(nn, 1)) ;#|> gpu;
+chain = Chain(Dense(dim, nn, activFunc), Dense(nn, nn, activFunc), Dense(nn, 1)) ;
+# chain = Chain(Dense(dim, nn, activFunc), Dense(nn, nn, activFunc), Dense(nn, nn, activFunc), Dense(nn, 1)) ;
 
 initθ = DiffEqFlux.initial_params(chain) #|> gpu;
-flat_initθ = if (typeof(chain) <: AbstractVector)
-    reduce(vcat, initθ)
-else
-    initθ
+if useGPU
+    initθ = initθ |> gpu;
 end
+flat_initθ = initθ
 eltypeθ = eltype(flat_initθ)
 
 parameterless_type_θ = DiffEqBase.parameterless_type(flat_initθ);
@@ -94,7 +96,7 @@ phi = NeuralPDE.get_phi(chain, parameterless_type_θ);
 derivative = NeuralPDE.get_numeric_derivative();
 
 indvars = xSym
-depvars = [η(xSym...)]
+depvars = [η(x1,x2)]
 
 integral = NeuralPDE.get_numeric_integral(strategy, indvars, depvars, chain, derivative);
 
@@ -109,7 +111,7 @@ _pde_loss_function = NeuralPDE.build_loss_function(
     initθ,
     strategy,
 );
-
+# @show _pde_loss_function(xTrim_Ma, initθ)
 bc_indvars = NeuralPDE.get_argument(bcs, indvars, depvars);
 _bc_loss_functions = [
     NeuralPDE.build_loss_function(
@@ -127,8 +129,11 @@ _bc_loss_functions = [
 ]
 
 train_domain_set, train_bound_set =
-    NeuralPDE.generate_training_sets(domains, dx, [pde], bcs, eltypeθ, indvars, depvars);# |> gpu;
-train_domain_set = train_domain_set #|> gpu
+    NeuralPDE.generate_training_sets(domains, dx, [pde], bcs, eltypeθ, indvars, depvars);
+if useGPU
+    train_domain_set = train_domain_set |> gpu;
+    train_bound_set = train_bound_set |> gpu;
+end
 if runExp
     open(runExp_fileName, "a+") do io
         write(io, "Size of training dataset: $(size(train_domain_set[1],2))\n")
@@ -142,6 +147,7 @@ pde_loss_function = NeuralPDE.get_loss_function(
     parameterless_type_θ,
     strategy,
 );
+println("Checking if loss functions are computed for initial parameters:");
 @show pde_loss_function(initθ)
 
 bc_loss_functions = [
@@ -191,7 +197,6 @@ res = GalacticOptim.solve(prob, opt1, cb=cb_, maxiters=maxOpt1Iters);
 prob = remake(prob, u0=res.minimizer)
 res = GalacticOptim.solve(prob, opt2, cb=cb_, maxiters=maxOpt2Iters);
 
-# res = GalacticOptim.solve(prob, opt, cb = cb_, maxiters = maxOptIters);
 println("Optimization done.");
 
 ## Save data
