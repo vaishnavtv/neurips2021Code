@@ -6,6 +6,7 @@ include("cpu_missileDynamics.jl");
 # using CUDA
 # CUDA.allowscalar(false)
 
+using Quadrature, Cubature
 import Random: seed!;
 seed!(1);
 
@@ -27,7 +28,7 @@ Q_fpke = 0.01f0;#*1.0I(2); # σ^2
 
 
 suff = string(activFunc);
-expNum = 5;
+expNum = 9;
 useGPU = false;
 runExp = true; 
 saveFile = "data_grid/ll_grid_missile_exp$(expNum).jld2";
@@ -36,7 +37,7 @@ if runExp
     open(runExp_fileName, "a+") do io
         write(io, "Missile with GridTraining and dx = $(dx). 2 HL with $(nn) neurons in the hl and $(suff) activation. Boundary loss coefficient: $(α_bc). $(maxOpt1Iters) iterations with BFGS and $(maxOpt2Iters) with LBFGS. 
         Diffusion coefficient Q_fpke = $(Q_fpke). In both states.
-        Forward Time Dynamics.
+        Reverse Time Dynamics. Added norm loss function.
         dx = $(dx). Not using GPU.
         Experiment number: $(expNum)\n")
     end
@@ -156,11 +157,24 @@ bc_loss_functions = [
     (loss, set) in zip(_bc_loss_functions, train_bound_set)
 ]
 bc_loss_function_sum = θ -> sum(map(l -> l(θ), bc_loss_functions))
-typeof(bc_loss_function_sum(initθ))
-function loss_function_(θ, p)
-    return pde_loss_function(θ) + α_bc*bc_loss_function_sum(θ)  
-end
 @show bc_loss_function_sum(initθ)
+
+## additional loss function
+lbs = [minM, minα]; ubs = [maxM, maxα];
+function norm_loss_function(θ)
+    function inner_f(x,θ)
+         return exp(sum(phi(x, θ))) # density
+    end
+    prob = QuadratureProblem(inner_f, lbs, ubs, θ)
+    norm2 = solve(prob, HCubatureJL(), reltol = 1e-3, abstol = 1e-3);
+    return abs2(norm2[1] - 1)
+end
+@show norm_loss_function(initθ)
+
+function loss_function_(θ, p)
+    return pde_loss_function(θ) + bc_loss_function_sum(θ) + norm_loss_function(θ)
+    # return pde_loss_function(θ) + α_bc*bc_loss_function_sum(θ)  
+end
 @show loss_function_(initθ,0)
 
 ## set up GalacticOptim optimization problem
@@ -170,6 +184,7 @@ prob = GalacticOptim.OptimizationProblem(f_, initθ)
 nSteps = 0;
 PDE_losses = Float32[];
 BC_losses = Float32[];
+NORM_losses = Float32[];
 cb_ = function (p, l)
     global nSteps = nSteps + 1
     println("[$nSteps] Current loss is: $l")
@@ -182,13 +197,14 @@ cb_ = function (p, l)
 
     push!(PDE_losses, pde_loss_function(p))
     push!(BC_losses, bc_loss_function_sum(p))
+    push!(NORM_losses, norm_loss_function(p))
 
     if runExp # if running job file
         open(runExp_fileName, "a+") do io
             write(io, "[$nSteps] Current loss is: $l \n")
         end;
         
-        jldsave(saveFile; optParam=Array(p), PDE_losses, BC_losses);
+        jldsave(saveFile; optParam=Array(p), PDE_losses, BC_losses, NORM_losses );
     end
     return false
 end
@@ -206,5 +222,5 @@ if runExp
     open(runExp_fileName, "a+") do io
         write(io, "Size of training dataset: $(size(train_domain_set[1],2))\n")
     end;
-    jldsave(saveFile;optParam = Array(res.minimizer), PDE_losses, BC_losses);
+    jldsave(saveFile; optParam=Array(p), PDE_losses, BC_losses, NORM_losses );
 end

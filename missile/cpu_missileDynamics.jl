@@ -25,7 +25,7 @@ end
 function f(x) # controlled nonlinear dynamics
     uDel = dot((K),(x- (xTrim_Ma)))
     u = uTrim + uDel 
-    return dynamicsMissile(x,u); # returns M, α 
+    return -dynamicsMissile(x,u); # returns M, α 
 end
 
 function g(x)
