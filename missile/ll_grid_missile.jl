@@ -13,7 +13,7 @@ seed!(1);
 ## parameters for neural network
 nn = 48; # number of neurons in the hidden layer
 activFunc = tanh; # activation function
-opt1 = Optim.BFGS(); # primary optimizer used for training
+opt1 = ADAM(1e-3); # primary optimizer used for training
 maxOpt1Iters = 10000 # maximum number of training iterations for opt1
 opt2 = Optim.LBFGS(); # second optimizer used for fine-tuning
 maxOpt2Iters = 10000; # maximum number of training iterations for opt2
@@ -28,14 +28,14 @@ Q_fpke = 0.01f0;#*1.0I(2); # σ^2
 
 
 suff = string(activFunc);
-expNum = 9;
+expNum = 10;
 useGPU = false;
 runExp = true; 
 saveFile = "data_grid/ll_grid_missile_exp$(expNum).jld2";
 runExp_fileName = "out_grid/log$(expNum).txt";
 if runExp
     open(runExp_fileName, "a+") do io
-        write(io, "Missile with GridTraining and dx = $(dx). 2 HL with $(nn) neurons in the hl and $(suff) activation. Boundary loss coefficient: $(α_bc). $(maxOpt1Iters) iterations with BFGS and $(maxOpt2Iters) with LBFGS. 
+        write(io, "Missile with GridTraining and dx = $(dx). 2 HL with $(nn) neurons in the hl and $(suff) activation. Boundary loss coefficient: $(α_bc). $(maxOpt1Iters) iterations with ADAM and $(maxOpt2Iters) with LBFGS. 
         Diffusion coefficient Q_fpke = $(Q_fpke). In both states.
         Reverse Time Dynamics. Added norm loss function.
         dx = $(dx). Not using GPU.
