@@ -63,6 +63,7 @@ missile/quad_batch.slurm
 missile/quasi_batch.slurm
 missile/outQuasi
 missile/figs
+missile/figs_grid
 missile/ot_batch.slurm
 missile/outOT
 missile/out_grid
