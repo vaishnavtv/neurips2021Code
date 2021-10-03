@@ -16,14 +16,14 @@ maxOpt1Iters = 10000; # maximum number of training iterations for opt1
 opt2 = Optim.LBFGS(); # second optimizer used for fine-tuning
 maxOpt2Iters = 1000; # maximum number of training iterations for opt2
 
-dx = [0.1f0; 0.1f0; 1.0f0]; # discretization size used for training
-tEnd = 100.0f0; 
+dx = [0.1f0; 0.1f0; 0.01f0]; # discretization size used for training
+tEnd = 1.0f0; 
 Q_fpke = 0.1f0; # Q_fpke = σ^2
-α_ic = 1000.0; # weight on initial loss
+α_ic = 0.0; # weight on initial loss
 
 # file location to save data
 suff = string(activFunc);
-expNum = 33;
+expNum = 34;
 runExp = true;
 useGPU = true;
 cd(@__DIR__);
@@ -32,8 +32,8 @@ runExp_fileName = "out_grid/log$(expNum).txt";
 if runExp
     open(runExp_fileName, "a+") do io
         write(io, "Transient vdp with grid training in η. 2 HL with $(nn) neurons in the hl and $(suff) activation. $(maxOpt1Iters) iterations with LBFGS and then $(maxOpt2Iters) with LBFGS.  Q_fpke = $(Q_fpke). Using GPU.
-        dx = $(dx). Large tEnd = $(tEnd). Not enforcing steady-state. Enforcing BC. Fixed drift term. 
-        α_ic = $(α_ic). IC as before (uniform). Using SE instead of MSE. Dramatically large α_ic. Same exp as 30, but with large tEnd. 
+        dx = $(dx). tEnd = $(tEnd). Not enforcing steady-state. Enforcing BC. Fixed drift term. 
+        α_ic = $(α_ic). No extra weight on IC. Using Gaussian at t0. 
         Experiment number: $(expNum)\n")
     end
 end
@@ -87,11 +87,18 @@ domains = [x1 ∈ IntervalDomain(-maxval,maxval),
 
 ssExp  =  Dt((η(x1,x2,tEnd)));
 ρ_ic(x) = exp(η(x[1],x[2],0.0f0)); 
+μ_ss = [0.0f0,0.0f0]; 
+Σ_ss = 0.1f0*[1.0f0; 1.0f0] .* 1.0f0I(2);
+inv_Σ_ss = Float32.(inv(Σ_ss))
+sqrt_det_Σ_ss = Float32(sqrt(det(Σ_ss)));
 icExp = ρ_ic(xSym)
+
+ρ0(x) =  exp(-0.5f0 * (x - μ_ss)' * inv_Σ_ss * (x - μ_ss)) / (2.0f0 * Float32(pi) * sqrt_det_Σ_ss); # ρ at t0, Gaussian
+
 # Initial and Boundary conditions
 bcs = [ρ([-maxval,x2]) ~ 0.0f0, ρ([maxval,x2]) ~ 0.0f0,
        ρ([x1,-maxval]) ~ 0.0f0, ρ([x1,maxval]) ~ 0.0f0, 
-       icExp ~ 0.00015625f0];#, # initial condition
+       icExp ~ ρ0([x1,x2])];#, # initial condition
     #    ssExp ~ 0.0f0]; # steady-state condition
 
 ## Neural network
