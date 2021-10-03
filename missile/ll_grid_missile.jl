@@ -24,11 +24,11 @@ maxOpt2Iters = 10000; # maximum number of training iterations for opt2
 dM = 0.01; dα = 0.01;
 dx = [dM; dα] # grid discretization in M, α (rad)
 
-Q_fpke = 0.01f0;#*1.0I(2); # σ^2
+Q_fpke = 0.001f0;#*1.0I(2); # σ^2
 
 
 suff = string(activFunc);
-expNum = 10;
+expNum = 11;
 useGPU = false;
 runExp = true; 
 saveFile = "data_grid/ll_grid_missile_exp$(expNum).jld2";
@@ -38,7 +38,7 @@ if runExp
         write(io, "Missile with GridTraining and dx = $(dx). 2 HL with $(nn) neurons in the hl and $(suff) activation. Boundary loss coefficient: $(α_bc). $(maxOpt1Iters) iterations with ADAM and $(maxOpt2Iters) with LBFGS. 
         Diffusion coefficient Q_fpke = $(Q_fpke). In both states.
         Reverse Time Dynamics. Added norm loss function.
-        dx = $(dx). Not using GPU.
+        dx = $(dx). Not using GPU. Even smaller diffusion.
         Experiment number: $(expNum)\n")
     end
 end
