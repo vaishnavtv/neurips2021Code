@@ -16,14 +16,14 @@ maxOpt1Iters = 10000; # maximum number of training iterations for opt1
 opt2 = Optim.LBFGS(); # second optimizer used for fine-tuning
 maxOpt2Iters = 1000; # maximum number of training iterations for opt2
 
-dx = [0.05f0; 0.05f0; 0.005f0]; # discretization size used for training
-tEnd = 0.1f0; 
+dx = [0.05f0; 0.05f0; 0.01f0]; # discretization size used for training
+tEnd = 1.0f0; 
 Q_fpke = 0.0f0; # Q_fpke = σ^2
-α_ic = 1000.0f0; # weight on initial loss
+α_ic = 0.0f0; # weight on initial loss
 
 # file location to save data
 suff = string(activFunc);
-expNum = 40;
+expNum = 41;
 runExp = true;
 useGPU = true;
 cd(@__DIR__);
@@ -33,7 +33,7 @@ if runExp
     open(runExp_fileName, "a+") do io
         write(io, "Transient vdp with grid training in η. 2 HL with $(nn) neurons in the hl and $(suff) activation. $(maxOpt1Iters) iterations with LBFGS and then $(maxOpt2Iters) with LBFGS.  Q_fpke = $(Q_fpke). Using GPU.
         dx = $(dx). tEnd = $(tEnd). Not enforcing steady-state. Enforcing BC. Fixed drift term. 
-        α_ic = $(α_ic). No IC weighting. No diffusion. Very small tEnd. Decreased dx.
+        α_ic = $(α_ic). No IC. 
         Experiment number: $(expNum)\n")
     end
 end
@@ -97,8 +97,8 @@ icExp = ρ_ic(xSym)
 
 # Initial and Boundary conditions
 bcs = [ρ([-maxval,x2]) ~ 0.0f0, ρ([maxval,x2]) ~ 0.0f0,
-       ρ([x1,-maxval]) ~ 0.0f0, ρ([x1,maxval]) ~ 0.0f0, 
-       icExp ~ ρ0([x1,x2])];#, # initial condition
+       ρ([x1,-maxval]) ~ 0.0f0, ρ([x1,maxval]) ~ 0.0f0];# 
+    #    icExp ~ ρ0([x1,x2])];#, # initial condition
     #    ssExp ~ 0.0f0]; # steady-state condition
 
 ## Neural network
@@ -174,15 +174,15 @@ bc_loss_functions = [
     (loss, set) in zip(_bc_loss_functions, train_bound_set)
 ]
 
-ic_loss_function = (θ) -> sum(abs2,_bc_loss_functions[5](train_bound_set[5], θ));
-@show ic_loss_function(initθ)
+# ic_loss_function = (θ) -> sum(abs2,_bc_loss_functions[5](train_bound_set[5], θ));
+# @show ic_loss_function(initθ)
 
 bc_loss_function_sum = θ -> sum(map(l -> l(θ), bc_loss_functions))
 @show bc_loss_function_sum(initθ)
 
 function loss_function_(θ, p)
     # return pde_loss_function(θ) + α_ic*ic_loss_function(θ)
-    return pde_loss_function(θ) + bc_loss_function_sum(θ) + α_ic*ic_loss_function(θ)
+    return pde_loss_function(θ) + bc_loss_function_sum(θ) #+ α_ic*ic_loss_function(θ)
 end
 @show loss_function_(initθ,0)
 
@@ -193,7 +193,7 @@ prob = GalacticOptim.OptimizationProblem(f_, initθ)
 nSteps = 0;
 PDE_losses = Float32[];
 BC_losses = Float32[];
-IC_losses = Float32[];
+# IC_losses = Float32[];
 cb_ = function (p, l)
     if any(isnan.(p))
         println("SOME PARAMETERS ARE NaN.")
@@ -205,21 +205,21 @@ cb_ = function (p, l)
         "Individual losses are: PDE loss:",
         pde_loss_function(p),
         ", BC loss:",
-        bc_loss_function_sum(p),
-        ", IC loss:",
-        ic_loss_function(p)
+        bc_loss_function_sum(p)#,
+        # ", IC loss:",
+        # ic_loss_function(p)
     )
 
     push!(PDE_losses, pde_loss_function(p))
     push!(BC_losses, bc_loss_function_sum(p))
-    push!(IC_losses, ic_loss_function(p))
+    # push!(IC_losses, ic_loss_function(p))
 
     if runExp # if running job file
         open(runExp_fileName, "a+") do io
             write(io, "[$nSteps] Current loss is: $l \n")
         end;
         
-        jldsave(saveFile; optParam=Array(p), PDE_losses, BC_losses, IC_losses);
+        jldsave(saveFile; optParam=Array(p), PDE_losses, BC_losses);#, IC_losses);
     end
     return false
 end
@@ -233,5 +233,5 @@ println("Optimization done.");
 ## Save data
 cd(@__DIR__);
 if runExp
-    jldsave(saveFile;optParam = Array(res.minimizer), PDE_losses, BC_losses, IC_losses);
+    jldsave(saveFile;optParam = Array(res.minimizer), PDE_losses, BC_losses);#, IC_losses);
 end
