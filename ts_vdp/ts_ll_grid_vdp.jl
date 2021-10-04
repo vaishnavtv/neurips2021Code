@@ -16,14 +16,14 @@ maxOpt1Iters = 10000; # maximum number of training iterations for opt1
 opt2 = Optim.LBFGS(); # second optimizer used for fine-tuning
 maxOpt2Iters = 1000; # maximum number of training iterations for opt2
 
-dx = [0.1f0; 0.1f0; 0.001f0]; # discretization size used for training
+dx = [0.05f0; 0.05f0; 0.005f0]; # discretization size used for training
 tEnd = 0.1f0; 
 Q_fpke = 0.0f0; # Q_fpke = σ^2
 α_ic = 1000.0f0; # weight on initial loss
 
 # file location to save data
 suff = string(activFunc);
-expNum = 39;
+expNum = 40;
 runExp = true;
 useGPU = true;
 cd(@__DIR__);
@@ -33,7 +33,7 @@ if runExp
     open(runExp_fileName, "a+") do io
         write(io, "Transient vdp with grid training in η. 2 HL with $(nn) neurons in the hl and $(suff) activation. $(maxOpt1Iters) iterations with LBFGS and then $(maxOpt2Iters) with LBFGS.  Q_fpke = $(Q_fpke). Using GPU.
         dx = $(dx). tEnd = $(tEnd). Not enforcing steady-state. Enforcing BC. Fixed drift term. 
-        α_ic = $(α_ic). No IC weighting. No diffusion. Very small tEnd.
+        α_ic = $(α_ic). No IC weighting. No diffusion. Very small tEnd. Decreased dx.
         Experiment number: $(expNum)\n")
     end
 end
