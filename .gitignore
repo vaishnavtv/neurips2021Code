@@ -80,3 +80,5 @@ baseline_vdp/quad_batch.slurm
 baseline_vdp/out_quad
 ts_vdp/figs
 baseline_vdp/figs_grid
+linsys_ss/ss_ls_grid_batch.slurm
+linsys_ss/out_grid
