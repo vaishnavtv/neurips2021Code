@@ -21,7 +21,7 @@ Q_fpke = 0.01f0; # Q = σ^2
 
 # file location to save data
 suff = string(activFunc);
-expNum = 2;
+expNum = 3;
 saveFile = "data_grid/ll_grid_ls_exp$(expNum).jld2";
 useGPU = false;
 runExp = true;
@@ -29,7 +29,7 @@ runExp_fileName = "out_grid/log$(expNum).txt";
 if runExp
     open(runExp_fileName, "a+") do io
         write(io, "Steady State linear system with Grid training. 2 HL with $(nn) neurons in the hl and $(suff) activation. $(maxOpt1Iters) iterations with BFGS and then $(maxOpt2Iters) with LBFGS. Not using GPU. 
-        Equation: Eqn/ρ not simplified. Diffusion in both states. Q_fpke = $(Q_fpke). Domain: [-4,4]^2. Manually removed exponential terms.
+        Equation: Eqn/ρ not simplified. Diffusion in both states. Q_fpke = $(Q_fpke). Domain: [-4,4]^2. Using Symbolics-simplify(eqn; expand = true).
         Experiment number: $(expNum)\n")
     end
 end
@@ -55,10 +55,10 @@ T1 = sum([Differential(x[i])(F[i]) for i in 1:length(x)]);
 T2 = sum([(Differential(x[i])*Differential(x[j]))(G[i,j]) for i in 1:length(x), j=1:length(x)]);
 
 Eqn = expand_derivatives(-T1+T2); # + dx*u(x1,x2)-1 ~ 0;
-pdeOrig = simplify(Eqn/ρ(x)) ~ 0.0f0;
-# pde = pdeOrig;
+pdeOrig = simplify(Eqn/ρ(x), expand = true) ~ 0.0f0;
+pde = pdeOrig;
 
-pde = (2.0f0 + (0.005f0*(Differential(x1)(η(x1, x2))^2) + 0.005f0*(Differential(x2)(η(x1, x2))^2)) + x1*Differential(x1)(η(x1, x2)) + x2*Differential(x2)(η(x1, x2)) + 0.005f0*Differential(x1)(Differential(x1)(η(x1, x2))) + 0.005f0*Differential(x1)(Differential(x2)(η(x1, x2))) + 0.005f0*Differential(x2)(Differential(x1)(η(x1, x2))) + 0.005f0*Differential(x2)(Differential(x2)(η(x1, x2))) + 0.01f0Differential(x2)(η(x1, x2))*Differential(x1)(η(x1, x2))) ~ 0.0
+# pde = (2.0f0 + (0.005f0*(Differential(x1)(η(x1, x2))^2) + 0.005f0*(Differential(x2)(η(x1, x2))^2)) + x1*Differential(x1)(η(x1, x2)) + x2*Differential(x2)(η(x1, x2)) + 0.005f0*Differential(x1)(Differential(x1)(η(x1, x2))) + 0.005f0*Differential(x1)(Differential(x2)(η(x1, x2))) + 0.005f0*Differential(x2)(Differential(x1)(η(x1, x2))) + 0.005f0*Differential(x2)(Differential(x2)(η(x1, x2))) + 0.01f0Differential(x2)(η(x1, x2))*Differential(x1)(η(x1, x2))) ~ 0.0
 # pde = (Differential(x1)(x2*exp(η(x1, x2))) + Differential(x2)(exp(η(x1, x2))*(x2*(1 - (x1^2)) - x1)))*(exp(η(x1, x2))^-1) ~ 0.0f0 # drift term (works, no NaN)
 # pde = Differential(x2)(Differential(x2)((η(x1, x2)))) ~ 0.0f0  # diffusion term 1 (works, no NaN)
 # pde = ((Differential(x2)(η(x1,x2,t)))*(Differential(x2)(η(x1,x2,t)))) ~ 0.0f0 # square of derivative doesn't work
