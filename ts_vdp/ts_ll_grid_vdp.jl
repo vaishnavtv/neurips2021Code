@@ -23,7 +23,7 @@ Q_fpke = 0.0f0; # Q_fpke = σ^2
 
 # file location to save data
 suff = string(activFunc);
-expNum = 38;
+expNum = 39;
 runExp = true;
 useGPU = true;
 cd(@__DIR__);
@@ -33,7 +33,7 @@ if runExp
     open(runExp_fileName, "a+") do io
         write(io, "Transient vdp with grid training in η. 2 HL with $(nn) neurons in the hl and $(suff) activation. $(maxOpt1Iters) iterations with LBFGS and then $(maxOpt2Iters) with LBFGS.  Q_fpke = $(Q_fpke). Using GPU.
         dx = $(dx). tEnd = $(tEnd). Not enforcing steady-state. Enforcing BC. Fixed drift term. 
-        α_ic = $(α_ic). Using SE and dramatically large weight on IC. Using Gaussian at t0. No diffusion. Very small tEnd.
+        α_ic = $(α_ic). No IC weighting. No diffusion. Very small tEnd.
         Experiment number: $(expNum)\n")
     end
 end
