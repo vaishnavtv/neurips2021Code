@@ -58,7 +58,7 @@ Eqn = expand_derivatives(-T1+T2); # + dx*u(x1,x2)-1 ~ 0;
 pdeOrig = simplify(Eqn/ρ(x)) ~ 0.0f0;
 # pde = pdeOrig;
 
-pde = (2.0f0 + x1*Differential(x1)(η(x1, x2)) + x2*Differential(x2)(η(x1, x2)) + 0.05f0*Differential(x2)(Differential(x2)(η(x1, x2))) + 0.05f0*(Differential(x2)(η(x1, x2))^2))~ 0.0f0;
+pde = (2.0f0 + (0.005f0*(Differential(x1)(η(x1, x2))^2) + 0.005f0*(Differential(x2)(η(x1, x2))^2)) + x1*Differential(x1)(η(x1, x2)) + x2*Differential(x2)(η(x1, x2)) + 0.005f0*Differential(x1)(Differential(x1)(η(x1, x2))) + 0.005f0*Differential(x1)(Differential(x2)(η(x1, x2))) + 0.005f0*Differential(x2)(Differential(x1)(η(x1, x2))) + 0.005f0*Differential(x2)(Differential(x2)(η(x1, x2))) + 0.01f0Differential(x2)(η(x1, x2))*Differential(x1)(η(x1, x2))) ~ 0.0
 # pde = (Differential(x1)(x2*exp(η(x1, x2))) + Differential(x2)(exp(η(x1, x2))*(x2*(1 - (x1^2)) - x1)))*(exp(η(x1, x2))^-1) ~ 0.0f0 # drift term (works, no NaN)
 # pde = Differential(x2)(Differential(x2)((η(x1, x2)))) ~ 0.0f0  # diffusion term 1 (works, no NaN)
 # pde = ((Differential(x2)(η(x1,x2,t)))*(Differential(x2)(η(x1,x2,t)))) ~ 0.0f0 # square of derivative doesn't work
