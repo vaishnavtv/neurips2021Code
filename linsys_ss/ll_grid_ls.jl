@@ -72,7 +72,6 @@ end
 # pde = driftTerm - diffTerm ~ 0.0f0 # full pde
 
 ## Writing PDE in terms of η directly - convoluted
-Q_fpke = 0.1f0;
 diffC = 0.5f0*(g(xSym)*Q_fpke*g(xSym)'); # diffusion term
 G2 = diffC*η(xSym...);
 
