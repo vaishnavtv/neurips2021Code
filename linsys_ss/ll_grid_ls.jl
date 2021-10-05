@@ -47,7 +47,7 @@ function g(x::Vector)
 end
 
 # PDE
-# ρ(x) = exp(η(x[1],x[2]));
+ρ(x) = exp(η(x[1],x[2]));
 # F = f(xSym)*ρ(xSym);
 # G = 0.5f0*(g(xSym)*Q_fpke*g(xSym)')*ρ(xSym);
 
