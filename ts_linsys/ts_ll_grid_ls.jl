@@ -10,8 +10,8 @@ import Random:seed!; seed!(1);
 ## parameters for neural network
 nn = 48; # number of neurons in the hidden layer
 activFunc = tanh; # activation function
-opt1 = Optim.LBFGS(); # primary optimizer used for training
-# opt1 = ADAM(1e-3) #Flux.Optimiser(ADAM(1e-3));
+# opt1 = Optim.LBFGS(); # primary optimizer used for training
+opt1 = ADAM(1e-3) #Flux.Optimiser(ADAM(1e-3));
 maxOpt1Iters = 10000; # maximum number of training iterations for opt1
 opt2 = Optim.LBFGS(); # second optimizer used for fine-tuning
 maxOpt2Iters = 1000; # maximum number of training iterations for opt2
@@ -23,7 +23,7 @@ Q_fpke = 0.001f0; # Q_fpke = σ^2
 
 # file location to save data
 suff = string(activFunc);
-expNum = 1;
+expNum = 2;
 runExp = true;
 useGPU = true;
 cd(@__DIR__);
@@ -31,7 +31,7 @@ saveFile = "dataTS_grid/ll_ts_ls_exp$(expNum).jld2";
 runExp_fileName = "out_grid/log$(expNum).txt";
 if runExp
     open(runExp_fileName, "a+") do io
-        write(io, "Transient linear system with grid training in η. 2 HL with $(nn) neurons in the hl and $(suff) activation. $(maxOpt1Iters) iterations with LBFGS and then $(maxOpt2Iters) with LBFGS.  Q_fpke = $(Q_fpke). Using GPU.
+        write(io, "Transient linear system with grid training in η. 2 HL with $(nn) neurons in the hl and $(suff) activation. $(maxOpt1Iters) iterations with ADAM and then $(maxOpt2Iters) with LBFGS.  Q_fpke = $(Q_fpke). Using GPU.
         dx = $(dx). tEnd = $(tEnd). Not enforcing steady-state. Enforcing BC. Diffusion only in x2.
         α_ic = $(α_ic). No IC. 
         Experiment number: $(expNum)\n")
