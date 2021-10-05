@@ -70,17 +70,18 @@ diffTerm = Q_fpke/2*(diffTerm1 + diffTerm2); # diffusion term
 
 pde = driftTerm - diffTerm ~ 0.0f0 # full pde
 
-IX = Integral((x1,x2) in DomainSets.ProductDomain(ClosedInterval(-maxval,maxval), ClosedInterval(-maxval,maxval))); # integral
 
 ## Domain
 maxval = 4.0f0;
 domains = [x1 ∈ IntervalDomain(-maxval,maxval),
            x2 ∈ IntervalDomain(-maxval,maxval)];
 
+IX = Integral((x1,x2) in DomainSets.ProductDomain(ClosedInterval(-maxval,maxval), ClosedInterval(-maxval,maxval))); # integral
+
 # Boundary conditions
 bcs = [ρ([-maxval,x2]) ~ 0.f0, ρ([maxval,x2]) ~ 0,
        ρ([x1,-maxval]) ~ 0.f0, ρ([x1,maxval]) ~ 0,#];
-        IC(ρ(x)) ~ 1.0f0];  
+        IC(ρ(x)) ~ 1.0f0];  # norm condition
 ## Neural network
 dim = 2 # number of dimensions
 chain = Chain(Dense(dim,nn,activFunc), Dense(nn,nn,activFunc), Dense(nn,1));
