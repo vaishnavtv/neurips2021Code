@@ -1,6 +1,6 @@
 ## Solve the FPKE for the Van der Pol oscillator using baseline PINNs (large training set)
 
-using NeuralPDE, Flux, ModelingToolkit, GalacticOptim, Optim, Symbolics, JLD2, DiffEqFlux, Statistics, LinearAlgebra
+using NeuralPDE, Flux, ModelingToolkit, GalacticOptim, Optim, Symbolics, JLD2, DiffEqFlux, Statistics, LinearAlgebra, DomainSets
 
 using CUDA
 CUDA.allowscalar(false)
@@ -23,7 +23,7 @@ Q_fpke = 0.001f0; # Q_fpke = σ^2
 
 # file location to save data
 suff = string(activFunc);
-expNum = 4;
+expNum = 5;
 runExp = true;
 useGPU = true;
 cd(@__DIR__);
@@ -32,7 +32,7 @@ runExp_fileName = "out_grid/log$(expNum).txt";
 if runExp
     open(runExp_fileName, "a+") do io
         write(io, "Transient linear system with grid training in η. 2 HL with $(nn) neurons in the hl and $(suff) activation. $(maxOpt1Iters) iterations with LBFGS and then $(maxOpt2Iters) with LBFGS.  Q_fpke = $(Q_fpke). Using GPU. dx = $(dx). tEnd = $(tEnd). Not enforcing steady-state. Enforcing BC. Diffusion in x2.
-        α_ic = $(α_ic). No IC. 
+        α_ic = $(α_ic). No IC. Added normalisation condition using Symbolics.Integral.
         Experiment number: $(expNum)\n")
     end
 end
@@ -115,9 +115,12 @@ icExp = ρ_ic(xSym)
 
 ρ0(x) =  exp(-0.5f0 * (x - μ_ss)' * inv_Σ_ss * (x - μ_ss)) / (2.0f0 * Float32(pi) * sqrt_det_Σ_ss); # ρ at t0, Gaussian
 
+IX = Integral((x1,x2) in DomainSets.ProductDomain(ClosedInterval(-maxval,maxval), ClosedInterval(-maxval,maxval))); # 
+
 # Initial and Boundary conditions
 bcs = [ρ([-maxval,x2]) ~ 0.0f0, ρ([maxval,x2]) ~ 0.0f0,
-       ρ([x1,-maxval]) ~ 0.0f0, ρ([x1,maxval]) ~ 0.0f0];# 
+       ρ([x1,-maxval]) ~ 0.0f0, ρ([x1,maxval]) ~ 0.0f0,#
+       IX(ρ(xSym)) ~ 1.0f0]; 
     #    icExp ~ ρ0([x1,x2])];#, # initial condition
     #    ssExp ~ 0.0f0]; # steady-state condition
 
@@ -193,8 +196,8 @@ bc_loss_functions = [
     (loss, set) in zip(_bc_loss_functions, train_bound_set)
 ]
 
-# ic_loss_function = (θ) -> sum(abs2,_bc_loss_functions[5](train_bound_set[5], θ));
-# @show ic_loss_function(initθ)
+norm_loss_function = (θ) -> mean(abs2,_bc_loss_functions[5](train_bound_set[5], θ));
+@show norm_loss_function(initθ)
 
 bc_loss_function_sum = θ -> sum(map(l -> l(θ), bc_loss_functions))
 @show bc_loss_function_sum(initθ)
@@ -212,7 +215,7 @@ prob = GalacticOptim.OptimizationProblem(f_, initθ)
 nSteps = 0;
 PDE_losses = Float32[];
 BC_losses = Float32[];
-# IC_losses = Float32[];
+NORM_losses = Float32[];
 cb_ = function (p, l)
     if any(isnan.(p))
         println("SOME PARAMETERS ARE NaN.")
@@ -224,21 +227,21 @@ cb_ = function (p, l)
         "Individual losses are: PDE loss:",
         pde_loss_function(p),
         ", BC loss:",
-        bc_loss_function_sum(p)#,
-        # ", IC loss:",
-        # ic_loss_function(p)
+        bc_loss_function_sum(p),
+        ", NORM loss:",
+        norm_loss_function(p)
     )
 
     push!(PDE_losses, pde_loss_function(p))
     push!(BC_losses, bc_loss_function_sum(p))
-    # push!(IC_losses, ic_loss_function(p))
+    push!(NORM_losses, norm_loss_function(p))
 
     if runExp # if running job file
         open(runExp_fileName, "a+") do io
             write(io, "[$nSteps] Current loss is: $l \n")
         end;
         
-        jldsave(saveFile; optParam=Array(p), PDE_losses, BC_losses);#, IC_losses);
+        jldsave(saveFile; optParam=Array(p), PDE_losses, BC_losses, NORM_losses);
     end
     return false
 end
@@ -252,5 +255,5 @@ println("Optimization done.");
 ## Save data
 cd(@__DIR__);
 if runExp
-    jldsave(saveFile;optParam = Array(res.minimizer), PDE_losses, BC_losses);#, IC_losses);
+    jldsave(saveFile; optParam=Array(p), PDE_losses, BC_losses, NORM_losses);
 end

@@ -1,6 +1,6 @@
 ## Solve the FPKE for the Van der Pol oscillator using baseline PINNs (large training set)
 cd(@__DIR__);
-using NeuralPDE, Flux, ModelingToolkit, GalacticOptim, Optim, Symbolics, JLD2, DiffEqFlux
+using NeuralPDE, Flux, ModelingToolkit, GalacticOptim, Optim, Symbolics, JLD2, DiffEqFlux, DomainSets, LinearAlgebra
 
 # using CUDA
 # CUDA.allowscalar(false)
@@ -20,7 +20,7 @@ dx = 0.05; # discretization size used for training
 
 # file location to save data
 suff = string(activFunc);
-expNum = 8;
+expNum = 9;
 saveFile = "data_grid/ll_grid_vdp_exp$(expNum).jld2";
 useGPU = false;
 runExp = true;
@@ -28,7 +28,7 @@ runExp_fileName = "out_grid/log$(expNum).txt";
 if runExp
     open(runExp_fileName, "a+") do io
         write(io, "Steady State vdp with Grid training. 2 HL with $(nn) neurons in the hl and $(suff) activation. $(maxOpt1Iters) iterations with BFGS and then $(maxOpt2Iters) with LBFGS. Not using GPU. 
-        Adding norm loss. Using CubaDivonne.
+        Adding norm loss as Symbolic Integral. 
         Experiment number: $(expNum)\n")
     end
 end
@@ -70,15 +70,18 @@ diffTerm = Q_fpke/2*(diffTerm1 + diffTerm2); # diffusion term
 
 pde = driftTerm - diffTerm ~ 0.0f0 # full pde
 
+
 ## Domain
 maxval = 4.0f0;
 domains = [x1 ∈ IntervalDomain(-maxval,maxval),
            x2 ∈ IntervalDomain(-maxval,maxval)];
 
+IX = Integral((x1,x2) in DomainSets.ProductDomain(ClosedInterval(-maxval,maxval), ClosedInterval(-maxval,maxval))); # integral
+
 # Boundary conditions
 bcs = [ρ([-maxval,x2]) ~ 0.f0, ρ([maxval,x2]) ~ 0,
-       ρ([x1,-maxval]) ~ 0.f0, ρ([x1,maxval]) ~ 0];
-
+       ρ([x1,-maxval]) ~ 0.f0, ρ([x1,maxval]) ~ 0,#];
+        IC(ρ(x)) ~ 1.0f0];  # norm condition
 ## Neural network
 dim = 2 # number of dimensions
 chain = Chain(Dense(dim,nn,activFunc), Dense(nn,nn,activFunc), Dense(nn,1));
@@ -151,6 +154,9 @@ bc_loss_functions = [
     (loss, set) in zip(_bc_loss_functions, train_bound_set)
 ]
 
+norm_loss_function = (θ) -> mean(abs2,_bc_loss_functions[5](train_bound_set[5], θ));
+@show norm_loss_function(initθ)
+
 bc_loss_function_sum = θ -> sum(map(l -> l(θ), bc_loss_functions))
 @show bc_loss_function_sum(initθ)
 
@@ -167,7 +173,7 @@ end
 @show norm_loss_function(initθ)
 
 function loss_function_(θ, p)
-    return pde_loss_function(θ) + bc_loss_function_sum(θ) + norm_loss_function(θ)
+    return pde_loss_function(θ) + bc_loss_function_sum(θ) #+ norm_loss_function(θ)
 end
 @show loss_function_(initθ,0)
 
