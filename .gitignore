@@ -85,3 +85,4 @@ linsys_ss/out_grid
 ts_linsys/ts_ls_grid_batch.slurm
 ts_linsys/out_grid
 linsys_ss/figs
+ts_linsys/figs
