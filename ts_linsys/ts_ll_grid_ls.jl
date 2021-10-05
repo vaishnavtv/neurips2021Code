@@ -18,12 +18,12 @@ maxOpt2Iters = 1000; # maximum number of training iterations for opt2
 
 dx = [0.1f0; 0.1f0; 0.01f0]; # discretization size used for training
 tEnd = 1.0f0; 
-Q_fpke = 0.00f0; # Q_fpke = σ^2
+Q_fpke = 0.001f0; # Q_fpke = σ^2
 α_ic = 0.0f0; # weight on initial loss
 
 # file location to save data
 suff = string(activFunc);
-expNum = 3;
+expNum = 4;
 runExp = true;
 useGPU = true;
 cd(@__DIR__);
@@ -31,7 +31,7 @@ saveFile = "dataTS_grid/ll_ts_ls_exp$(expNum).jld2";
 runExp_fileName = "out_grid/log$(expNum).txt";
 if runExp
     open(runExp_fileName, "a+") do io
-        write(io, "Transient linear system with grid training in η. 2 HL with $(nn) neurons in the hl and $(suff) activation. $(maxOpt1Iters) iterations with LBFGS and then $(maxOpt2Iters) with LBFGS.  Q_fpke = $(Q_fpke). Using GPU. dx = $(dx). tEnd = $(tEnd). Not enforcing steady-state. Enforcing BC. No diffusion. Solving continuity.
+        write(io, "Transient linear system with grid training in η. 2 HL with $(nn) neurons in the hl and $(suff) activation. $(maxOpt1Iters) iterations with LBFGS and then $(maxOpt2Iters) with LBFGS.  Q_fpke = $(Q_fpke). Using GPU. dx = $(dx). tEnd = $(tEnd). Not enforcing steady-state. Enforcing BC. Diffusion in x2.
         α_ic = $(α_ic). No IC. 
         Experiment number: $(expNum)\n")
     end
@@ -87,7 +87,10 @@ G2 = diffC*ηx;
 
 T1 = sum([(Differential(xSym[i])(f(xSym)[i]) + (f(xSym)[i]* Differential(xSym[i])(ηx))) for i in 1:length(xSym)]); # drift term
 T2 = sum([(Differential(xSym[i])*Differential(xSym[j]))(G2[i,j]) for i in 1:length(xSym), j=1:length(xSym)]);
-T2 += sum([(Differential(xSym[i])*Differential(xSym[j]))(diffC[i,j]) - (Differential(xSym[i])*Differential(xSym[j]))(diffC[i,j])*ηx + diffC[i,j]*(Differential(xSym[i])(ηx))*(Differential(xSym[j])(ηx)) for i in 1:length(xSym), j=1:length(xSym)]); # complete diffusion term
+T2 += sum([(Differential(xSym[i])*Differential(xSym[j]))(diffC[i,j]) - (Differential(xSym[i])*Differential(xSym[j]))(diffC[i,j])*ηx  for i in 1:length(xSym), j=1:length(xSym)]); # complete diffusion term
+
+T2 += diffC[2,2]*abs2(Differential(x2)(ηx)); # only when diffusion in x2
+# T2 = sum([diffC[i,j]*((Differential(xSym[i])(ηx))*(Differential(xSym[j])(ηx))) for i in 1:length(xSym), j=1:length(xSym)]) # works only when 
 
 
 
