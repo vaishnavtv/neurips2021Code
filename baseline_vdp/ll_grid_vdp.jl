@@ -81,7 +81,7 @@ IX = Integral((x1,x2) in DomainSets.ProductDomain(ClosedInterval(-maxval,maxval)
 # Boundary conditions
 bcs = [ρ([-maxval,x2]) ~ 0.f0, ρ([maxval,x2]) ~ 0,
        ρ([x1,-maxval]) ~ 0.f0, ρ([x1,maxval]) ~ 0,#];
-        IC(ρ(x)) ~ 1.0f0];  # norm condition
+        IX(ρ(x)) ~ 1.0f0];  # norm condition
 ## Neural network
 dim = 2 # number of dimensions
 chain = Chain(Dense(dim,nn,activFunc), Dense(nn,nn,activFunc), Dense(nn,1));
