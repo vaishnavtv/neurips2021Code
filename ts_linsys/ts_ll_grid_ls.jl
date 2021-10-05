@@ -1,6 +1,6 @@
 ## Solve the FPKE for the Van der Pol oscillator using baseline PINNs (large training set)
 
-using NeuralPDE, Flux, ModelingToolkit, GalacticOptim, Optim, Symbolics, JLD2, DiffEqFlux, Statistics, LinearAlgebra
+using NeuralPDE, Flux, ModelingToolkit, GalacticOptim, Optim, Symbolics, JLD2, DiffEqFlux, Statistics, LinearAlgebra, DomainSets
 
 using CUDA
 CUDA.allowscalar(false)
