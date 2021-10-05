@@ -29,7 +29,7 @@ runExp_fileName = "out_grid/log$(expNum).txt";
 if runExp
     open(runExp_fileName, "a+") do io
         write(io, "Steady State linear system with Grid training. 2 HL with $(nn) neurons in the hl and $(suff) activation. $(maxOpt1Iters) iterations with BFGS and then $(maxOpt2Iters) with LBFGS. Not using GPU. 
-        Equation: Eqn/ρ not simplified. Diffusion in both states. Q_fpke = $(Q_fpke). Domain: [-4,4]^2. Using Symbolics-simplify(eqn; expand = true).
+        Equation: Eqn/ρ not simplified. Diffusion in just x2. Q_fpke = $(Q_fpke). Domain: [-4,4]^2. Using Symbolics-simplify(eqn; expand = true).
         Experiment number: $(expNum)\n")
     end
 end
@@ -37,25 +37,25 @@ end
 @parameters x1, x2
 @variables  η(..)
 
-x = [x1;x2]
+xSym = [x1;x2]
 
 # Stable linear Dynamics
 f(x) = -1.0f0*x; #
 
 function g(x::Vector)
-    return [1.0f0;1.0f0];
+    return [0.0f0;1.0f0];
 end
 
 # PDE
 ρ(x) = exp(η(x[1],x[2]));
-F = f(x)*ρ(x);
-G = 0.5f0*(g(x)*Q_fpke*g(x)')*ρ(x);
+F = f(xSym)*ρ(xSym);
+G = 0.5f0*(g(xSym)*Q_fpke*g(xSym)')*ρ(xSym);
 
-T1 = sum([Differential(x[i])(F[i]) for i in 1:length(x)]);
-T2 = sum([(Differential(x[i])*Differential(x[j]))(G[i,j]) for i in 1:length(x), j=1:length(x)]);
+T1 = sum([Differential(xSym[i])(F[i]) for i in 1:length(xSym)]);
+T2 = sum([(Differential(xSym[i])*Differential(xSym[j]))(G[i,j]) for i in 1:length(xSym), j=1:length(xSym)]);
 
 Eqn = expand_derivatives(-T1+T2); # + dx*u(x1,x2)-1 ~ 0;
-pdeOrig = simplify(Eqn/ρ(x), expand = true) ~ 0.0f0;
+pdeOrig = simplify(Eqn/ρ(xSym), expand = true) ~ 0.0f0;
 pde = pdeOrig;
 
 # pde = (2.0f0 + (0.005f0*(Differential(x1)(η(x1, x2))^2) + 0.005f0*(Differential(x2)(η(x1, x2))^2)) + x1*Differential(x1)(η(x1, x2)) + x2*Differential(x2)(η(x1, x2)) + 0.005f0*Differential(x1)(Differential(x1)(η(x1, x2))) + 0.005f0*Differential(x1)(Differential(x2)(η(x1, x2))) + 0.005f0*Differential(x2)(Differential(x1)(η(x1, x2))) + 0.005f0*Differential(x2)(Differential(x2)(η(x1, x2))) + 0.01f0Differential(x2)(η(x1, x2))*Differential(x1)(η(x1, x2))) ~ 0.0
