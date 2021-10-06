@@ -86,3 +86,5 @@ ts_linsys/ts_ls_grid_batch.slurm
 ts_linsys/out_grid
 linsys_ss/figs
 ts_linsys/figs
+ts_vdpr/ts_vdpr_grid_batch.slurm
+ts_vdpr/out_grid
