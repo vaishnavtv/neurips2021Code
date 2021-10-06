@@ -2,15 +2,16 @@
 
 using NeuralPDE, Flux, ModelingToolkit, GalacticOptim, Optim, Symbolics, JLD2, DiffEqFlux, Statistics, LinearAlgebra
 
-using CUDA
-CUDA.allowscalar(false)
+# using CUDA
+# CUDA.allowscalar(false)
+using Quadrature, Cubature, Cuba
 
 import Random:seed!; seed!(1);
 
 ## parameters for neural network
 nn = 48; # number of neurons in the hidden layer
 activFunc = tanh; # activation function
-opt1 = Optim.LBFGS(); # primary optimizer used for training
+opt1 = Optim.BFGS(); # primary optimizer used for training
 # opt1 = ADAM(1e-3) #Flux.Optimiser(ADAM(1e-3));
 maxOpt1Iters = 10000; # maximum number of training iterations for opt1
 opt2 = Optim.LBFGS(); # second optimizer used for fine-tuning
@@ -23,16 +24,16 @@ Q_fpke = 0.001f0; # Q_fpke = σ^2
 
 # file location to save data
 suff = string(activFunc);
-expNum = 42;
+expNum = 43;
 runExp = true;
-useGPU = true;
+useGPU = false;
 cd(@__DIR__);
 saveFile = "dataTS_grid/ll_ts_vdp_exp$(expNum).jld2";
 runExp_fileName = "out_grid/log$(expNum).txt";
 if runExp
     open(runExp_fileName, "a+") do io
-        write(io, "Transient vdp with grid training in η. 2 HL with $(nn) neurons in the hl and $(suff) activation. $(maxOpt1Iters) iterations with LBFGS and then $(maxOpt2Iters) with LBFGS.  Q_fpke = $(Q_fpke). Using GPU.
-        dx = $(dx). tEnd = $(tEnd). Not enforcing steady-state. Enforcing BC. Fixed drift term. 
+        write(io, "Transient vdp with grid training in η. 2 HL with $(nn) neurons in the hl and $(suff) activation. $(maxOpt1Iters) iterations with BFGS and then $(maxOpt2Iters) with LBFGS.  Q_fpke = $(Q_fpke). NOT Using GPU.
+        dx = $(dx). tEnd = $(tEnd). Not enforcing steady-state. Enforcing BC. Fixed drift term. Adding norm loss.
         α_ic = $(α_ic). No IC. 
         Experiment number: $(expNum)\n")
     end
@@ -180,9 +181,33 @@ bc_loss_functions = [
 bc_loss_function_sum = θ -> sum(map(l -> l(θ), bc_loss_functions))
 @show bc_loss_function_sum(initθ)
 
+## additional loss function
+tSet = collect(ModelingToolkit.infimum(domains[3].domain):dx[3]:ModelingToolkit.supremum(domains[3].domain));
+function _norm_loss_function(cord_t, θ) # build_loss_function
+    nT = length(cord_t);
+    x_lb = [-maxval, -maxval]; 
+    x_ub = [maxval, maxval];
+    # # # Quadrature
+    function quadProb(tInd)
+        function inner_f(x,p)
+            xt = [x; cord_t[tInd]]; 
+            return exp(first(phi(xt, p))) # density
+        end
+        # t = cord_t[tInd];
+        prob = QuadratureProblem(inner_f, x_lb, x_ub, θ) ;
+        sol = solve(prob, HCubatureJL(), reltol = 1e-3, abstol = 1e-3);
+        return (sol[1]-1)
+    end
+    out = permutedims([quadProb(i) for i in 1:nT]);
+
+    return out
+end
+norm_loss_function = (θ) -> mean(abs2,_norm_loss_function(tSet, θ)); # get_loss_function
+@show norm_loss_function(initθ);
+
 function loss_function_(θ, p)
     # return pde_loss_function(θ) + α_ic*ic_loss_function(θ)
-    return pde_loss_function(θ) + bc_loss_function_sum(θ) #+ α_ic*ic_loss_function(θ)
+    return pde_loss_function(θ) + bc_loss_function_sum(θ) + norm_loss_function(θ) #+ α_ic*ic_loss_function(θ)
 end
 @show loss_function_(initθ,0)
 
@@ -194,6 +219,7 @@ nSteps = 0;
 PDE_losses = Float32[];
 BC_losses = Float32[];
 # IC_losses = Float32[];
+NORM_losses = Float32[];
 cb_ = function (p, l)
     if any(isnan.(p))
         println("SOME PARAMETERS ARE NaN.")
@@ -213,13 +239,14 @@ cb_ = function (p, l)
     push!(PDE_losses, pde_loss_function(p))
     push!(BC_losses, bc_loss_function_sum(p))
     # push!(IC_losses, ic_loss_function(p))
+    push!(NORM_losses, norm_loss_function(p))
 
     if runExp # if running job file
         open(runExp_fileName, "a+") do io
             write(io, "[$nSteps] Current loss is: $l \n")
         end;
         
-        jldsave(saveFile; optParam=Array(p), PDE_losses, BC_losses);#, IC_losses);
+        jldsave(saveFile; optParam=Array(p), PDE_losses, BC_losses, NORM_losses);#, IC_losses);
     end
     return false
 end
@@ -233,5 +260,5 @@ println("Optimization done.");
 ## Save data
 cd(@__DIR__);
 if runExp
-    jldsave(saveFile;optParam = Array(res.minimizer), PDE_losses, BC_losses);#, IC_losses);
+    jldsave(saveFile;optParam = Array(res.minimizer), PDE_losses, BC_losses, NORM_losses);#, IC_losses);
 end
