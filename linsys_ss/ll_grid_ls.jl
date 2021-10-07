@@ -21,7 +21,7 @@ Q_fpke = 0.01f0; # Q = σ^2
 
 # file location to save data
 suff = string(activFunc);
-expNum = 6;
+expNum = 7;
 saveFile = "data_grid/ll_grid_ls_exp$(expNum).jld2";
 useGPU = false;
 runExp = true;
@@ -48,7 +48,7 @@ end
 
 # PDE
 ρ(x) = exp(η(x[1],x[2]));
-pde = 2.0f0 + (0.05f0(Differential(x2)(η(x1, x2))^2) + 0.05f0(Differential(x1)(η(x1, x2))^2)) + x1*Differential(x1)(η(x1, x2)) + x2*Differential(x2)(η(x1, x2)) + 0.05f0Differential(x1)(Differential(x1)(η(x1, x2)))+ 0.05f0Differential(x2)(Differential(x1)(η(x1, x2))) + 0.05f0Differential(x1)(Differential(x2)(η(x1, x2))) + 0.05f0Differential(x2)(Differential(x2)(η(x1, x2)))+ 0.1f0Differential(x2)(η(x1, x2))*Differential(x1)(η(x1, x2)) ~ 0.0f0
+pde = 2.0f0 + (0.005f0(Differential(x2)(η(x1, x2))^2) + 0.005f0(Differential(x1)(η(x1, x2))^2)) + x1*Differential(x1)(η(x1, x2)) + x2*Differential(x2)(η(x1, x2)) + 0.005f0Differential(x1)(Differential(x1)(η(x1, x2)))+ 0.005f0Differential(x2)(Differential(x1)(η(x1, x2))) + 0.005f0Differential(x1)(Differential(x2)(η(x1, x2))) + 0.005f0Differential(x2)(Differential(x2)(η(x1, x2)))+ 0.01f0Differential(x2)(η(x1, x2))*Differential(x1)(η(x1, x2)) ~ 0.0f0;
 # F = f(xSym)*ρ(xSym);
 # G = 0.5f0*(g(xSym)*Q_fpke*g(xSym)')*ρ(xSym);
 
