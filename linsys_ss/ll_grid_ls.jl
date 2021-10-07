@@ -21,7 +21,7 @@ Q_fpke = 0.01f0; # Q = σ^2
 
 # file location to save data
 suff = string(activFunc);
-expNum = 5;
+expNum = 6;
 saveFile = "data_grid/ll_grid_ls_exp$(expNum).jld2";
 useGPU = false;
 runExp = true;
@@ -29,7 +29,7 @@ runExp_fileName = "out_grid/log$(expNum).txt";
 if runExp
     open(runExp_fileName, "a+") do io
         write(io, "Steady State linear system with Grid training. 2 HL with $(nn) neurons in the hl and $(suff) activation. $(maxOpt1Iters) iterations with BFGS and then $(maxOpt2Iters) with LBFGS. Not using GPU. 
-        Equation: Eqn/ρ not simplified. Q_fpke = $(Q_fpke). Domain: [-4,4]^2. Diffusion in both states, written eqn in η directly. Convoluted - followed eqn 20 from uncertaintyPropagation documentin Dropbox/RBFNet. Should match with exp-1,2.
+        Equation: Eqn/ρ not simplified. Q_fpke = $(Q_fpke). Domain: [-4,4]^2. Diffusion in both states. Manually removed exponential terms from equation. Should yield same results as exp5. (supposed to have been exp2).
         Experiment number: $(expNum)\n")
     end
 end
@@ -48,6 +48,7 @@ end
 
 # PDE
 ρ(x) = exp(η(x[1],x[2]));
+pde = 2.0f0 + (0.05f0(Differential(x2)(η(x1, x2))^2) + 0.05f0(Differential(x1)(η(x1, x2))^2)) + x1*Differential(x1)(η(x1, x2)) + x2*Differential(x2)(η(x1, x2)) + 0.05f0Differential(x1)(Differential(x1)(η(x1, x2)))+ 0.05f0Differential(x2)(Differential(x1)(η(x1, x2))) + 0.05f0Differential(x1)(Differential(x2)(η(x1, x2))) + 0.05f0Differential(x2)(Differential(x2)(η(x1, x2)))+ 0.1f0Differential(x2)(η(x1, x2))*Differential(x1)(η(x1, x2)) ~ 0.0f0
 # F = f(xSym)*ρ(xSym);
 # G = 0.5f0*(g(xSym)*Q_fpke*g(xSym)')*ρ(xSym);
 
@@ -72,17 +73,17 @@ end
 # pde = driftTerm - diffTerm ~ 0.0f0 # full pde
 
 ## Writing PDE in terms of η directly - convoluted
-diffC = 0.5f0*(g(xSym)*Q_fpke*g(xSym)'); # diffusion term
-G2 = diffC*η(xSym...);
+# diffC = 0.5f0*(g(xSym)*Q_fpke*g(xSym)'); # diffusion term
+# G2 = diffC*η(xSym...);
 
-T1_2 = sum([(Differential(xSym[i])(f(xSym)[i]) + (f(xSym)[i]* Differential(xSym[i])(η(xSym...)))) for i in 1:length(xSym)]); # drift term
-T2_2 = sum([(Differential(xSym[i])*Differential(xSym[j]))(G2[i,j]) for i in 1:length(xSym), j=1:length(xSym)]);
-T2_2 += sum([(Differential(xSym[i])*Differential(xSym[j]))(diffC[i,j]) - (Differential(xSym[i])*Differential(xSym[j]))(diffC[i,j])*η(xSym...) + diffC[i,j]*(Differential(xSym[i])(η(xSym...)))*(Differential(xSym[j])(η(xSym...))) for i in 1:length(xSym), j=1:length(xSym)]); # complete diffusion term
+# T1_2 = sum([(Differential(xSym[i])(f(xSym)[i]) + (f(xSym)[i]* Differential(xSym[i])(η(xSym...)))) for i in 1:length(xSym)]); # drift term
+# T2_2 = sum([(Differential(xSym[i])*Differential(xSym[j]))(G2[i,j]) for i in 1:length(xSym), j=1:length(xSym)]);
+# T2_2 += sum([(Differential(xSym[i])*Differential(xSym[j]))(diffC[i,j]) - (Differential(xSym[i])*Differential(xSym[j]))(diffC[i,j])*η(xSym...) + diffC[i,j]*(Differential(xSym[i])(η(xSym...)))*(Differential(xSym[j])(η(xSym...))) for i in 1:length(xSym), j=1:length(xSym)]); # complete diffusion term
 
-Eqn = expand_derivatives(-T1_2+T2_2); 
-pdeOrig2 = simplify(Eqn, expand = true) ~ 0.0f0;
+# Eqn = expand_derivatives(-T1_2+T2_2); 
+# pdeOrig2 = simplify(Eqn, expand = true) ~ 0.0f0;
 
-pde = pdeOrig2;
+# pde = pdeOrig2;
 
 ## Domain
 maxval = 4.0f0;
