@@ -27,7 +27,7 @@ Q = 0.1;
 rhoTrue(x) = exp(-1 / 2 * (x - μ_ss)' * inv(Σ_ss) * (x - μ_ss)) / (2 * pi * sqrt(det(Σ_ss))); # desired steady-state distribution (gaussian function) 
 
 cd(@__DIR__);
-fileLoc = "data/dx5eM2_vdp_$(suff)_$(nn)_contMin.jld2";
+fileLoc = "data/dx5eM2_vdp_$(suff)_$(nn)_cont.jld2";
 
 println("Loading file");
 file = jldopen(fileLoc, "r");
@@ -35,20 +35,23 @@ optParam = read(file, "optParam");
 PDE_losses = read(file, "PDE_losses");
 BC_losses = read(file, "BC_losses");
 rhoSS_losses = read(file, "rhoSS_losses");
-uNorm_losses = read(file, "uNorm_losses");
+# uNorm_losses = read(file, "uNorm_losses");
 close(file);
 
 ## Plot losses over time
 figure(569);
-clf;
+clf();
 nLosses = length(PDE_losses);
-semilogy(1:nLosses, PDE_losses, label = "pde");
-semilogy(1:nLosses, BC_losses, label = "bc");
-semilogy(1:nLosses, rhoSS_losses, label = "rhoSS");
-semilogy(1:nLosses, uNorm_losses, label = "uNorm");
+semilogy(1:nLosses, PDE_losses, label = "PDE");
+semilogy(1:nLosses, BC_losses, label = "BC");
+semilogy(1:nLosses, rhoSS_losses, label = "RHO_SS");
+# semilogy(1:nLosses, uNorm_losses, label = "uNorm");
 xlabel("Iterations");
 ylabel("ϵ");
+title("Loss Functions");
 legend();
+tight_layout();
+# savefig("figs_prelim/loss_contVdp.png");
 ##
 
 parameterless_type_θ = DiffEqBase.parameterless_type(optParam);
@@ -117,6 +120,7 @@ title(L"Solution Error; $ϵ_{ρ}=$ %$mseRHOErrStr");
 axis("auto");
 tight_layout();
 
+# savefig("figs_prelim/soln_contVdp.png");
 
 ## controlled Dynamics do not stabilize x1
 using DifferentialEquations
@@ -144,19 +148,19 @@ function plotTraj(sol, figNum)
     tSim = sol.t
     x1Sol = sol[1, :]
     x2Sol = sol[2, :]
-    u = [first(phi[2](sol.u[i], optParam)) for i = 1:length(tSim)]
+    u = [first(phi[2](sol.u[i], optParam2)) for i = 1:length(tSim)]
 
     figure(figNum)
     clf()
     subplot(3, 1, 1)
     PyPlot.plot(tSim, x1Sol)
     xlabel("t")
-    ylabel("x1")
+    ylabel(L"x_1")
     grid("on")
     subplot(3, 1, 2)
     PyPlot.plot(tSim, x2Sol)
     xlabel("t")
-    ylabel("x2")
+    ylabel(L"x_2")
     grid("on")
     subplot(3, 1, 3)
     PyPlot.plot(tSim, u)
@@ -166,6 +170,7 @@ function plotTraj(sol, figNum)
     grid("on")
 
     # suptitle("traj_$(titleSuff)");
+    suptitle("Trajectory");
     tight_layout()
 end
 
@@ -177,7 +182,7 @@ println("Terminal value state norm: $(norm(solSim[:,end]))");
 figure(3);
 clf();
 plotTraj(solSim, 3)
-
+# savefig("figs_prelim/traj_contVdp.png");
 ## check terminal values over grid
 nEvalTerm = 10;
 maxTermVal = 5;
@@ -189,11 +194,14 @@ termNorm = [norm((nlSim([x, y])[:, end])) for x in xg, y in yg];
 ##
 figure(90);
 clf();
-pcolor(gridXG, gridYG, termNorm, shading = "auto");
+pcolor(gridXG, gridYG, termNorm, shading = "auto", cmap = "inferno", vmin = 0, vmax = 1);
 xlabel("x1");
 ylabel("x2");
-title("Norm of terminal states after 500 seconds for different x0");
+title("Steady-state norm");
 colorbar();
+tight_layout();
+# savefig("figs_prelim/norm_contVdp.png");
+
 ##
 function f(x)
     u_ = first(phi[2](x, optParam2))
@@ -204,7 +212,7 @@ end
 
 function ρ_pdeErr_fns(optParam)
     function ηNetS(x)
-        return first(phi[1](x, optParam))
+        return first(phi[1](x, optParam1))
     end
     ρNetS(x) = exp(ηNetS(x)) # solution after first iteration
     df(x) = ForwardDiff.jacobian(z -> f(z), x)
@@ -220,11 +228,11 @@ end
 ρFn, pdeErrFn = ρ_pdeErr_fns(optParam1);
 pdeErrFine = [pdeErrFn([x, y])^2 for x in xs, y in ys];
 mseErrFine = sum(pdeErrFine[:] .^ 2) / length(pdeErrFine);
-@show mseErrFine
-##
-using ForwardDiff
-p(x) = x + deepcopy(x);
-ForwardDiff.derivative(p, 3)
-
 ϵ_pde = mseErrFine;
 @show ϵ_pde
+# @show mseErrFine
+##
+# using ForwardDiff
+# p(x) = x + deepcopy(x);
+# ForwardDiff.derivative(p, 3)
+

@@ -19,21 +19,23 @@ xSym = [x1, x2];
 activFunc = tanh;
 dx = 0.01;
 suff = string(activFunc);
-nn = 20;
-expNum = 9;
-strategy = "quasi";
+nn = 48;
+expNum = 11;
+@info "Plotting results for missile experiment number $(expNum)"
+strat = "grid";
 
-Q_fpke = 0.01f0#*1.0I(2); # σ^2
+Q_fpke = 0.001f0#*1.0I(2); # σ^2
 diffC = 0.5 * (g(xSym) * Q_fpke * g(xSym)'); # diffusion coefficient (constant in our case, not a fn of x)
 
 cd(@__DIR__);
-fileLoc = "dataQuasi/ll_$(strategy)_missile_$(suff)_$(nn)_exp$(expNum).jld2";
+fileLoc = "data_$(strat)/ll_$(strat)_missile_exp$(expNum).jld2";
 
 println("Loading file");
 file = jldopen(fileLoc, "r");
 optParam = read(file, "optParam");
 PDE_losses = read(file, "PDE_losses");
 BC_losses = read(file, "BC_losses");
+NORM_losses = read(file, "NORM_losses");
 close(file);
 println("Are any of the parameters NaN? $(any(isnan.(optParam)))")
 ## plot losses
@@ -41,13 +43,14 @@ nIters = length(PDE_losses);
 figure(1); clf();
 semilogy(1:nIters, PDE_losses, label =  "PDE");
 semilogy(1:nIters, BC_losses, label = "BC");
+semilogy(1:nIters, NORM_losses, label = "NORM");
 xlabel("Iterations");
 ylabel("ϵ");
-title(string(strategy," Exp $(expNum)"));
+title(string(strat," Exp $(expNum)"));
 legend();
 tight_layout();
 ## Neural network
-chain = Chain(Dense(2, nn, activFunc), Dense(nn, nn, activFunc), Dense(nn, nn, activFunc), Dense(nn, 1));
+chain = Chain(Dense(2, nn, activFunc), Dense(nn, nn, activFunc), Dense(nn, 1));
 # chain = Chain(Dense(2, nn, activFunc), Dense(nn, nn, activFunc), Dense(nn, 1));
 parameterless_type_θ = DiffEqBase.parameterless_type(optParam);
 phi = NeuralPDE.get_phi(chain, parameterless_type_θ);
@@ -108,7 +111,7 @@ function plotDistErr(figNum)
     clf()
     subplot(1, 2, 1)
     # figure(figNum); clf();
-    contourf(XXFine, YYFine, RHOPred, shading = "auto", cmap = "inferno")
+    pcolor(XXFine, YYFine, RHOPred, shading = "auto", cmap = "inferno")
     colorbar()
     xlabel("M")
     ylabel("α (rad)")
@@ -123,12 +126,12 @@ function plotDistErr(figNum)
     xlabel("M")
     ylabel("α (rad)")
     # suptitle("FT; g = g(x); Q_fpke = $(Q_fpke);")
-    suptitle("FT; g = $(diag(g(xSym))); Q_fpke = $(Q_fpke);")
+    suptitle("RT; g = $(diag(g(xSym))); Q_fpke = $(Q_fpke);")
     tight_layout()
 
 end
 plotDistErr(3);
-# savefig("figs/quasi_exp$(expNum).png");
+savefig("figs_grid/grid_exp$(expNum).png");
 
 ## normalisation as quadrature problem  
 using Quadrature

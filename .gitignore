@@ -88,3 +88,9 @@ linsys_ss/figs
 ts_linsys/figs
 ts_vdpr/ts_vdpr_grid_batch.slurm
 ts_vdpr/out_grid
+baseline_vdp/figs_prelim
+baseline_vdpr/figs_prelim
+cont_vdp/figs_prelim
+ot_vdp/figs_prelim
+ot_vdpr/figs_prelim
+

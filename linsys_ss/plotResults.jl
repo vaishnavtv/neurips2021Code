@@ -16,9 +16,9 @@ activFunc = tanh;
 dx = 0.05;
 suff = string(activFunc);
 nn = 48;
-expNum = 3;
-@info "Plotting results for ls experiment number $(expNum)"
-Q = 0.01;
+expNum = 7;
+@info "Plotting results for ss ls experiment number $(expNum)"
+Q_fpke = 0.01;
 strat = "grid";
 
 cd(@__DIR__);
@@ -53,7 +53,7 @@ phi = NeuralPDE.get_phi(chain, parameterless_type_θ);
 
 # Linear Dynamics
 f(x) = -1.0f0.*x;
-g(x) = [0.0f0;1.0f0];
+g(x) = [1.0f0;1.0f0];
 diffC = 0.5 * (g(rand(2)) * Q_fpke * g(rand(2))'); # constant diffusion coefficient
 
 maxval = 4.0f0;

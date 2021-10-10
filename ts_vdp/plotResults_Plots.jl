@@ -23,7 +23,7 @@ activFunc = tanh;
 dx = 0.01;
 suff = string(activFunc);
 nn = 48;
-expNum = 30;
+expNum = 33;
 tEnd = 10.0
 strategy = "grid";
 # chain = Chain(Dense(3, nn, activFunc), Dense(nn, nn, activFunc), Dense(nn, nn, activFunc), Dense(nn, 1));
@@ -146,7 +146,7 @@ function plot_(res)
             p2 = Plots.plot(xxFine, yyFine, pdeErrFine[:,:,i]',st=:heatmap, title = "Pointwise PDE Error")
             xlabel!("x1"); ylabel!("x2");
         else
-            p2 = Plots.plot(xxFine, yyFine, pdeErrFine_tEnd',st=:heatmap, title = "Pointwise PDE Error")
+            p2 = Plots.plot(xxFine, yyFine, pdeErrFine_tEnd',st=:heatmap, title = "Pointwise PDE Error (Steady-state)")
             xlabel!("x1"); ylabel!("x2");
         end
         Plots.plot(p1,p2, size = (800,400), plot_title = suptitle)

@@ -25,7 +25,7 @@ activFunc = tanh;
 dx = 0.01;
 suff = string(activFunc);
 nn = 48;
-expNum = 3;
+expNum = 6;
 @info "Plotting results for ts_linsys experiment number $(expNum)"
 simMOC = true;
 strategy = "grid";
@@ -34,7 +34,7 @@ chain = Chain(Dense(3, nn, activFunc), Dense(nn, nn, activFunc), Dense(nn, 1));
 
 t0 = 0.0; tEnd = 1.0f0;
 Q_fpke = 0.0f0#*1.0I(2); # σ^2
-Q_fpke_str = string(@sprintf "%.2e" Q_fpke);
+Q_fpke_str = string(Q_fpke);
 
 # diffC = 0.5 * (g(xSym) * Q_fpke * g(xSym)'); # diffusion coefficient (constant in our case, not a fn of x)
 diffCTerm(x) = 0.5 * (g(x) * Q_fpke * g(x)'); 
@@ -182,6 +182,7 @@ plotDistErr(expNum);
 
 
 ## compare against MOC
+mkpath("figs/exp$(expNum)") # to save figs
 using DifferentialEquations 
 uDyn(rho, x) = -tr(df(x)); 
 # uDyn(rho,x) = -rho*tr(df(x));
@@ -210,8 +211,10 @@ if simMOC
         normC_moc = trapz((X1grid[:,1], X2grid[2,:]), RHOgrid_MOC)
         @show normC_moc;
         x1Grid = X1grid[:,1]; x2Grid = X2grid[2,:];
-        RHOgrid_NN = [ρFn([x, y, tVal]) for x in x1Grid, y in x2Grid];
+        RHOgrid_NN = [ρFn(XU_t[i,j][tInd]) for i in 1:nEvalFine, j in 1:nEvalFine];
+        # RHOgrid_NN = [ρFn([x, y, tVal]) for x in x1Grid, y in x2Grid];
         normC_nn = trapz((X1grid[:,1], X2grid[2,:]), RHOgrid_NN);
+        RHOgrid_NN /= normC_nn;
         @show normC_nn;
 
         figure(45, (12,4)); clf();
@@ -238,7 +241,7 @@ if simMOC
         xlim(minval, maxval);
         ylim(minval,  maxval);
         title("Pointwise ϵ");
-        t_str = string(@sprintf "%.2e" tVal);
+        t_str = string(@sprintf "%.2f" tVal);
         suptitle("t = $(t_str)")
         tight_layout();
 

@@ -11,7 +11,8 @@ otIters = 20;
 maxNewPts = 200;
 
 cd(@__DIR__);
-fileLoc = "data/dx1eM1_ot1Eval_vdp_$(suff)_$(nn)_ot$(otIters)_mnp$(maxNewPts)_gpu_otShStab.jld2";
+# fileLoc = "data/dx1eM1_ot1Eval_vdp_$(suff)_$(nn)_ot$(otIters)_mnp$(maxNewPts)_gpu_otShStab.jld2";
+fileLoc = "data/dx1eM1_ot1Eval_vdp_tanh_48_ot20_mnp200.jld2";
 
 println("Loading file");
 file = jldopen(fileLoc, "r");
@@ -60,7 +61,7 @@ pdeErrFineVec = Vector{Matrix{Float64}}(undef, otIters);
 # loop over all OT iterations, get errors
 for otIter = 0:otIters-1
     otIter += 1
-    println("Analysing after $(otIter-1) OT iterations:")
+    @info "Analysing after $(otIter-1) OT iterations:"
     # Generate functions to check solution and PDE error
     function ρ_pdeErr_fns(optParam)
         function ηNetS(x)
@@ -103,7 +104,7 @@ for otIter = 0:otIters-1
     end
     mseEqErrVec[otIter] = get_mseEqErr(pdeErrFineVec[otIter])
     println(
-        "The mean squared equation error after $(otIter-1) iterations is: $(mseEqErrVec[otIter])",
+        "ϵ_pde = $(mseEqErrVec[otIter])",
     )
 end
 
@@ -139,7 +140,7 @@ function plotDistErr(RHOFine, pdeErrFine, figNum)
     tight_layout()
 end
 plotDistErr(RHOFineVec[otIter], pdeErrFineVec[otIter], otIter)
-
+# savefig("figs_prelim/otSoln_vdp.png");
 
 ## Plot eqErr vs. OT
 figure(1000);
@@ -152,3 +153,4 @@ ylabel("ϵ");
 title(L"$ϵ_{pde}$");
 nNN0 = size(pde_train_sets[1][1], 2);
 tight_layout();
+# savefig("figs_prelim/otError_vdp.png");
