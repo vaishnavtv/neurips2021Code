@@ -13,8 +13,8 @@ pygui(true);
 # @variables x1, x2, t
 # xSym = [x1, x2];
 
-# Van der Pol Dynamics
-f(x) = -1.0f0*x;
+# Van der Pol Rayleigh Dynamics
+f(x) = [x[2]; -x[1] + (1 - x[1]^2 - x[2]^2) * x[2]];
 df(x) = ForwardDiff.jacobian(f, x)
 
 function g(x::Vector)
@@ -25,8 +25,8 @@ activFunc = tanh;
 dx = 0.01;
 suff = string(activFunc);
 nn = 48;
-expNum = 3;
-@info "Plotting results for ts_linsys experiment number $(expNum)"
+expNum = 1;
+@info "Plotting results for ts_vdpr experiment number $(expNum)"
 simMOC = true;
 strategy = "grid";
 # chain = Chain(Dense(3, nn, activFunc), Dense(nn, nn, activFunc), Dense(nn, nn, activFunc), Dense(nn, 1));
@@ -40,7 +40,7 @@ Q_fpke_str = string(@sprintf "%.2e" Q_fpke);
 diffCTerm(x) = 0.5 * (g(x) * Q_fpke * g(x)'); 
 
 cd(@__DIR__);
-fileLoc = "dataTS_$(strategy)/ll_ts_ls_exp$(expNum).jld2";
+fileLoc = "dataTS_$(strategy)/ll_ts_vdpr_exp$(expNum).jld2";
 
 println("Loading file from exp $(expNum)");
 file = jldopen(fileLoc, "r");
@@ -182,6 +182,7 @@ plotDistErr(expNum);
 
 
 ## compare against MOC
+# mkpath("figs/exp$(expNum)") # to save figs
 using DifferentialEquations 
 uDyn(rho, x) = -tr(df(x)); 
 # uDyn(rho,x) = -rho*tr(df(x));
@@ -242,7 +243,7 @@ if simMOC
         suptitle("t = $(t_str)")
         tight_layout();
 
-        savefig("figs/exp$(expNum)/t$(tInd).png");
+        # savefig("figs/exp$(expNum)/t$(tInd).png");
         # sleep(0.1);
     end
 end

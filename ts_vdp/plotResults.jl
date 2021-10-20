@@ -25,25 +25,27 @@ activFunc = tanh;
 dx = 0.01;
 suff = string(activFunc);
 nn = 48;
-expNum = 42;
+expNum = 41;
 simMOC = true;
 strategy = "grid";
 # chain = Chain(Dense(3, nn, activFunc), Dense(nn, nn, activFunc), Dense(nn, nn, activFunc), Dense(nn, 1));
 chain = Chain(Dense(3, nn, activFunc), Dense(nn, nn, activFunc), Dense(nn, 1));
 
-t0 = 0.0; tEnd = 0.1f0;
-Q_fpke = 0.001f0#*1.0I(2); # σ^2
+t0 = 0.0; tEnd = 1.0f0;
+Q_fpke = 0.0f0#*1.0I(2); # σ^2
+Q_fpke_str = string(Q_fpke);
 # diffC = 0.5 * (g(xSym) * Q_fpke * g(xSym)'); # diffusion coefficient (constant in our case, not a fn of x)
 diffCTerm(x) = 0.5 * (g(x) * Q_fpke * g(x)'); 
 
 cd(@__DIR__);
 fileLoc = "dataTS_$(strategy)/ll_ts_vdp_exp$(expNum).jld2";
 
-@info "Loading file from exp $(expNum)";
+@info "Loading file from ts_vdp exp $(expNum)";
 file = jldopen(fileLoc, "r");
 optParam = read(file, "optParam");
 PDE_losses = read(file, "PDE_losses");
 BC_losses = read(file, "BC_losses");
+# NORM_losses = read(file, "NORM_losses");
 # IC_losses = read(file, "IC_losses");
 close(file);
 println("Are any of the parameters NaN? $(any(isnan.(optParam)))")
@@ -52,6 +54,7 @@ nIters = length(PDE_losses);
 figure(1); clf();
 semilogy(1:nIters, PDE_losses, label =  "PDE");
 semilogy(1:nIters, BC_losses, label = "BC");
+# semilogy(1:nIters, NORM_losses, label = "NORM");
 # semilogy(1:nIters, IC_losses, label = "IC");
 xlabel("Iterations");
 ylabel("ϵ");
@@ -179,54 +182,71 @@ plotDistErr(expNum);
 
 
 ## compare against MOC
-if simMOC
+mkpath("figs/exp$(expNum)") # to save figs
+using DifferentialEquations 
+uDyn(rho, x) = -tr(df(x)); 
+# uDyn(rho,x) = -rho*tr(df(x));
+tInt = ttFine[2] - ttFine[1];
+function nlSimContMOC(x0)
+    odeFn(xu,p,t) = [f(xu[1:2]); uDyn(xu[end], xu[1:2])]
+    prob = ODEProblem(odeFn, x0, (0.0, tEnd));
+    sol = solve(prob, Tsit5(), saveat = tInt, reltol = 1e-3, abstol = 1e-3);
+    return sol.u
+end
+RHO0_NN = RHOFine[:,:,1];
+normC0 = trapz((xxFine, yyFine), RHOPred[:,:,1]); # normalisation for initial state
+# if simMOC
     minval = -maxval; 
-    fileLoc = "dataTS_grid/moc.jld2"; # 
-    file = jldopen(fileLoc, "r");
-    XU_t = read(file, "XU_t");
-    close(file);
-    tSpan = 0:0.01:0.1;
+    XU_t = [nlSimContMOC([x, y, 0.0f0]) for x in xxFine, y in yyFine];
+    # XU_t = [nlSimContMOC([x, y, ρFn([x, y, 0.0f0])/normC0 ]) for x in xxFine, y in yyFine];
     ##
-    for (tInd, tVal) in enumerate(tSpan)
-    # tInd = 1; tVal = tSpan[tInd];
+    for (tInd, tVal) in enumerate(ttFine)
+    # tInd = 2; tVal = ttFine[tInd];
         X1grid = [XU_t[i,j][tInd][1] for i in 1:nEvalFine, j in 1:nEvalFine];
         X2grid = [XU_t[i,j][tInd][2] for i in 1:nEvalFine, j in 1:nEvalFine];
-        Ugrid = [XU_t[i,j][tInd][3] for i in 1:nEvalFine, j in 1:nEvalFine];
-        normC_moc = trapz((X1grid[:,1], X2grid[2,:]), Ugrid)
+        RHOgrid_MOC = [RHO0_NN[i,j]*exp(XU_t[i,j][tInd][3]) for i in 1:nEvalFine, j in 1:nEvalFine];
+        # RHOgrid_MOC = [(XU_t[i,j][tInd][3]) for i in 1:nEvalFine, j in 1:nEvalFine]; # no change in variabless
+        normC_moc = trapz((X1grid[:,1], X2grid[2,:]), RHOgrid_MOC)
         @show normC_moc;
         x1Grid = X1grid[:,1]; x2Grid = X2grid[2,:];
-        Ugrid_NN = [ρFn([x, y, tVal]) for x in x1Grid, y in x2Grid];
-        normC_nn = trapz((X1grid[:,1], X2grid[2,:]), Ugrid_NN);
+        # RHOgrid_NN = [ρFn([x, y, tVal]) for x in x1Grid, y in x2Grid];
+        RHOgrid_NN = [ρFn(XU_t[i,j][tInd]) for i in 1:nEvalFine, j in 1:nEvalFine];
+        normC_nn = trapz((X1grid[:,1], X2grid[2,:]), RHOgrid_NN);
+        RHOgrid_NN /= normC_nn;
         @show normC_nn;
 
         figure(45, (12,4)); clf();
         subplot(1,3,1);
-        contourf(X1grid, X2grid, Ugrid); colorbar();
+        contourf(X1grid, X2grid, RHOgrid_MOC); colorbar();
         xlabel("x1"); ylabel("x2");
         xlim(minval, maxval);
         ylim(minval,  maxval);
         title("MOC");
 
         subplot(1,3,2);
-        contourf(X1grid, X2grid, Ugrid_NN); colorbar();
+        contourf(X1grid, X2grid, RHOgrid_NN); colorbar();
         xlabel("x1"); ylabel("x2");
         xlim(minval, maxval);
         ylim(minval,  maxval);
-        title(" FPKE_NN (Q = 0.001)");
+        title(" FPKE_NN (Q = $(Q_fpke_str))");
 
         subplot(1,3,3);
-        contourf(X1grid, X2grid, abs2.(Ugrid - Ugrid_NN)); colorbar();
+        contourf(X1grid, X2grid, abs.(RHOgrid_MOC - RHOgrid_NN)); 
+        ϵ_mse = sum(abs2, (RHOgrid_MOC - RHOgrid_NN))/(nEvalFine^2);
+        ϵ_mse_str = string(@sprintf "%.2e" ϵ_mse);
+        colorbar();
         xlabel("x1"); ylabel("x2");
         xlim(minval, maxval);
         ylim(minval,  maxval);
         title("Pointwise ϵ");
-        suptitle("t = $(tVal)")
+        t_str = string(@sprintf "%.2f" tVal);
+        suptitle("t = $(t_str)")
         tight_layout();
 
-        savefig("figs_moc/q1em3/t$(tInd).png");
+        savefig("figs/exp$(expNum)/t$(tInd).png");
         # sleep(0.1);
     end
-end
+# end
 ##
 
 ## normalisation as quadrature problem  

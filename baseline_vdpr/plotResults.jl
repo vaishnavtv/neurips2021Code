@@ -21,14 +21,29 @@ Q = 0.3;
 rhoTrue(x) = exp(1 / Q * (x[1]^2 + x[2]^2 - 1 / 2 * (x[1]^2 + x[2]^2)^2));
 
 cd(@__DIR__);
-fileLoc = "data/dx5eM2_vdpr_$(suff)_$(nn)_gpu_hl.jld2";
-
+# fileLoc = "data/dx5eM2_vdpr_$(suff)_$(nn)_gpu_hl.jld2";
+fileLoc = "data/dx5eM2_vdpr_tanh_48_2.jld2"
 println("Loading file");
 file = jldopen(fileLoc, "r");
 optParam = read(file, "optParam");
-# PDE_losses = read(file, "PDE_losses");
-# BC_losses = read(file, "BC_losses");
+PDE_losses = read(file, "PDE_losses");
+BC_losses = read(file, "BC_losses");
 close(file);
+
+## plot losses
+nIters = length(PDE_losses);
+figure(1); clf();
+semilogy(1:nIters, PDE_losses, label =  "PDE");
+semilogy(1:nIters, BC_losses, label = "BC");
+# semilogy(1:nIters, NORM_losses, label = "NORM");
+xlabel("Iterations");
+ylabel("ϵ");
+title("Loss Function");
+# title(string(strat," Exp $(expNum)"));
+legend();
+tight_layout();
+# savefig("figs_prelim/loss_vdpr.png");
+##
 
 parameterless_type_θ = DiffEqBase.parameterless_type(optParam);
 
@@ -67,7 +82,7 @@ gridY = Float32.(YYFine);
 ##
 using PyPlot
 pygui(true);
-figure(1, (12, 4));
+figure(3, (12, 4));
 clf();
 subplot(1, 3, 1);
 PyPlot.pcolor(gridX, gridY, rho_pred_norm, cmap = "inferno", shading = "auto");
@@ -99,6 +114,6 @@ ylabel("x2");
 title(L"Solution Error; $ϵ_{ρ}=$ %$mseRHOErrStr");
 axis("auto");
 tight_layout();
-
+# savefig("figs_prelim/soln_vdpr.png");
 
 

@@ -23,14 +23,14 @@ Q = 0.1;
 strat = "grid";
 
 cd(@__DIR__);
-fileLoc = "data_$(strat)/ll_$(strat)_vdp_exp$(expNum).jld2";
-
+# fileLoc = "data_$(strat)/ll_$(strat)_vdp_exp$(expNum).jld2";
+fileLoc = "data/dx5eM2_vdp_tanh_48.jld2"
 println("Loading file");
 file = jldopen(fileLoc, "r");
 optParam = read(file, "optParam");
 PDE_losses = read(file, "PDE_losses");
 BC_losses = read(file, "BC_losses");
-NORM_losses = read(file, "NORM_losses")
+# NORM_losses = read(file, "NORM_losses")
 close(file);
 println("Are any of the parameters NaN? $(any(isnan.(optParam)))")
 
@@ -39,13 +39,14 @@ nIters = length(PDE_losses);
 figure(1); clf();
 semilogy(1:nIters, PDE_losses, label =  "PDE");
 semilogy(1:nIters, BC_losses, label = "BC");
-semilogy(1:nIters, NORM_losses, label = "NORM");
+# semilogy(1:nIters, NORM_losses, label = "NORM");
 xlabel("Iterations");
 ylabel("ϵ");
-title(string(strat," Exp $(expNum)"));
+title("Loss Function");
+# title(string(strat," Exp $(expNum)"));
 legend();
 tight_layout();
-
+# savefig("figs_prelim/loss_vdp.png");
 ##
 # Neural network
 chain = Chain(Dense(2, nn, activFunc), Dense(nn, nn, activFunc), Dense(nn, 1));
@@ -102,7 +103,7 @@ function plotDistErr(figNum)
     clf()
     subplot(1, 2, 1)
     # figure(figNum); clf();
-    pcolor(XXFine, YYFine, RHOPred, shading = "auto", cmap = "inferno")
+    pcolor(XXFine, YYFine, RHOPred, shading = "auto", cmap = "inferno");
     colorbar()
     xlabel("x1")
     ylabel("x2")
@@ -110,7 +111,7 @@ function plotDistErr(figNum)
     PyPlot.title("Steady-State Solution (ρ)")
 
     subplot(1, 2, 2)
-    pcolormesh(XXFine, YYFine, FFFine, cmap = "inferno", shading = "auto")
+    pcolor(XXFine, YYFine, FFFine, shading = "auto", cmap = "inferno")
     colorbar()
     axis("auto")
     PyPlot.title(L"Equation Error; $ϵ_{pde}$ = %$(mseEqErrStr)")
@@ -121,6 +122,7 @@ function plotDistErr(figNum)
 
 end
 plotDistErr(expNum);
+# savefig("figs_prelim/soln_vdp.png");
 # savefig("figs_grid/ss_vdp_grid_exp$(expNum).png")
 
 

@@ -19,8 +19,8 @@ otIters = 20;
 maxNewPts = 200;
 
 cd(@__DIR__);
-fileLoc = "data/dx25eM2_ot1Eval_vdpr_$(suff)_$(nn)_ot$(otIters)_mnp$(maxNewPts)_gpu_otShStab.jld2";
-
+# fileLoc = "data/dx25eM2_ot1Eval_vdpr_$(suff)_$(nn)_ot$(otIters)_mnp$(maxNewPts)_gpu_otShStab.jld2";
+fileLoc = "data/dx25eM2_ot1Eval_vdpr_tanh_48_ot20_mnp200.jld2";
 println("Loading file");
 file = jldopen(fileLoc, "r");
 optParams = read(file, "optParams");
@@ -69,7 +69,7 @@ pdeErrFineVec = Vector{Matrix{Float64}}(undef, otIters);
 # loop over all OT iterations
 for otIter = 0:otIters-1
     otIter += 1
-    println("Analysing after $(otIter-1) OT iterations:")
+    @info "Analysing after $(otIter-1) OT iterations:"
     function ρ_pdeErr_fns(optParam)
         function ηNetS(x)
             return first(phi(x, optParam))
@@ -112,7 +112,7 @@ for otIter = 0:otIters-1
     end
     mseEqErrVec[otIter] = get_mseEqErr(pdeErrFineVec[otIter])
     println(
-        "The mean squared equation error after $(otIter-1) iterations is: $(mseEqErrVec[otIter])",
+        "ϵ_pde = $(mseEqErrVec[otIter])",
     )
 end
 
@@ -141,12 +141,9 @@ function plotDistErr(nEvalFine, RHOFine, pdeErrFine, figNum)
     figure(figNum, (12, 4))
     clf()
     subplot(1, 3, 1)
-    pcolormesh(XXFine, YYFine, RHOFine, cmap = "inferno", shading = "auto")
+    pcolor(XXFine, YYFine, RHOFine, cmap = "inferno", shading = "auto")
     colorbar()
-    if otIter < otIters + 1
-        newPts = newPtsAll[otIter]
-        scatter(newPts[1, :], newPts[2, :], s = 1.0, color = "w")
-    end
+    
     xlabel("x1")
     ylabel("x2")
     title("Prediction")
@@ -154,7 +151,7 @@ function plotDistErr(nEvalFine, RHOFine, pdeErrFine, figNum)
     tight_layout()
 
     subplot(1, 3, 2)
-    pcolormesh(XXFine, YYFine, RHOTrue, cmap = "inferno", shading = "auto")
+    pcolor(XXFine, YYFine, RHOTrue, cmap = "inferno", shading = "auto")
     colorbar()
     xlabel("x1")
     ylabel("x2")
@@ -163,8 +160,13 @@ function plotDistErr(nEvalFine, RHOFine, pdeErrFine, figNum)
     tight_layout()
 
     subplot(1, 3, 3)
-    pcolormesh(XXFine, YYFine, RHOErr, shading = "auto", cmap = "inferno")
+    # pcolor(XXFine, YYFine, RHOErr, shading = "auto", cmap = "inferno")
+    pcolor(XXFine, YYFine, pdeErrFine, shading = "auto", cmap = "inferno")
     colorbar()
+    if otIter < otIters + 1
+        newPts = newPtsAll[otIter]
+        scatter(newPts[1, :], newPts[2, :], s = 1.0, color = "w")
+    end
     title(L"Solution Error; $ϵ_{ρ}=$ %$mseRHOErrStr")
     xlabel("x1")
     ylabel("x2")
@@ -173,6 +175,7 @@ function plotDistErr(nEvalFine, RHOFine, pdeErrFine, figNum)
 
 end
 plotDistErr(nEvalFine, RHOFineVec[otIter], pdeErrFineVec[otIter], otIter)
+# savefig("figs_prelim/otSoln_vdpr.png");
 
 ## Plot eqErr vs. OT
 println("Plotting equation error vs. OT")
@@ -185,4 +188,6 @@ xticks(1:otIters);
 ylabel("ϵ");
 title(L"$ϵ_{pde}$");
 tight_layout();
+# savefig("figs_prelim/otError_vdpr.png");
+
 
