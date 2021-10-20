@@ -3,8 +3,8 @@
 using NeuralPDE, Flux, ModelingToolkit, GalacticOptim, Optim, DiffEqFlux, Symbolics, JLD2
 cd(@__DIR__);
 
-using CUDA
-CUDA.allowscalar(false)
+# using CUDA
+# CUDA.allowscalar(false)
 using Quadrature, Cubature
 
 import Random: seed!;
@@ -15,18 +15,18 @@ nn = 48; # number of neurons in the hidden layer
 activFunc = tanh; # activation function
 opt1 = ADAM(1e-3); # primary optimizer used for training
 maxOpt1Iters = 10000; # maximum number of training iterations for opt1
-opt2 = Optim.LBFGS(); # second optimizer used for fine-tuning
-maxOpt2Iters = 1000; # maximum number of training iterations for opt2
+opt2 = Optim.BFGS(); # second optimizer used for fine-tuning
+maxOpt2Iters = 10000; # maximum number of training iterations for opt2
 
 # file location to save data
 suff = string(activFunc);
-expNum = 4;
+expNum = 5;
 saveFile = "data_quad/ll_quad_vdp_exp$(expNum).jld2";
 runExp = true;
 runExp_fileName = "out_quad/log$(expNum).txt";
 if runExp
     open(runExp_fileName, "a+") do io
-        write(io, "Steady State vdp with Quadrature training. 2 HL with $(nn) neurons in the hl and $(suff) activation. $(maxOpt1Iters) iterations with ADAM and then $(maxOpt2Iters) with LBFGS. Using CubatureJlp.
+        write(io, "Steady State vdp with Quadrature training. 2 HL with $(nn) neurons in the hl and $(suff) activation. $(maxOpt1Iters) iterations with ADAM and then $(maxOpt2Iters) with BFGS. Using CubatureJlh.
         Experiment number: $(expNum)\n")
     end
 end
@@ -44,17 +44,25 @@ function g(x::Vector)
 end
 
 # PDE
-Q = 0.1f0; # Q = σ^2
+Q_fpke = 0.1f0; # Q = σ^2
 ρ(x) = exp(η(x[1],x[2]));
 F = f(x)*ρ(x);
-G = 0.5f0*(g(x)*Q*g(x)')*ρ(x);
+G = 0.5f0*(g(x)*Q_fpke*g(x)')*ρ(x);
 
 T1 = sum([Differential(x[i])(F[i]) for i in 1:length(x)]);
 T2 = sum([(Differential(x[i])*Differential(x[j]))(G[i,j]) for i in 1:length(x), j=1:length(x)]);
 
 Eqn = expand_derivatives(-T1+T2); 
 pdeOrig = simplify(Eqn/ρ(x)) ~ 0.0f0;
-pde = pdeOrig;
+# pde = pdeOrig;
+
+driftTerm = (Differential(x1)(x2*exp(η(x1, x2))) + Differential(x2)(exp(η(x1, x2))*(x2*(1 - (x1^2)) - x1)))*(exp(η(x1, x2))^-1)
+diffTerm1 = Differential(x2)(Differential(x2)(η(x1,x2))) 
+diffTerm2 = abs2(Differential(x2)(η(x1,x2))) # works
+diffTerm = Q_fpke/2*(diffTerm1 + diffTerm2); # diffusion term
+
+pde = driftTerm - diffTerm ~ 0.0f0 # full pde
+
 
 ## Domain
 maxval = 4.0;
@@ -75,7 +83,7 @@ eltypeθ = eltype(flat_initθ)
 
 parameterless_type_θ = DiffEqBase.parameterless_type(flat_initθ);
 
-strategy = NeuralPDE.QuadratureTraining(quadrature_alg=CubatureJLp(), reltol=1, abstol=1e-4, maxiters=500)
+strategy = NeuralPDE.QuadratureTraining(quadrature_alg=CubatureJLh(), reltol=1e-6, abstol=1e-3, maxiters=1000)
 
 phi = NeuralPDE.get_phi(chain, parameterless_type_θ);
 derivative = NeuralPDE.get_numeric_derivative();
@@ -131,11 +139,11 @@ bc_loss_functions = [
     (loss, lb, ub) in zip(_bc_loss_functions, lbs, ubs)
 ]
 bc_loss_function_sum = θ -> sum(map(l -> l(θ), bc_loss_functions))
-typeof(bc_loss_function_sum(initθ))
+@show bc_loss_function_sum(initθ)
+
 function loss_function_(θ, p)
     return pde_loss_function(θ) + bc_loss_function_sum(θ)  
 end
-@show bc_loss_function_sum(initθ)
 @show loss_function_(initθ,0)
 
 ## set up GalacticOptim optimization problem
