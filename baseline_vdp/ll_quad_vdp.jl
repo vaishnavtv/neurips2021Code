@@ -20,7 +20,7 @@ maxOpt2Iters = 10000; # maximum number of training iterations for opt2
 
 # file location to save data
 suff = string(activFunc);
-expNum = 5;
+expNum = 6;
 saveFile = "data_quad/ll_quad_vdp_exp$(expNum).jld2";
 runExp = true;
 runExp_fileName = "out_quad/log$(expNum).txt";
