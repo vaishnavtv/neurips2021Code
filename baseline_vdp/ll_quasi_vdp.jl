@@ -12,19 +12,19 @@ using QuasiMonteCarlo
 nn = 48; # number of neurons in the hidden layer
 activFunc = tanh; # activation function
 opt1 = ADAM(1e-3); # primary optimizer used for training
-maxOpt1Iters = 10000; # maximum number of training iterations for opt1
+maxOpt1Iters = 50000; # maximum number of training iterations for opt1
 opt2 = Optim.BFGS(); # second optimizer used for fine-tuning
 maxOpt2Iters = 10000; # maximum number of training iterations for opt2
 
 # file location to save data
 suff = string(activFunc);
-expNum = 5;
+expNum = 6;
 saveFile = "data_quasi/ll_quasi_vdp_exp$(expNum).jld2";
 runExp = true;
 runExp_fileName = "out_quasi/log$(expNum).txt";
 if runExp
     open(runExp_fileName, "a+") do io
-        write(io, "Steady State vdp with QuasiMonteCarlo training. 2 HL with $(nn) neurons in the hl and $(suff) activation. $(maxOpt1Iters) iterations with ADAM and then $(maxOpt2Iters) with LBFGS. Not using GPU. UniformSample strategy. PDE written directly in η.
+        write(io, "Steady State vdp with QuasiMonteCarlo training. 2 HL with $(nn) neurons in the hl and $(suff) activation. $(maxOpt1Iters) iterations with ADAM and then $(maxOpt2Iters) with LBFGS. Not using GPU. UniformSample strategy. PDE written directly in η. Increasing minibatch size.
         Experiment number: $(expNum)\n")
     end
 end
@@ -86,7 +86,7 @@ flat_initθ = initθ
 eltypeθ = eltype(flat_initθ);
 parameterless_type_θ = DiffEqBase.parameterless_type(flat_initθ);
 
-strategy = NeuralPDE.QuasiRandomTraining(100;sampling_alg=UniformSample(), resampling=false,minibatch=1000)
+strategy = NeuralPDE.QuasiRandomTraining(1000;sampling_alg=UniformSample(), resampling=false,minibatch=1000)
 
 phi = NeuralPDE.get_phi(chain, parameterless_type_θ);
 derivative = NeuralPDE.get_numeric_derivative();
