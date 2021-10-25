@@ -2,8 +2,8 @@
 
 using NeuralPDE, Flux, ModelingToolkit, GalacticOptim, Optim, Symbolics, JLD2, DiffEqFlux
 
-# using CUDA
-# CUDA.allowscalar(false)
+using CUDA
+CUDA.allowscalar(false)
 
 import Random:seed!; seed!(1);
 using QuasiMonteCarlo
@@ -13,20 +13,21 @@ nn = 48; # number of neurons in the hidden layer
 activFunc = tanh; # activation function
 opt1 = ADAM(1e-3); # primary optimizer used for training
 maxOpt1Iters = 100000; # maximum number of training iterations for opt1
-opt2 = Optim.BFGS(); # second optimizer used for fine-tuning
+opt2 = Optim.LBFGS(); # second optimizer used for fine-tuning
 maxOpt2Iters = 10000; # maximum number of training iterations for opt2
 
 # file location to save data
 nPtsPerMB = 2000;
 nMB = 500;
 suff = string(activFunc);
-expNum = 9;
+expNum = 10;
+useGPU = true;
 saveFile = "data_quasi/ll_quasi_vdp_exp$(expNum).jld2";
 runExp = true;
 runExp_fileName = "out_quasi/log$(expNum).txt";
 if runExp
     open(runExp_fileName, "a+") do io
-        write(io, "Steady State vdp with QuasiMonteCarlo training. 2 HL with $(nn) neurons in the hl and $(suff) activation. $(maxOpt1Iters) iterations with ADAM and then $(maxOpt2Iters) with BFGS. Not using GPU. UniformSample strategy. PDE written directly in η. nPtsPerMB = $(nPtsPerMB). nMB = $(nMB).
+        write(io, "Steady State vdp with QuasiMonteCarlo training. 2 HL with $(nn) neurons in the hl and $(suff) activation. $(maxOpt1Iters) iterations with ADAM and then $(maxOpt2Iters) with LBFGS. Same as exp9, but using GPU. UniformSample strategy. PDE written directly in η. nPtsPerMB = $(nPtsPerMB). nMB = $(nMB).
         Experiment number: $(expNum)\n")
     end
 end
@@ -67,8 +68,11 @@ T2_2 += sum([(Differential(xSym[i])*Differential(xSym[j]))(diffC[i,j]) - (Differ
 
 Eqn = expand_derivatives(-T1_2+T2_2); 
 pdeOrig2 = simplify(Eqn, expand = true) ~ 0.0f0;
+# pde = pdeOrig2;
 
-pde = pdeOrig2;
+# to use GPU, had to modify term: (0.05(Differential(x2)(η(x1, x2))^2))
+pde = x1^2 + x1*Differential(x2)(η(x1, x2)) + 0.05f0*Differential(x2)(Differential(x2)(η(x1, x2))) + 0.05f0(abs2(Differential(x2)(η(x1, x2)))) + x2*Differential(x2)(η(x1, x2))*(x1^2) - 1.0f0 - (x2*Differential(x1)(η(x1, x2))) - (x2*Differential(x2)(η(x1, x2))) ~ 0.0f0 
+
 
 ## Domain
 maxval = 4.0;
@@ -84,6 +88,9 @@ dim = 2 # number of dimensions
 chain = Chain(Dense(dim,nn,activFunc), Dense(nn,nn,activFunc), Dense(nn,1));
 
 initθ = DiffEqFlux.initial_params(chain) #|> gpu;
+if useGPU
+    initθ = initθ |> gpu;
+end
 flat_initθ = initθ
 eltypeθ = eltype(flat_initθ);
 parameterless_type_θ = DiffEqBase.parameterless_type(flat_initθ);
