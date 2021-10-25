@@ -2,8 +2,8 @@
 
 using NeuralPDE, Flux, ModelingToolkit, GalacticOptim, Optim, Symbolics, JLD2, DiffEqFlux
 
-using CUDA
-CUDA.allowscalar(false)
+# using CUDA
+# CUDA.allowscalar(false)
 
 using QuasiMonteCarlo
 using Quadrature, Cubature, Cuba, Statistics
@@ -19,13 +19,13 @@ opt2 = Optim.LBFGS(); # second optimizer used for fine-tuning
 maxOpt2Iters = 10000; # maximum number of training iterations for opt2
 
 tEnd = 0.1f0 # 
-Q_fpke = 0.1f0; # Q_fpke = σ^2
+Q_fpke = 0.001f0; # Q_fpke = σ^2
 
 # file location to save data
 nPtsPerMB = 5000;
 nMB = 1000;
 suff = string(activFunc);
-expNum = 13;
+expNum = 14;
 runExp = true;
 useGPU = false;
 cd(@__DIR__);
