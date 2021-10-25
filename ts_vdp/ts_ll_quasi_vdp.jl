@@ -1,4 +1,4 @@
-## Solve the FPKE for the Van der Pol oscillator using baseline PINNs (large training set)
+## Solve the FPKE for the trsnsient Van der Pol oscillator using baseline PINNs (large training set), QuasiMonteCarlo strategy
 
 using NeuralPDE, Flux, ModelingToolkit, GalacticOptim, Optim, Symbolics, JLD2, DiffEqFlux
 
@@ -13,23 +13,28 @@ import Random:seed!; seed!(1);
 nn = 20; # number of neurons in the hidden layer
 activFunc = tanh; # activation function
 opt1 = ADAM(1e-3); # primary optimizer used for training
-maxOpt1Iters = 10000; # maximum number of training iterations for opt1
+maxOpt1Iters = 100000; # maximum number of training iterations for opt1
 opt2 = Optim.LBFGS(); # second optimizer used for fine-tuning
-maxOpt2Iters = 1000; # maximum number of training iterations for opt2
+maxOpt2Iters = 10000; # maximum number of training iterations for opt2
 
 tEnd = 10.0f0 # 
 Q_fpke = 0.1f0; # Q_fpke = σ^2
 
 # file location to save data
+nPtsPerMB = 5000;
+nMB = 1000;
 suff = string(activFunc);
-expNum = 11;
+expNum = 12;
 runExp = true;
+useGPU = true;
 cd(@__DIR__);
 saveFile = "dataTS_quasi/ll_ts_vdp_exp$(expNum).jld2";
 runExp_fileName = "out_quasi/log$(expNum).txt";
 if runExp
     open(runExp_fileName, "a+") do io
-        write(io, "Transient vdp with QuasiMonteCarlo training. 3 HL with $(nn) neurons in the hl and $(suff) activation. $(maxOpt1Iters) iterations with ADAM and then $(maxOpt2Iters) with LBFGS.  Q_fpke = $(Q_fpke). GPU giving NaN. Not using GPU. BC: ρ = 0 on boundary ∀ t > 0. Removing initial condition. Added steady state condition in symbolic expression form (dη/dt ~ 0 at tEnd). No Resampling. tEnd = $(tEnd).
+        write(io, "Transient vdp with QuasiMonteCarlo training. 3 HL with $(nn) neurons in the hl and $(suff) activation. $(maxOpt1Iters) iterations with ADAM and then $(maxOpt2Iters) with LBFGS.  Q_fpke = $(Q_fpke).  tEnd = $(tEnd). Using GPU. 
+        BC: ρ = 0 on boundary ∀ t > 0. Removing initial condition. PDE written directly in η. 
+        No Resampling. nPtsPerMB = $(nPtsPerMB). nMB = $(nMB).
         Experiment number: $(expNum)\n")
     end
 end
@@ -59,6 +64,9 @@ T2 = sum([(Differential(xSym[i])*Differential(xSym[j]))(G[i,j]) for i in 1:lengt
 pdeOrig = (Dt(ρ(xSym)) + T1 - T2)/ρ(xSym) ~ 0.0f0;
 pde = pdeOrig;
 
+# PDE written directly in η, simplified
+pde = Dt(η(x1,x2,t)) + x1^2 + x1*Differential(x2)(η(x1, x2, t)) + 0.05f0*Differential(x2)(Differential(x2)(η(x1, x2, t))) + 0.05f0(abs2(Differential(x2)(η(x1, x2, t)))) + x2*Differential(x2)(η(x1, x2, t))*(x1^2) - 1.0f0 - (x2*Differential(x1)(η(x1, x2, t))) - (x2*Differential(x2)(η(x1, x2, t))) ~ 0.0f0 
+
 ## Domain
 maxval = 4.0f0; 
 domains = [x1 ∈ IntervalDomain(-maxval,maxval),
@@ -73,13 +81,13 @@ domains = [x1 ∈ IntervalDomain(-maxval,maxval),
 # T1_ss = sum([Differential(xSym[i])(F_ss[i]) for i in 1:length(xSym)]);
 # T2_ss = sum([(Differential(xSym[i])*Differential(xSym[j]))(G_ss[i,j]) for i in 1:length(xSym), j=1:length(xSym)]);
 # ssExp = (T1_ss - T2_ss)/ρ_ss(xSym); # steady state condition
-ssExp  =  Dt((η(x1,x2,tEnd)));
+# ssExp  =  Dt((η(x1,x2,tEnd)));
 
 
 bcs = [ρ([-maxval,x2]) ~ 0.0f0, ρ([maxval,x2]) ~ 0.0f0,
-       ρ([x1,-maxval]) ~ 0.0f0, ρ([x1,maxval]) ~ 0.0f0,
+       ρ([x1,-maxval]) ~ 0.0f0, ρ([x1,maxval]) ~ 0.0f0]#,
     #    exp(η(x1,x2,0)) ~ 0.01, # initial condition
-    ssExp ~ 0.0f0]; # steady-state condition
+    # ssExp ~ 0.0f0]; # steady-state condition
 
 # bcs = [exp(η(x1,x2, 0)) ~ 1.0f0];
        
@@ -89,11 +97,14 @@ dim = 3 # number of dimensions
 chain = Chain(Dense(dim,nn,activFunc), Dense(nn,nn,activFunc), Dense(nn,nn,activFunc), Dense(nn,1));
 
 initθ = DiffEqFlux.initial_params(chain) #|> gpu;
+if useGPU
+    initθ = initθ |> gpu;
+end
 flat_initθ = initθ;
 eltypeθ = eltype(flat_initθ);
 parameterless_type_θ = DiffEqBase.parameterless_type(flat_initθ);
 
-strategy = NeuralPDE.QuasiRandomTraining(100;sampling_alg=LatinHypercubeSample(), resampling=false,minibatch=1000)
+strategy = NeuralPDE.QuasiRandomTraining(nPtsPerMB;sampling_alg=UniformSample(), resampling=false,minibatch=nPtsPerMB)
 
 phi = NeuralPDE.get_phi(chain, parameterless_type_θ);
 derivative = NeuralPDE.get_numeric_derivative();
