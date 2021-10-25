@@ -2,9 +2,9 @@
 
 using NeuralPDE, Flux, ModelingToolkit, GalacticOptim, Optim, DiffEqFlux, Symbolics, JLD2
 cd(@__DIR__);
-include("missileDynamics.jl");
-using CUDA
-CUDA.allowscalar(false)
+include("cpu_missileDynamics.jl");
+# using CUDA
+# CUDA.allowscalar(false)
 using QuasiMonteCarlo
 
 import Random: seed!;
@@ -14,28 +14,25 @@ seed!(1);
 nn = 20; # number of neurons in the hidden layer
 activFunc = tanh; # activation function
 opt1 = ADAM(1e-3); # primary optimizer used for training
-maxOpt1Iters = 10000; # maximum number of training iterations for opt1
+maxOpt1Iters = 100000; # maximum number of training iterations for opt1
 opt2 = Optim.BFGS(); # second optimizer used for fine-tuning
-maxOpt2Iters = 1000; # maximum number of training iterations for opt2
-# maxOptIters = 50000; # maximum number of training iterations
-# opt1 = Optim.LBFGS(); # Optimizer used for training
-# opt = ADAM(1e-3); 
-α_bc = 1.0;
+maxOpt2Iters = 10000; # maximum number of training iterations for opt2
+
+α_bc = 1.0f0;
 Q_fpke = 0.01f0;#*1.0I(2); # σ^2
 
-## Grid discretization
-dM = 0.01; dα = 0.01;
-dx = [dM; dα] # grid discretization in M, α (rad)
-
-
+nPtsPerMB = 2000;
+nMB = 500;
 suff = string(activFunc);
 runExp = true; 
-expNum = 24;
+useGPU = false;
+expNum = 25;
 saveFile = "dataQuasi/ll_quasi_missile_$(suff)_$(nn)_exp$(expNum).jld2";
 runExp_fileName = "outQuasi/log$(expNum).txt";
 if runExp
     open(runExp_fileName, "a+") do io
-        write(io, "Missile with QuasiMonteCarlo training. 2 HL with $(nn) neurons in the hl and $(suff) activation. Boundary loss coefficient: $(α_bc). $(maxOpt1Iters) iterations with ADAM and then $(maxOpt2Iters) with BFGS. Diffusion term g = [1,1]. Q_fpke = $(Q_fpke). Forward Time. No resampling.
+        write(io, "Missile with QuasiMonteCarlo training. 2 HL with $(nn) neurons in the hl and $(suff) activation. Boundary loss coefficient: $(α_bc). $(maxOpt1Iters) iterations with ADAM and then $(maxOpt2Iters) with BFGS. Diffusion term g = [1,1]. Q_fpke = $(Q_fpke). Reverse Time. 
+        nPtsPerMB = $(nPtsPerMB). nMB = $(nMB). No resampling. UniformSample strategy used.
         Experiment number: $(expNum)\n")
     end
 end
@@ -48,7 +45,7 @@ xSym = [x1; x2]
 # PDE
 ρ(x) = exp(η(x...));
 F = f(xSym) * ρ(xSym); # drift term
-diffC = 0.5 * (g(xSym) * Q_fpke * g(xSym)'); # diffusion coefficient
+diffC = 0.5f0 * (g(xSym) * Q_fpke * g(xSym)'); # diffusion coefficient
 G = diffC * ρ(xSym); # diffusion term
 
 T1 = sum([Symbolics.derivative(F[i], xSym[i]) for i = 1:length(xSym)]); # pde drift term
@@ -62,7 +59,7 @@ pdeOrig = simplify(Eqn / ρ(xSym)) ~ 0.0f0;
 pde = pdeOrig;
 
 ## Domain
-minM = 1.2; maxM = 2.5;
+minM = 0.8; maxM = 2.5;
 minα = -1.0; maxα = 1.5;
 
 domains = [x1 ∈ IntervalDomain(minM, maxM), x2 ∈ IntervalDomain(minα, maxα)];
@@ -79,17 +76,15 @@ bcs = [
 dim = 2 # number of dimensions
 chain = Chain(Dense(dim, nn, activFunc), Dense(nn, nn, activFunc), Dense(nn, nn, activFunc), Dense(nn, 1)) ;#|> gpu;
 
-initθ = DiffEqFlux.initial_params(chain) #|> gpu;
-flat_initθ = if (typeof(chain) <: AbstractVector)
-    reduce(vcat, initθ)
-else
-    initθ
+initθ = DiffEqFlux.initial_params(chain) 
+if useGPU
+    initθ = initθ|> gpu;
 end
+flat_initθ = initθ
 eltypeθ = eltype(flat_initθ)
-
 parameterless_type_θ = DiffEqBase.parameterless_type(flat_initθ);
 
-strategy = NeuralPDE.QuasiRandomTraining(100;sampling_alg=LatinHypercubeSample(), resampling=false,minibatch=1000)
+strategy = NeuralPDE.QuasiRandomTraining(nPtsPerMB;sampling_alg=UniformSample(), resampling=false,minibatch=nMB)
 
 phi = NeuralPDE.get_phi(chain, parameterless_type_θ);
 derivative = NeuralPDE.get_numeric_derivative();
@@ -143,11 +138,11 @@ bc_loss_functions = [
     (loss, bound) in zip(_bc_loss_functions, bcs_bounds)
 ]
 bc_loss_function_sum = θ -> sum(map(l -> l(θ), bc_loss_functions))
-typeof(bc_loss_function_sum(initθ))
+@show bc_loss_function_sum(initθ)
+
 function loss_function_(θ, p)
     return pde_loss_function(θ) + α_bc*bc_loss_function_sum(θ)  
 end
-@show bc_loss_function_sum(initθ)
 @show loss_function_(initθ,0)
 
 ## set up GalacticOptim optimization problem
@@ -185,7 +180,6 @@ res = GalacticOptim.solve(prob, opt1, cb=cb_, maxiters=maxOpt1Iters);
 prob = remake(prob, u0=res.minimizer)
 res = GalacticOptim.solve(prob, opt2, cb=cb_, maxiters=maxOpt2Iters);
 
-# res = GalacticOptim.solve(prob, opt, cb = cb_, maxiters = maxOptIters);
 println("Optimization done.");
 
 ## Save data
