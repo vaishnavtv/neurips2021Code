@@ -6,34 +6,35 @@ using CUDA
 CUDA.allowscalar(false)
 
 using QuasiMonteCarlo
+using Quadrature, Cubature, Cuba, Statistics
 
 import Random:seed!; seed!(1);
 
 ## parameters for neural network
-nn = 20; # number of neurons in the hidden layer
+nn = 48; # number of neurons in the hidden layer
 activFunc = tanh; # activation function
 opt1 = ADAM(1e-3); # primary optimizer used for training
 maxOpt1Iters = 100000; # maximum number of training iterations for opt1
 opt2 = Optim.LBFGS(); # second optimizer used for fine-tuning
 maxOpt2Iters = 10000; # maximum number of training iterations for opt2
 
-tEnd = 10.0f0 # 
+tEnd = 0.1f0 # 
 Q_fpke = 0.1f0; # Q_fpke = σ^2
 
 # file location to save data
 nPtsPerMB = 5000;
 nMB = 1000;
 suff = string(activFunc);
-expNum = 12;
+expNum = 13;
 runExp = true;
-useGPU = true;
+useGPU = false;
 cd(@__DIR__);
 saveFile = "dataTS_quasi/ll_ts_vdp_exp$(expNum).jld2";
 runExp_fileName = "out_quasi/log$(expNum).txt";
 if runExp
     open(runExp_fileName, "a+") do io
-        write(io, "Transient vdp with QuasiMonteCarlo training. 3 HL with $(nn) neurons in the hl and $(suff) activation. $(maxOpt1Iters) iterations with ADAM and then $(maxOpt2Iters) with LBFGS.  Q_fpke = $(Q_fpke).  tEnd = $(tEnd). Using GPU. 
-        BC: ρ = 0 on boundary ∀ t > 0. Removing initial condition. PDE written directly in η. 
+        write(io, "Transient vdp with QuasiMonteCarlo training. 2 HL with $(nn) neurons in the hl and $(suff) activation. $(maxOpt1Iters) iterations with ADAM and then $(maxOpt2Iters) with LBFGS.  Q_fpke = $(Q_fpke).  tEnd = $(tEnd). Using GPU? = $(useGPU). 
+        BC: ρ = 0 on boundary ∀ t > 0. Removing initial condition. PDE written directly in η. Added norm loss function.
         No Resampling. nPtsPerMB = $(nPtsPerMB). nMB = $(nMB).
         Experiment number: $(expNum)\n")
     end
@@ -94,7 +95,7 @@ bcs = [ρ([-maxval,x2]) ~ 0.0f0, ρ([maxval,x2]) ~ 0.0f0,
 
 ## Neural network
 dim = 3 # number of dimensions
-chain = Chain(Dense(dim,nn,activFunc), Dense(nn,nn,activFunc), Dense(nn,nn,activFunc), Dense(nn,1));
+chain = Chain(Dense(dim,nn,activFunc), Dense(nn,nn,activFunc), Dense(nn,1));
 
 initθ = DiffEqFlux.initial_params(chain) #|> gpu;
 if useGPU
@@ -161,8 +162,31 @@ bc_loss_functions = [
 bc_loss_function_sum = θ -> sum(map(l -> l(θ), bc_loss_functions))
 @show bc_loss_function_sum(initθ)
 
+## additional loss function
+tSet = collect(ModelingToolkit.infimum(domains[3].domain):0.01:ModelingToolkit.supremum(domains[3].domain));
+function _norm_loss_function(cord_t, θ) # build_loss_function
+    nT = length(cord_t);
+    x_lb = [-maxval, -maxval]; 
+    x_ub = [maxval, maxval];
+    # # # Quadrature
+    function quadProb(tInd)
+        function inner_f(x,p)
+            xt = [x; cord_t[tInd]]; 
+            return exp(first(phi(xt, p))) # density
+        end
+        prob = QuadratureProblem(inner_f, x_lb, x_ub, θ) ;
+        sol = solve(prob, HCubatureJL(), reltol = 1e-3, abstol = 1e-3);
+        return (sol[1]-1)
+    end
+    out = permutedims([quadProb(i) for i in 1:nT]);
+
+    return out
+end
+norm_loss_function = (θ) -> mean(abs2,_norm_loss_function(tSet, θ)); # get_loss_function
+@show norm_loss_function(initθ);
+
 function loss_function_(θ, p)
-    return pde_loss_function(θ) + bc_loss_function_sum(θ) 
+    return pde_loss_function(θ) + bc_loss_function_sum(θ) + norm_loss_function(θ)
 end
 @show loss_function_(initθ,0)
 
@@ -173,6 +197,7 @@ prob = GalacticOptim.OptimizationProblem(f_, initθ)
 nSteps = 0;
 PDE_losses = Float32[];
 BC_losses = Float32[];
+NORM_losses = Float32[];
 cb_ = function (p, l)
     global nSteps = nSteps + 1
     println("[$nSteps] Current loss is: $l")
@@ -185,13 +210,14 @@ cb_ = function (p, l)
 
     push!(PDE_losses, pde_loss_function(p))
     push!(BC_losses, bc_loss_function_sum(p))
+    push!(NORM_losses, norm_loss_function(p))
 
     if runExp # if running job file
         open(runExp_fileName, "a+") do io
             write(io, "[$nSteps] Current loss is: $l \n")
         end;
         
-        jldsave(saveFile; optParam=Array(p), PDE_losses, BC_losses);
+        jldsave(saveFile; optParam=Array(p), PDE_losses, BC_losses, NORM_losses);
     end
     return false
 end
@@ -205,5 +231,5 @@ println("Optimization done.");
 ## Save data
 cd(@__DIR__);
 if runExp
-    jldsave(saveFile;optParam = Array(res.minimizer), PDE_losses, BC_losses);
+    jldsave(saveFile;optParam = Array(res.minimizer), PDE_losses, BC_losses, NORM_losses);
 end
