@@ -26,12 +26,12 @@ nMB = 500;
 suff = string(activFunc);
 runExp = true; 
 useGPU = false;
-expNum = 25;
+expNum = 26;
 saveFile = "dataQuasi/ll_quasi_missile_$(suff)_$(nn)_exp$(expNum).jld2";
 runExp_fileName = "outQuasi/log$(expNum).txt";
 if runExp
     open(runExp_fileName, "a+") do io
-        write(io, "Missile with QuasiMonteCarlo training. 2 HL with $(nn) neurons in the hl and $(suff) activation. Boundary loss coefficient: $(α_bc). $(maxOpt1Iters) iterations with ADAM and then $(maxOpt2Iters) with BFGS. Diffusion term g = [1,1]. Q_fpke = $(Q_fpke). Reverse Time. 
+        write(io, "Missile with QuasiMonteCarlo training. 2 HL with $(nn) neurons in the hl and $(suff) activation. Boundary loss coefficient: $(α_bc). $(maxOpt1Iters) iterations with ADAM and then $(maxOpt2Iters) with BFGS. Diffusion term g = g(x). Q_fpke = $(Q_fpke). Reverse Time. 
         nPtsPerMB = $(nPtsPerMB). nMB = $(nMB). No resampling. UniformSample strategy used.
         Experiment number: $(expNum)\n")
     end
@@ -45,6 +45,7 @@ xSym = [x1; x2]
 # PDE
 ρ(x) = exp(η(x...));
 F = f(xSym) * ρ(xSym); # drift term
+F += 0.5f0*Symbolics.jacobian(g(xSym), xSym)*Q_fpke*g(xSym); # stratanovich form
 diffC = 0.5f0 * (g(xSym) * Q_fpke * g(xSym)'); # diffusion coefficient
 G = diffC * ρ(xSym); # diffusion term
 

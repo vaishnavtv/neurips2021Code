@@ -29,8 +29,8 @@ function f(x) # controlled nonlinear dynamics
 end
 
 function g(x)
-    out = Float32.([1.0; 1.0].*1.0I(2)); # diffusion in both
-    # M = x[1]; a = x[2];
-    # out = [-0.0403f0*M^2*sin(a); 0.0f0].*1.0I(2);
+    # out = Float32.([1.0; 1.0].*1.0I(2)); # diffusion in both
+    M = x[1]; a = x[2];
+    out = [-0.0403f0*M^2*sin(a); 0.0f0];#.*1.0I(2);
     return out
 end
