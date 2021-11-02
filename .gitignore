@@ -62,7 +62,7 @@ missile/outQuad
 missile/quad_batch.slurm
 missile/quasi_batch.slurm
 missile/outQuasi
-missile/figs
+missile/figs_*
 missile/figs_grid
 missile/ot_batch.slurm
 missile/outOT
@@ -78,7 +78,8 @@ baseline_vdp/grid_batch.slurm
 baseline_vdp/out_grid
 baseline_vdp/quad_batch.slurm
 baseline_vdp/out_quad
-ts_vdp/figs
+ts_vdp/figs_grid
+ts_vdp/figs_quasi
 baseline_vdp/figs_grid
 linsys_ss/ss_ls_grid_batch.slurm
 linsys_ss/out_grid
@@ -88,9 +89,10 @@ linsys_ss/figs
 ts_linsys/figs
 ts_vdpr/ts_vdpr_grid_batch.slurm
 ts_vdpr/out_grid
-baseline_vdp/figs_prelim
+# baseline_vdp/figs_prelim
 baseline_vdpr/figs_prelim
 cont_vdp/figs_prelim
 ot_vdp/figs_prelim
 ot_vdpr/figs_prelim
-baseline_vdp/figs_quasi
+# baseline_vdp/figs_quasi
+baseline_vdp/figs_*
