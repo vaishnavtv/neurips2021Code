@@ -20,22 +20,24 @@ activFunc = tanh;
 dx = 0.01;
 suff = string(activFunc);
 nn = 48;
-expNum = 11;
-@info "Plotting results for missile experiment number $(expNum)"
-strat = "grid";
+expNum = 27;
+strat = "quasi";
+@info "Plotting results for missile exp$(expNum) using $(strat) strategy"
 
-Q_fpke = 0.001f0#*1.0I(2); # σ^2
+const dim = 2;
+Q_fpke = 0.01f0#*1.0I(2); # σ^2
 diffC = 0.5 * (g(xSym) * Q_fpke * g(xSym)'); # diffusion coefficient (constant in our case, not a fn of x)
 
 cd(@__DIR__);
-fileLoc = "data_$(strat)/ll_$(strat)_missile_exp$(expNum).jld2";
+# fileLoc = "data_$(strat)/ll_$(strat)_missile_exp$(expNum).jld2";
+fileLoc = "dataQuasi/ll_$(strat)_missile_$(suff)_$(nn)_exp$(expNum).jld2";
 
 println("Loading file");
 file = jldopen(fileLoc, "r");
 optParam = read(file, "optParam");
 PDE_losses = read(file, "PDE_losses");
 BC_losses = read(file, "BC_losses");
-NORM_losses = read(file, "NORM_losses");
+# NORM_losses = read(file, "NORM_losses");
 close(file);
 println("Are any of the parameters NaN? $(any(isnan.(optParam)))")
 ## plot losses
@@ -43,15 +45,15 @@ nIters = length(PDE_losses);
 figure(1); clf();
 semilogy(1:nIters, PDE_losses, label =  "PDE");
 semilogy(1:nIters, BC_losses, label = "BC");
-semilogy(1:nIters, NORM_losses, label = "NORM");
+# semilogy(1:nIters, NORM_losses, label = "NORM");
 xlabel("Iterations");
 ylabel("ϵ");
 title(string(strat," Exp $(expNum)"));
 legend();
 tight_layout();
 ## Neural network
+# chain = Chain(Dense(2, nn, activFunc), Dense(nn, nn, activFunc), Dense(nn, nn, activFunc), Dense(nn, 1));
 chain = Chain(Dense(2, nn, activFunc), Dense(nn, nn, activFunc), Dense(nn, 1));
-# chain = Chain(Dense(2, nn, activFunc), Dense(nn, nn, activFunc), Dense(nn, 1));
 parameterless_type_θ = DiffEqBase.parameterless_type(optParam);
 phi = NeuralPDE.get_phi(chain, parameterless_type_θ);
 
@@ -64,11 +66,27 @@ function ρ_pdeErr_fns(optParam)
     end
     ρNetS(x) = exp(ηNetS(x)) # solution after first iteration
     df(x) = ForwardDiff.jacobian(f, x)
+    dg(x) = ForwardDiff.jacobian(z->diag(g(z)),x);
     dρ(x) = ForwardDiff.gradient(ρNetS,x) 
     dη(x) = ForwardDiff.gradient(ηNetS, x)
     d2η(x) = ForwardDiff.jacobian(dη, x)
 
-    pdeErrFn(x) = (tr(df(x)) + dot(f(x), dη(x)) - sum(diffC.*(d2η(x) + dη(x)*dη(x)')))#
+    # pdeErrFn(x) = (tr(df(x)) + dot(f(x), dη(x)) - sum(diffC.*(d2η(x) + dη(x)*dη(x)')))#
+
+    D1(x) = f(x)*ρNetS(x) + 0.5f0*dg(x)*Q_fpke*diag(g(x));
+    D2(x) = 0.5f0*g(x)*Q_fpke*g(x)'*ρNetS(x);
+    dD1(x) = ForwardDiff.jacobian(D1,x);
+    function diffTerm(x)
+        out = 0;
+        for j=1:dim
+            for i=1:dim
+                D2_ij(x) = D2(x)[i,j];
+                out += ForwardDiff.hessian(D2_ij,x)[i,j];
+            end
+        end
+        return out
+    end
+    pdeErrFn(x) = tr(dD1(x)) - diffTerm(x);
 
     # diffCTerm(x) = (0.5*g(x)*Q_fpke*g(x)');
     # diffC1(x) = first(diffCTerm(x));
@@ -78,7 +96,7 @@ end
 ρFn, pdeErrFn = ρ_pdeErr_fns(optParam);
 
 # Domain
-minM = 1.2; maxM = 2.5;
+minM = 0.8; maxM = 2.5;
 minα = -1.0; maxα = 1.5;
 xxFine = range(minM, maxM, length = nEvalFine);
 yyFine = range(minα, maxα, length = nEvalFine);
@@ -86,13 +104,13 @@ yyFine = range(minα, maxα, length = nEvalFine);
 RHOPred = [ρFn([x, y]) for x in xxFine, y in yyFine];
 FFFine = [pdeErrFn([x, y])^2 for x in xxFine, y in yyFine]; # squared equation error on the evaluation grid
 @show maximum(RHOPred)
-maximum(FFFine)
+@show maximum(FFFine)
 @show ρFn(xTrim[ii])
 # normalize
 normC = trapz((xxFine, yyFine), RHOPred)
 RHOFine = RHOPred / normC;
 
-println("The mean squared equation error with dx=$(dx) is:")
+println("The mean squared equation error is:")
 mseEqErr = sum(FFFine[:]) / length(FFFine);
 @show mseEqErr;
 mseEqErrStr = @sprintf "%.2e" mseEqErr;
@@ -126,17 +144,17 @@ function plotDistErr(figNum)
     xlabel("M")
     ylabel("α (rad)")
     # suptitle("FT; g = g(x); Q_fpke = $(Q_fpke);")
-    suptitle("RT; g = $(diag(g(xSym))); Q_fpke = $(Q_fpke);")
+    # suptitle("RT; g = $((g(xSym))); Q_fpke = $(Q_fpke);")
     tight_layout()
 
 end
 plotDistErr(3);
-savefig("figs_grid/grid_exp$(expNum).png");
+savefig("figs_$(strat)/$(strat)_exp$(expNum).png");
 
 ## normalisation as quadrature problem  
-using Quadrature
-ρFnQuad(z,p) = ρFn(z)#/normC
-prob = QuadratureProblem(ρFnQuad, [minM, minα], [maxM, maxα], p = 0);
-sol = solve(prob,HCubatureJL(),reltol=1e-3,abstol=1e-3)
-@show sol.u
-@show abs(sol.u - normC)
+# using Quadrature
+# ρFnQuad(z,p) = ρFn(z)#/normC
+# prob = QuadratureProblem(ρFnQuad, [minM, minα], [maxM, maxα], p = 0);
+# sol = solve(prob,HCubatureJL(),reltol=1e-3,abstol=1e-3)
+# @show sol.u
+# @show abs(sol.u - normC)
