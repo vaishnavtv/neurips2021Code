@@ -26,12 +26,12 @@ nMB = 1;
 suff = string(activFunc);
 runExp = true; 
 useGPU = false;
-expNum = 27;
+expNum = 28;
 saveFile = "dataQuasi/ll_quasi_missile_$(suff)_$(nn)_exp$(expNum).jld2";
 runExp_fileName = "outQuasi/log$(expNum).txt";
 if runExp
     open(runExp_fileName, "a+") do io
-        write(io, "Missile with QuasiMonteCarlo training. 2 HL with $(nn) neurons in the hl and $(suff) activation. Boundary loss coefficient: $(α_bc). $(maxOpt1Iters) iterations with BFGS and then $(maxOpt2Iters) with BFGS. Diffusion term g = [1,1]. Q_fpke = $(Q_fpke). Reverse Time. 
+        write(io, "Missile with QuasiMonteCarlo training. 2 HL with $(nn) neurons in the hl and $(suff) activation. Boundary loss coefficient: $(α_bc). $(maxOpt1Iters) iterations with BFGS and then $(maxOpt2Iters) with BFGS. Diffusion term g = [1,1]. Q_fpke = $(Q_fpke). Reverse Time. PDE written directly in η.
         nPtsPerMB = $(nPtsPerMB). nMB = $(nMB). No resampling. UniformSample strategy used.
         Experiment number: $(expNum)\n")
     end
@@ -44,20 +44,35 @@ xSym = [x1; x2]
 
 # PDE
 ρ(x) = exp(η(x...));
-F = f(xSym) * ρ(xSym); # drift term
-# F += 0.5f0*Symbolics.jacobian(g(xSym), xSym)*Q_fpke*g(xSym); # stratanovich form
-diffC = 0.5f0 * (g(xSym) * Q_fpke * g(xSym)'); # diffusion coefficient
-G = diffC * ρ(xSym); # diffusion term
 
-T1 = sum([Symbolics.derivative(F[i], xSym[i]) for i = 1:length(xSym)]); # pde drift term
-T2 = sum([
-    Symbolics.derivative(Symbolics.derivative(G[i, j], xSym[i]), xSym[j]) for i = 1:length(xSym), j = 1:length(xSym)
-]); # pde diffusion term
+## PDE written in ρ
+# F = f(xSym) * ρ(xSym); # drift term
+# # F += 0.5f0*Symbolics.jacobian(g(xSym), xSym)*Q_fpke*g(xSym); # stratanovich form
+# diffC = 0.5f0 * (g(xSym) * Q_fpke * g(xSym)'); # diffusion coefficient
+# G = diffC * ρ(xSym); # diffusion term
+
+# T1 = sum([Symbolics.derivative(F[i], xSym[i]) for i = 1:length(xSym)]); # pde drift term
+# T2 = sum([
+#     Symbolics.derivative(Symbolics.derivative(G[i, j], xSym[i]), xSym[j]) for i = 1:length(xSym), j = 1:length(xSym)
+# ]); # pde diffusion term
 
 
-Eqn = expand_derivatives(-T1 + T2); # + dx*u(x1,x2)-1 ~ 0;
-pdeOrig = simplify(Eqn / ρ(xSym)) ~ 0.0f0;
-pde = pdeOrig;
+# Eqn = expand_derivatives(-T1 + T2); # + dx*u(x1,x2)-1 ~ 0;
+# pdeOrig = simplify(Eqn / ρ(xSym)) ~ 0.0f0;
+# pde = pdeOrig;
+
+## Equation written directly in η
+diffC = 0.5f0*(g(xSym)*Q_fpke*g(xSym)'); # diffusion term
+G2 = diffC*η(xSym...);
+
+T1_2 = sum([(Differential(xSym[i])(f(xSym)[i]) + (f(xSym)[i]* Differential(xSym[i])(η(xSym...)))) for i in 1:length(xSym)]); # drift term (Ito form)
+T2_2 = sum([(Differential(xSym[i])*Differential(xSym[j]))(G2[i,j]) for i in 1:length(xSym), j=1:length(xSym)]);
+T2_2 += sum([(Differential(xSym[i])*Differential(xSym[j]))(diffC[i,j]) - (Differential(xSym[i])*Differential(xSym[j]))(diffC[i,j])*η(xSym...) + diffC[i,j]*(Differential(xSym[i])(η(xSym...)))*(Differential(xSym[j])(η(xSym...))) for i in 1:length(xSym), j=1:length(xSym)]); # complete diffusion term
+
+Eqn = expand_derivatives(-T1_2+T2_2); 
+pdeOrig2 = Eqn ~ 0.0f0;
+# pdeOrig2 = simplify(Eqn, expand = true) ~ 0.0f0; # gave stackoverflow error
+pde = pdeOrig2;
 
 ## Domain
 minM = 0.8; maxM = 2.5;
