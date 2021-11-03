@@ -1,6 +1,6 @@
 ## Solve the FPKE for the trsnsient Van der Pol oscillator using baseline PINNs (large training set), QuasiMonteCarlo strategy
 
-using NeuralPDE, Flux, ModelingToolkit, GalacticOptim, Optim, Symbolics, JLD2, DiffEqFlux
+using NeuralPDE, Flux, ModelingToolkit, GalacticOptim, Optim, Symbolics, JLD2, DiffEqFlux, LinearAlgebra
 
 # using CUDA
 # CUDA.allowscalar(false)
@@ -22,10 +22,10 @@ tEnd = 0.1f0 #
 Q_fpke = 0.001f0; # Q_fpke = σ^2
 
 # file location to save data
-nPtsPerMB = 5000;
-nMB = 1000;
+nPtsPerMB = 50000;
+nMB = 1;
 suff = string(activFunc);
-expNum = 14;
+expNum = 15;
 runExp = true;
 useGPU = false;
 cd(@__DIR__);
@@ -34,8 +34,8 @@ runExp_fileName = "out_quasi/log$(expNum).txt";
 if runExp
     open(runExp_fileName, "a+") do io
         write(io, "Transient vdp with QuasiMonteCarlo training. 2 HL with $(nn) neurons in the hl and $(suff) activation. $(maxOpt1Iters) iterations with ADAM and then $(maxOpt2Iters) with LBFGS.  Q_fpke = $(Q_fpke).  tEnd = $(tEnd). Using GPU? = $(useGPU). 
-        BC: ρ = 0 on boundary ∀ t > 0. Removing initial condition. PDE written directly in η. Added norm loss function.
-        No Resampling. nPtsPerMB = $(nPtsPerMB). nMB = $(nMB).
+        BC: ρ = 0 on boundary ∀ t > 0. IC automatically enforced. ρ = ρ0 + t*exp(η(x,t)). Exponential term kept to preserve positivity. 
+        No Resampling. nPtsPerMB = $(nPtsPerMB). nMB = $(nMB). 
         Experiment number: $(expNum)\n")
     end
 end
@@ -53,20 +53,31 @@ function g(x::Vector)
     return [0.0f0;1.0f0];
 end
 
+## Initial condition
+ρ_ic(x) = exp(η(x[1],x[2],0.0f0)); 
+μ_ss = [0.0f0,0.0f0]; 
+Σ_ss = 0.1f0*[1.0f0; 1.0f0] .* 1.0f0I(2);
+inv_Σ_ss = Float32.(inv(Σ_ss))
+sqrt_det_Σ_ss = Float32(sqrt(det(Σ_ss)));
+icExp = ρ_ic(xSym)
+
+ρ0(x) =  exp(-0.5f0 * (x - μ_ss)' * inv_Σ_ss * (x - μ_ss)) / (2.0f0 * Float32(pi) * sqrt_det_Σ_ss); # ρ at t0, Gaussian
+
+
 # PDE
 Dt = Differential(t); 
-ρ(x) = exp(η(x[1],x[2],t)); # time-varying density
+ρ(x) = ρ0(x) + t*exp(η(x[1],x[2],t)); # time-varying density, automatically satisfies initial condition
 F = f(xSym)*ρ(xSym);
 G = 0.5f0*(g(xSym)*Q_fpke*g(xSym)')*ρ(xSym);
 
 T1 = sum([Differential(xSym[i])(F[i]) for i in 1:length(xSym)]);
 T2 = sum([(Differential(xSym[i])*Differential(xSym[j]))(G[i,j]) for i in 1:length(xSym), j=1:length(xSym)]);
 
-pdeOrig = (Dt(ρ(xSym)) + T1 - T2)/ρ(xSym) ~ 0.0f0;
+pdeOrig = (Dt(ρ(xSym)) + T1 - T2)~ 0.0f0;#/ρ(xSym) ~ 0.0f0;
 pde = pdeOrig;
 
 # PDE written directly in η, simplified
-pde = Dt(η(x1,x2,t)) + x1^2 + x1*Differential(x2)(η(x1, x2, t)) + 0.05f0*Differential(x2)(Differential(x2)(η(x1, x2, t))) + 0.05f0(abs2(Differential(x2)(η(x1, x2, t)))) + x2*Differential(x2)(η(x1, x2, t))*(x1^2) - 1.0f0 - (x2*Differential(x1)(η(x1, x2, t))) - (x2*Differential(x2)(η(x1, x2, t))) ~ 0.0f0 
+# pde = Dt(η(x1,x2,t)) + x1^2 + x1*Differential(x2)(η(x1, x2, t)) + 0.05f0*Differential(x2)(Differential(x2)(η(x1, x2, t))) + 0.05f0(abs2(Differential(x2)(η(x1, x2, t)))) + x2*Differential(x2)(η(x1, x2, t))*(x1^2) - 1.0f0 - (x2*Differential(x1)(η(x1, x2, t))) - (x2*Differential(x2)(η(x1, x2, t))) ~ 0.0f0 
 
 ## Domain
 maxval = 4.0f0; 
@@ -163,30 +174,30 @@ bc_loss_function_sum = θ -> sum(map(l -> l(θ), bc_loss_functions))
 @show bc_loss_function_sum(initθ)
 
 ## additional loss function
-tSet = collect(ModelingToolkit.infimum(domains[3].domain):0.01:ModelingToolkit.supremum(domains[3].domain));
-function _norm_loss_function(cord_t, θ) # build_loss_function
-    nT = length(cord_t);
-    x_lb = [-maxval, -maxval]; 
-    x_ub = [maxval, maxval];
-    # # # Quadrature
-    function quadProb(tInd)
-        function inner_f(x,p)
-            xt = [x; cord_t[tInd]]; 
-            return exp(first(phi(xt, p))) # density
-        end
-        prob = QuadratureProblem(inner_f, x_lb, x_ub, θ) ;
-        sol = solve(prob, HCubatureJL(), reltol = 1e-3, abstol = 1e-3);
-        return (sol[1]-1)
-    end
-    out = permutedims([quadProb(i) for i in 1:nT]);
+# tSet = collect(ModelingToolkit.infimum(domains[3].domain):0.01:ModelingToolkit.supremum(domains[3].domain));
+# function _norm_loss_function(cord_t, θ) # build_loss_function
+#     nT = length(cord_t);
+#     x_lb = [-maxval, -maxval]; 
+#     x_ub = [maxval, maxval];
+#     # # # Quadrature
+#     function quadProb(tInd)
+#         function inner_f(x,p)
+#             xt = [x; cord_t[tInd]]; 
+#             return exp(first(phi(xt, p))) # density
+#         end
+#         prob = QuadratureProblem(inner_f, x_lb, x_ub, θ) ;
+#         sol = solve(prob, HCubatureJL(), reltol = 1e-3, abstol = 1e-3);
+#         return (sol[1]-1)
+#     end
+#     out = permutedims([quadProb(i) for i in 1:nT]);
 
-    return out
-end
-norm_loss_function = (θ) -> mean(abs2,_norm_loss_function(tSet, θ)); # get_loss_function
-@show norm_loss_function(initθ);
+#     return out
+# end
+# norm_loss_function = (θ) -> mean(abs2,_norm_loss_function(tSet, θ)); # get_loss_function
+# @show norm_loss_function(initθ);
 
 function loss_function_(θ, p)
-    return pde_loss_function(θ) + bc_loss_function_sum(θ) + norm_loss_function(θ)
+    return pde_loss_function(θ) + bc_loss_function_sum(θ) #+ norm_loss_function(θ)
 end
 @show loss_function_(initθ,0)
 
@@ -197,7 +208,7 @@ prob = GalacticOptim.OptimizationProblem(f_, initθ)
 nSteps = 0;
 PDE_losses = Float32[];
 BC_losses = Float32[];
-NORM_losses = Float32[];
+# NORM_losses = Float32[];
 cb_ = function (p, l)
     global nSteps = nSteps + 1
     println("[$nSteps] Current loss is: $l")
@@ -210,14 +221,14 @@ cb_ = function (p, l)
 
     push!(PDE_losses, pde_loss_function(p))
     push!(BC_losses, bc_loss_function_sum(p))
-    push!(NORM_losses, norm_loss_function(p))
+    # push!(NORM_losses, norm_loss_function(p))
 
     if runExp # if running job file
         open(runExp_fileName, "a+") do io
             write(io, "[$nSteps] Current loss is: $l \n")
         end;
         
-        jldsave(saveFile; optParam=Array(p), PDE_losses, BC_losses, NORM_losses);
+        jldsave(saveFile; optParam=Array(p), PDE_losses, BC_losses)#, NORM_losses);
     end
     return false
 end
@@ -231,5 +242,5 @@ println("Optimization done.");
 ## Save data
 cd(@__DIR__);
 if runExp
-    jldsave(saveFile;optParam = Array(res.minimizer), PDE_losses, BC_losses, NORM_losses);
+    jldsave(saveFile;optParam = Array(res.minimizer), PDE_losses, BC_losses)#, NORM_losses);
 end
