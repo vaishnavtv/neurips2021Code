@@ -3,6 +3,7 @@
 using NeuralPDE, Flux, ModelingToolkit, GalacticOptim, Optim, DiffEqFlux, Symbolics, JLD2
 cd(@__DIR__);
 include("cpu_missileDynamics.jl");
+# include("missileDynamics.jl"); # gpu version
 # using CUDA
 # CUDA.allowscalar(false)
 using QuasiMonteCarlo
@@ -13,26 +14,26 @@ seed!(1);
 ## parameters for neural network
 nn = 48; # number of neurons in the hidden layer
 activFunc = tanh; # activation function
-opt1 = Optim.BFGS(); # primary optimizer used for training
-maxOpt1Iters = 10000; # maximum number of training iterations for opt1
+opt1 = ADAM(1e-3); # primary optimizer used for training
+maxOpt1Iters = 100000; # maximum number of training iterations for opt1
 opt2 = Optim.BFGS(); # second optimizer used for fine-tuning
 maxOpt2Iters = 10000; # maximum number of training iterations for opt2
 
-α_bc = 1.0f0;
+α_bc = 0.0f0;
 Q_fpke = 0.01f0;#*1.0I(2); # σ^2
 
-nPtsPerMB = 50000;
-nMB = 1;
+nPtsPerMB = 2000;
+nMB = 500;
 suff = string(activFunc);
 runExp = true; 
 useGPU = false;
-expNum = 28;
+expNum = 29;
 saveFile = "dataQuasi/ll_quasi_missile_$(suff)_$(nn)_exp$(expNum).jld2";
 runExp_fileName = "outQuasi/log$(expNum).txt";
 if runExp
     open(runExp_fileName, "a+") do io
         write(io, "Missile with QuasiMonteCarlo training. 2 HL with $(nn) neurons in the hl and $(suff) activation. Boundary loss coefficient: $(α_bc). $(maxOpt1Iters) iterations with BFGS and then $(maxOpt2Iters) with BFGS. Diffusion term g = [1,1]. Q_fpke = $(Q_fpke). Reverse Time. PDE written directly in η.
-        nPtsPerMB = $(nPtsPerMB). nMB = $(nMB). No resampling. UniformSample strategy used.
+        nPtsPerMB = $(nPtsPerMB). nMB = $(nMB). No resampling. UniformSample strategy used. No BC.
         Experiment number: $(expNum)\n")
     end
 end
