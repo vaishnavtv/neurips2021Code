@@ -4,13 +4,13 @@ using LinearAlgebra, DifferentialEquations, ForwardDiff, Trapz, Printf
 using PyPlot; pygui(true);
 cd(@__DIR__);
 simMOC = false;
-simMOC_c = false;
+simMOC_c = true;
 simDyn = false;
 tEnd = 10.0; tInt = tEnd/10;
-# f(x) = [x[2]; (-x[1] + (1 - x[1]^2) * x[2])]; # vdp model
+f(x) = [x[2]; (-x[1] + (1 - x[1]^2) * x[2])]; # vdp model
 # Km = 1;
 # f(x) = [-x[2]/(Km + x[1])*x[1]; 0]; # michaelis-menten model from Andrea Weiss' thesis
-f(x) = -1.0f0.*x # linear dynamcis
+# f(x) = -1.0f0.*x # linear dynamcis
 df(x) = ForwardDiff.jacobian(f,x);
 uDyn(rho, x) = -tr(df(x)); #-rho*tr(df(x));
 minval = -4.0f0; maxval = 4.0f0; 
@@ -146,7 +146,7 @@ if simMOC_c
     ##
     PDFc = PDF/normC;
     figure(450); clf();
-    pcolor(XCENT, YCENT, PDF,shading = "auto", cmap = "inferno")
+    pcolor(XCENT, YCENT, PDF,shading = "auto")
     # pcolor(XCENT, YCENT, PDF/normC,shading = "auto", cmap = "inferno")
     colorbar();
 end
