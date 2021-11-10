@@ -20,15 +20,14 @@ dx = 0.05; # discretization size used for training
 
 # file location to save data
 suff = string(activFunc);
-expNum = 9;
+expNum = 10;
 saveFile = "data_grid/ll_grid_vdp_exp$(expNum).jld2";
 useGPU = false;
-runExp = true;
+runExp = false;
 runExp_fileName = "out_grid/log$(expNum).txt";
 if runExp
     open(runExp_fileName, "a+") do io
         write(io, "Steady State vdp with Grid training. 2 HL with $(nn) neurons in the hl and $(suff) activation. $(maxOpt1Iters) iterations with BFGS and then $(maxOpt2Iters) with LBFGS. Not using GPU. 
-        Adding norm loss as Symbolic Integral. 
         Experiment number: $(expNum)\n")
     end
 end
@@ -67,7 +66,6 @@ driftTerm = (Differential(x1)(x2*exp(η(x1, x2))) + Differential(x2)(exp(η(x1, 
 diffTerm1 = Differential(x2)(Differential(x2)(η(x1,x2))) 
 diffTerm2 = abs2(Differential(x2)(η(x1,x2))) # works
 diffTerm = Q_fpke/2*(diffTerm1 + diffTerm2); # diffusion term
-
 pde = driftTerm - diffTerm ~ 0.0f0 # full pde
 
 
@@ -76,12 +74,10 @@ maxval = 4.0f0;
 domains = [x1 ∈ IntervalDomain(-maxval,maxval),
            x2 ∈ IntervalDomain(-maxval,maxval)];
 
-IX = Integral((x1,x2) in DomainSets.ProductDomain(ClosedInterval(-maxval,maxval), ClosedInterval(-maxval,maxval))); # integral
-
 # Boundary conditions
 bcs = [ρ([-maxval,x2]) ~ 0.f0, ρ([maxval,x2]) ~ 0,
-       ρ([x1,-maxval]) ~ 0.f0, ρ([x1,maxval]) ~ 0,#];
-        IX(ρ(x)) ~ 1.0f0];  # norm condition
+       ρ([x1,-maxval]) ~ 0.f0, ρ([x1,maxval]) ~ 0];
+
 ## Neural network
 dim = 2 # number of dimensions
 chain = Chain(Dense(dim,nn,activFunc), Dense(nn,nn,activFunc), Dense(nn,1));
@@ -139,7 +135,15 @@ if useGPU
     train_domain_set = train_domain_set |> gpu;
     train_bound_set = train_bound_set |> gpu;
 end
-    
+
+## ntk for pde
+tx = train_domain_set[1];#[:,1:10]);
+l1(θ) = _pde_loss_function()
+dl1(θ) = Zygote.jacobian(l1, θ)[1];
+tdl1 = dl1(initθ);
+
+##
+
 pde_loss_function = NeuralPDE.get_loss_function(
     _pde_loss_function,
     train_domain_set[1],
@@ -154,23 +158,10 @@ bc_loss_functions = [
     (loss, set) in zip(_bc_loss_functions, train_bound_set)
 ]
 
-norm_loss_function = (θ) -> mean(abs2,_bc_loss_functions[5](train_bound_set[5], θ));
-@show norm_loss_function(initθ)
-
 bc_loss_function_sum = θ -> sum(map(l -> l(θ), bc_loss_functions))
 @show bc_loss_function_sum(initθ)
 
 ## additional loss function
-lbs = [-maxval, -maxval]; ubs = [maxval, maxval];
-function norm_loss_function(θ)
-    function inner_f(x,θ)
-         return exp(sum(phi(x, θ))) # density
-    end
-    prob = QuadratureProblem(inner_f, lbs, ubs, θ)
-    norm2 = solve(prob, CubaDivonne(), reltol = 1e-3, abstol = 1e-3);
-    return abs2(norm2[1] - 1)
-end
-@show norm_loss_function(initθ)
 
 function loss_function_(θ, p)
     return pde_loss_function(θ) + bc_loss_function_sum(θ) #+ norm_loss_function(θ)
@@ -184,7 +175,6 @@ prob = GalacticOptim.OptimizationProblem(f_, initθ)
 nSteps = 0;
 PDE_losses = Float32[];
 BC_losses = Float32[];
-NORM_losses = Float32[];
 cb_ = function (p, l)
     if any(isnan.(p))
         println("SOME PARAMETERS ARE NaN.")
@@ -201,26 +191,25 @@ cb_ = function (p, l)
 
     push!(PDE_losses, pde_loss_function(p))
     push!(BC_losses, bc_loss_function_sum(p))
-    push!(NORM_losses, norm_loss_function(p))
 
     if runExp # if running job file
         open(runExp_fileName, "a+") do io
             write(io, "[$nSteps] Current loss is: $l \n")
         end;
         
-        jldsave(saveFile; optParam=Array(p), PDE_losses, BC_losses, NORM_losses );
+        jldsave(saveFile; optParam=Array(p), PDE_losses, BC_losses);
     end
     return false
 end
 
 println("Calling GalacticOptim()");
-res = GalacticOptim.solve(prob, opt1, cb=cb_, maxiters=maxOpt1Iters);
-prob = remake(prob, u0=res.minimizer)
-res = GalacticOptim.solve(prob, opt2, cb=cb_, maxiters=maxOpt2Iters);
+# res = GalacticOptim.solve(prob, opt1, cb=cb_, maxiters=maxOpt1Iters);
+# prob = remake(prob, u0=res.minimizer)
+# res = GalacticOptim.solve(prob, opt2, cb=cb_, maxiters=maxOpt2Iters);
 println("Optimization done.");
 
 ## Save data
 cd(@__DIR__);
 if runExp
-    jldsave(saveFile;optParam = Array(res.minimizer), PDE_losses, BC_losses, NORM_losses);
+    jldsave(saveFile;optParam = Array(res.minimizer), PDE_losses, BC_losses);
 end
