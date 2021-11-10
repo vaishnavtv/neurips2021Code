@@ -22,12 +22,12 @@ maxOpt2Iters = 10000; # maximum number of training iterations for opt2
 α_bc = 0.0f0;
 Q_fpke = 0.01f0;#*1.0I(2); # σ^2
 
-nPtsPerMB = 2000;
-nMB = 500;
+nPtsPerMB = 5000;
+nMB = 200;
 suff = string(activFunc);
 runExp = true; 
 useGPU = false;
-expNum = 29;
+expNum = 30;
 saveFile = "dataQuasi/ll_quasi_missile_$(suff)_$(nn)_exp$(expNum).jld2";
 runExp_fileName = "outQuasi/log$(expNum).txt";
 if runExp
