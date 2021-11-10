@@ -96,3 +96,4 @@ ot_vdp/figs_prelim
 ot_vdpr/figs_prelim
 # baseline_vdp/figs_quasi
 baseline_vdp/figs_*
+ts_vdp/fd.jl
