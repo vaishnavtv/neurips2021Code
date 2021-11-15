@@ -2,10 +2,6 @@
 
 using NeuralPDE, Flux, ModelingToolkit, GalacticOptim, Optim, DiffEqFlux, Symbolics, JLD2
 cd(@__DIR__);
-include("cpu_missileDynamics.jl");
-# include("missileDynamics.jl"); # gpu version
-# using CUDA
-# CUDA.allowscalar(false)
 using QuasiMonteCarlo
 
 import Random: seed!;
@@ -37,6 +33,14 @@ if runExp
         Experiment number: $(expNum)\n")
     end
 end
+if useGPU
+    using CUDA
+    CUDA.allowscalar(false)
+    include("missileDynamics.jl"); # gpu version with appropriate type conversions in place, doesn't work yet
+else
+    include("cpu_missileDynamics.jl"); # cpu version
+end
+
 # Van der Pol Rayleigh Dynamics
 @parameters x1, x2
 @variables η(..)
