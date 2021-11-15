@@ -11,7 +11,7 @@ seed!(1);
 ## parameters for neural network
 nn = 48; # number of neurons in the hidden layer
 activFunc = tanh; # activation function
-opt1 = ADAM(1e-3); # primary optimizer used for training
+opt1 = Optim.BFGS();#ADAM(1e-3); # primary optimizer used for training
 maxOpt1Iters = 10000; # maximum number of training iterations for opt1
 opt2 = Optim.BFGS(); # second optimizer used for fine-tuning
 maxOpt2Iters = 1000; # maximum number of training iterations for opt2
@@ -26,12 +26,12 @@ dx = [dM; dα] # grid discretization in M, α (rad)
 
 suff = string(activFunc);
 runExp = true; 
-expNum = 4;
+expNum = 5;
 saveFile = "dataOT/ot_ll_grid_missile_exp$(expNum).jld2";
 runExp_fileName = "outOT/log$(expNum).txt";
 if runExp
     open(runExp_fileName, "a+") do io
-        write(io, "Missile with GridTraining and dx = $(dx). 2 HL with $(nn) neurons in the hl and $(suff) activation. Boundary loss coefficient: $(α_bc). Iteration 0 with 2 opts. $(maxOpt1Iters) iterations with ADAM and $(maxOpt2Iters) with BFGS. Then, running OT for $(otIters) iters, $(maxNewPts) each iter. opt: BFGS for $(maxOptIters). Diffusion in α. Q_fpke = 0.01f0.
+        write(io, "Missile with GridTraining and dx = $(dx). 2 HL with $(nn) neurons in the hl and $(suff) activation. Boundary loss coefficient: $(α_bc). Iteration 0 with 2 opts. $(maxOpt1Iters) iterations with BFGS and $(maxOpt2Iters) with BFGS. Then, running OT for $(otIters) iters, $(maxNewPts) each iter. opt: BFGS for $(maxOptIters). Diffusion in α. Q_fpke = 0.01f0.
         Experiment number: $(expNum)\n")
     end
 end
