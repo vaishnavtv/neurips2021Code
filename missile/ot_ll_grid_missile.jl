@@ -3,21 +3,21 @@
 using NeuralPDE, Flux, ModelingToolkit, GalacticOptim, Optim, DiffEqFlux, Symbolics, JLD2
 using ForwardDiff, MosekTools, Convex
 cd(@__DIR__);
-include("missileDynamics.jl");
+include("cpu_missileDynamics.jl");
 
 import Random: seed!;
 seed!(1);
 
 ## parameters for neural network
-nn = 20; # number of neurons in the hidden layer
+nn = 48; # number of neurons in the hidden layer
 activFunc = tanh; # activation function
-maxOptIters = 1000; # maximum number of training iterations
 opt1 = ADAM(1e-3); # primary optimizer used for training
-maxOpt1Iters = 2000; # maximum number of training iterations for opt1
+maxOpt1Iters = 10000; # maximum number of training iterations for opt1
 opt2 = Optim.BFGS(); # second optimizer used for fine-tuning
 maxOpt2Iters = 1000; # maximum number of training iterations for opt2
-opt = Optim.LBFGS(); # Optimizer used for training in OT
-α_bc = 1.0;
+opt = Optim.BFGS(); # Optimizer used for training in OT
+maxOptIters = 1000; # maximum number of training iterations
+α_bc = 0.0f0;
 otIters = 20;
 maxNewPts = 200;
 ## Grid discretization
@@ -26,12 +26,12 @@ dx = [dM; dα] # grid discretization in M, α (rad)
 
 suff = string(activFunc);
 runExp = true; 
-expNum = 3;
-saveFile = "dataOT/ot_ll_grid_missile_$(suff)_$(nn)_exp$(expNum).jld2";
+expNum = 4;
+saveFile = "dataOT/ot_ll_grid_missile_exp$(expNum).jld2";
 runExp_fileName = "outOT/log$(expNum).txt";
 if runExp
     open(runExp_fileName, "a+") do io
-        write(io, "Missile with GridTraining and dx = $(dx). 2 HL with $(nn) neurons in the hl and $(suff) activation. Boundary loss coefficient: $(α_bc). Iteration 0 with 2 opts. $(maxOpt1Iters) iterations with ADAM and $(maxOpt2Iters) with BFGS. Then, running OT for $(otIters) iters, $(maxNewPts) each iter. opt: LBFGS for $(maxOptIters). Diffusion in α. Q_fpke = 0.01f0.
+        write(io, "Missile with GridTraining and dx = $(dx). 2 HL with $(nn) neurons in the hl and $(suff) activation. Boundary loss coefficient: $(α_bc). Iteration 0 with 2 opts. $(maxOpt1Iters) iterations with ADAM and $(maxOpt2Iters) with BFGS. Then, running OT for $(otIters) iters, $(maxNewPts) each iter. opt: BFGS for $(maxOptIters). Diffusion in α. Q_fpke = 0.01f0.
         Experiment number: $(expNum)\n")
     end
 end
@@ -44,22 +44,35 @@ xSym = [x1; x2]
 # PDE
 ρ(x) = exp(η(x...));
 Q_fpke = 0.01f0#*1.0I(2); # σ^2
-F = f(xSym) * ρ(xSym); # drift term
-diffC = 0.5 * (g(xSym) * Q_fpke * g(xSym)'); # diffusion coefficient
-G = diffC * ρ(xSym); # diffusion term
+# F = f(xSym) * ρ(xSym); # drift term
+# diffC = 0.5 * (g(xSym) * Q_fpke * g(xSym)'); # diffusion coefficient
+# G = diffC * ρ(xSym); # diffusion term
 
-T1 = sum([Symbolics.derivative(F[i], xSym[i]) for i = 1:length(xSym)]); # pde drift term
-T2 = sum([
-    Symbolics.derivative(Symbolics.derivative(G[i, j], xSym[i]), xSym[j]) for i = 1:length(xSym), j = 1:length(xSym)
-]); # pde diffusion term
+# T1 = sum([Symbolics.derivative(F[i], xSym[i]) for i = 1:length(xSym)]); # pde drift term
+# T2 = sum([
+#     Symbolics.derivative(Symbolics.derivative(G[i, j], xSym[i]), xSym[j]) for i = 1:length(xSym), j = 1:length(xSym)
+# ]); # pde diffusion term
 
 
-Eqn = expand_derivatives(-T1 + T2); # + dx*u(x1,x2)-1 ~ 0;
-pdeOrig = simplify(Eqn / ρ(xSym)) ~ 0.0f0;
-pde = pdeOrig;
+# Eqn = expand_derivatives(-T1 + T2); # + dx*u(x1,x2)-1 ~ 0;
+# pdeOrig = simplify(Eqn / ρ(xSym)) ~ 0.0f0;
+# pde = pdeOrig;
+
+## Equation written directly in η
+diffC = 0.5f0*(g(xSym)*Q_fpke*g(xSym)'); # diffusion term
+G2 = diffC*η(xSym...);
+
+T1_2 = sum([(Differential(xSym[i])(f(xSym)[i]) + (f(xSym)[i]* Differential(xSym[i])(η(xSym...)))) for i in 1:length(xSym)]); # drift term (Ito form)
+T2_2 = sum([(Differential(xSym[i])*Differential(xSym[j]))(G2[i,j]) for i in 1:length(xSym), j=1:length(xSym)]);
+T2_2 += sum([(Differential(xSym[i])*Differential(xSym[j]))(diffC[i,j]) - (Differential(xSym[i])*Differential(xSym[j]))(diffC[i,j])*η(xSym...) + diffC[i,j]*(Differential(xSym[i])(η(xSym...)))*(Differential(xSym[j])(η(xSym...))) for i in 1:length(xSym), j=1:length(xSym)]); # complete diffusion term
+
+Eqn = expand_derivatives(-T1_2+T2_2); 
+pdeOrig2 = Eqn ~ 0.0f0;
+# pdeOrig2 = simplify(Eqn, expand = true) ~ 0.0f0; # gave stackoverflow error
+pde = pdeOrig2;
 
 ## Domain
-minM = 1.2; maxM = 2.5;
+minM = 0.8; maxM = 2.5;
 minα = -1.0; maxα = 1.5;
 
 domains = [x1 ∈ IntervalDomain(minM, maxM), x2 ∈ IntervalDomain(minα, maxα)];
@@ -74,7 +87,7 @@ bcs = [
 
 ## Neural network
 dim = 2 # number of dimensions
-chain = Chain(Dense(dim, nn, activFunc), Dense(nn, nn, activFunc), Dense(nn, nn, activFunc), Dense(nn, 1)) ;#|> gpu;
+chain = Chain(Dense(dim, nn, activFunc), Dense(nn, nn, activFunc), Dense(nn, 1)) ;#|> gpu;
 
 initθ = DiffEqFlux.initial_params(chain) #|> gpu;
 flat_initθ = initθ
@@ -143,11 +156,11 @@ bc_loss_functions = [
     (loss, set) in zip(_bc_loss_functions, train_bound_set)
 ]
 bc_loss_function_sum = θ -> sum(map(l -> l(θ), bc_loss_functions))
-typeof(bc_loss_function_sum(initθ))
+@show bc_loss_function_sum(initθ)
+
 function loss_function_(θ, p)
     return pde_loss_function(θ) + α_bc*bc_loss_function_sum(θ)  
 end
-@show bc_loss_function_sum(initθ)
 @show loss_function_(initθ,0)
 
 ## set up GalacticOptim optimization problem
@@ -307,7 +320,7 @@ for i = 1:otIters
 
     # remake optimization loss function
     function loss_function_i(θ, p)
-        return pdeLossFunctions[i+1](θ) + bc_loss_function_sum(θ)
+        return pdeLossFunctions[i+1](θ) + α_bc*bc_loss_function_sum(θ)
     end
 
     global nSteps = 0
