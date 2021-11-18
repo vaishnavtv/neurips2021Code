@@ -99,3 +99,4 @@ baseline_vdp/figs_*
 ts_vdp/fd.jl
 duffing/grid_batch.slurm
 duffing/out_*
+duffing/figs_*
