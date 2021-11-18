@@ -16,18 +16,18 @@ maxOpt1Iters = 10000; # maximum number of training iterations for opt1
 opt2 = Optim.LBFGS(); # second optimizer used for fine-tuning
 maxOpt2Iters = 1000; # maximum number of training iterations for opt2
 
-dx = 0.05; # discretization size used for training
+dx = 0.01; # discretization size used for training
 
 # file location to save data
 suff = string(activFunc);
-expNum = 1;
+expNum = 2;
 saveFile = "data_grid/ll_grid_duff_exp$(expNum).jld2";
 useGPU = false;
 runExp = true;
 runExp_fileName = "out_grid/log$(expNum).txt";
 if runExp
     open(runExp_fileName, "a+") do io
-        write(io, "Steady State Duffing oscillator with Grid training. 2 HL with $(nn) neurons in the hl and $(suff) activation. $(maxOpt1Iters) iterations with BFGS and then $(maxOpt2Iters) with LBFGS. Not using GPU. 
+        write(io, "Steady State Duffing oscillator with Grid training. 2 HL with $(nn) neurons in the hl and $(suff) activation. $(maxOpt1Iters) iterations with BFGS and then $(maxOpt2Iters) with LBFGS. Not using GPU. dx = $(dx).
         Experiment number: $(expNum)\n")
     end
 end
