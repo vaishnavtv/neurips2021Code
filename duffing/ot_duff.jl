@@ -25,12 +25,12 @@ dx = 0.05;
 
 suff = string(activFunc);
 runExp = true; 
-expNum = 2;
+expNum = 3;
 saveFile = "data_ot/ot_duff_exp$(expNum).jld2";
 runExp_fileName = "out_ot/log$(expNum).txt";
 if runExp
     open(runExp_fileName, "a+") do io
-        write(io, "SS Duffing Oscillator with OT and dx = $(dx). 2 HL with $(nn) neurons in the hl and $(suff) activation. Boundary loss coefficient: $(α_bc). Iteration 0 with 2 opts. $(maxOpt1Iters) iterations with BFGS and $(maxOpt2Iters) with BFGS. Then, running OT for $(otIters) iters, $(maxNewPts) each iter. opt: BFGS for $(maxOptIters). Diffusion in α. Q_fpke = 0.1f0.
+        write(io, "SS Duffing Oscillator with OT and dx = $(dx). 2 HL with $(nn) neurons in the hl and $(suff) activation. Boundary loss coefficient: $(α_bc). Iteration 0 with 2 opts. $(maxOpt1Iters) iterations with BFGS and $(maxOpt2Iters) with BFGS. Then, running OT for $(otIters) iters, $(maxNewPts) each iter. opt: BFGS for $(maxOptIters). Diffusion in α. Q_fpke = 0.1f0. Using only unique new points.
         Experiment number: $(expNum)\n")
     end
 end
@@ -288,8 +288,9 @@ for i = 1:otIters
 
         _, _, Phi_sp = otMapSp(Cs_ot,w1,w2);
         y = Cs_ot*(maxNewPts*Phi_sp);
+        y_un = unique(y, dims = 2); # only return unique new points
 
-        return y
+        return y_un
     end
     ##
 
