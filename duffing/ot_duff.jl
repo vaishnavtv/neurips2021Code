@@ -1,6 +1,6 @@
 ## Solve the FPKE for the Duffing oscillator using OT PINNs
 
-using NeuralPDE, Flux, ModelingToolkit, GalacticOptim, Optim, DiffEqFlux, Symbolics, JLD2
+using NeuralPDE, Flux, ModelingToolkit, GalacticOptim, Optim, DiffEqFlux, Symbolics, JLD2, LinearAlgebra
 using ForwardDiff, MosekTools, Convex
 cd(@__DIR__);
 
@@ -25,7 +25,7 @@ dx = 0.05;
 
 suff = string(activFunc);
 runExp = true; 
-expNum = 1;
+expNum = 2;
 saveFile = "data_ot/ot_duff_exp$(expNum).jld2";
 runExp_fileName = "out_ot/log$(expNum).txt";
 if runExp
@@ -204,13 +204,13 @@ function collocationGrid(x, y, N)
     Cs = [XX[:] YY[:]]'
     return Cs
 end
-CsEval = collocationGrid([minM, maxM], [minα, maxα] , nEvalFine);
+CsEval = collocationGrid(maxval * [-1, 1], maxval * [-1, 1], nEvalFine);
 
 ## initialize variables for OT-iterations
 pde_train_sets = Vector{Vector{Matrix{Float32}}}(undef, otIters + 1);
 pde_train_sets[1] = train_domain_set;
-pdeLossFunctions = Vector{Function}(undef, otIters + 1);
-pdeLossFunctions[1] = pde_loss_function;
+# pdeLossFunctions = Vector{Function}(undef, otIters + 1);
+# pdeLossFunctions[1] = pde_loss_function;
 newPtsAll = Vector{Matrix{Float32}}(undef, otIters);
 optParams = Vector{Vector{Float32}}(undef, otIters + 1);
 optParams[1] = optParam1;
@@ -257,14 +257,14 @@ for i = 1:otIters
         beq = [W2; W1]
         # Creation of Aeq takes 50% of time.
         Aeq = ([
-            kron(ones(1, n), I(n))
-            kron(I(n), ones(1, n))
+            kron(ones(1, n), 1.0I(n))
+            kron(1.0I(n), ones(1, n))
         ])
 
         ϕ = Convex.Variable(n^2, Positive())
         p = minimize(sum(C[:] .* ϕ), Aeq * ϕ == beq)
         # solve!(p,()->COSMO.Optimizer());
-        Convex.solve!(p, () -> Mosek.Optimizer())
+        Convex.solve!(p, () -> Mosek.Optimizer(LOG=0))
 
         xx = ϕ.value
 
@@ -299,18 +299,19 @@ for i = 1:otIters
     pde_train_sets[i+1] = [CsNew]
 
     # remake pde loss function
-    pdeLossFunctions[i+1] = NeuralPDE.get_loss_function(
+    pde_loss_function = NeuralPDE.get_loss_function(
         _pde_loss_function,
         pde_train_sets[i+1][1],
         eltypeθ,
         parameterless_type_θ,
         strategy,
-    )
+    );
 
     # remake optimization loss function
     function loss_function_i(θ, p)
-        return pdeLossFunctions[i+1](θ) + α_bc*bc_loss_function_sum(θ)
+        return pde_loss_function(θ) + α_bc*bc_loss_function_sum(θ)
     end
+    @show loss_function_i(initθ, 0)
 
     global nSteps = 0
     PDE_losses[i+1] = Float32[]
@@ -320,12 +321,12 @@ for i = 1:otIters
         println("[$nSteps] Current loss is: $l")
         println(
             "Individual losses are: PDE loss:",
-            pdeLossFunctions[i+1](p),
+            pde_loss_function(p),
             ", BC loss:",
             bc_loss_function_sum(p),
         )
 
-        push!(PDE_losses[i+1], pdeLossFunctions[i+1](p))
+        push!(PDE_losses[i+1], pde_loss_function(p))
         push!(BC_losses[i+1], bc_loss_function_sum(p))
 
         if runExp
