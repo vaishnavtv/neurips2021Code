@@ -100,3 +100,4 @@ ts_vdp/fd.jl
 duffing/grid_batch.slurm
 duffing/out_*
 duffing/figs_*
+duffing/ot_batch.slurm
