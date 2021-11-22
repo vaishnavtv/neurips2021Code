@@ -26,12 +26,12 @@ dx = 0.05;
 
 suff = string(activFunc);
 runExp = true; 
-expNum = 5;
+expNum = 6;
 saveFile = "data_ot/ot_duff_exp$(expNum).jld2";
 runExp_fileName = "out_ot/log$(expNum).txt";
 if runExp
     open(runExp_fileName, "a+") do io
-        write(io, "SS Duffing Oscillator with OT and dx = $(dx). 2 HL with $(nn) neurons in the hl and $(suff) activation. Boundary loss coefficient: $(α_bc). Iteration 0 with 2 opts. $(maxOpt1Iters) iterations with BFGS and $(maxOpt2Iters) with BFGS. Then, running OT for $(otIters) iters, $(maxNewPts) each iter. opt: BFGS for $(maxOptIters). Diffusion in α. Q_fpke = $(Q_fpke). Using only unique new points. Fixed pdeErrFn, using _pde_loss_function now.
+        write(io, "SS Duffing Oscillator with OT and dx = $(dx). 2 HL with $(nn) neurons in the hl and $(suff) activation. Boundary loss coefficient: $(α_bc). Iteration 0 with 2 opts. $(maxOpt1Iters) iterations with BFGS and $(maxOpt2Iters) with BFGS. Then, running OT for $(otIters) iters, $(maxNewPts) each iter. opt: BFGS for $(maxOptIters). Diffusion in α. Q_fpke = $(Q_fpke). Using only unique new points. Fixed pdeErrFn, using _pde_loss_function now. Using norm instead of MSE.
         Experiment number: $(expNum)\n")
     end
 end
@@ -131,13 +131,15 @@ if runExp
     end
 end;
 
-pde_loss_function = NeuralPDE.get_loss_function(
-    _pde_loss_function,
-    train_domain_set[1],
-    eltypeθ,
-    parameterless_type_θ,
-    strategy,
-);
+pde_loss_function = (θ) -> norm(_pde_loss_function(train_domain_set[1], θ))
+
+# pde_loss_function = NeuralPDE.get_loss_function(
+#     _pde_loss_function,
+#     train_domain_set[1],
+#     eltypeθ,
+#     parameterless_type_θ,
+#     strategy,
+# );
 @show pde_loss_function(initθ)
 
 bc_loss_functions = [
@@ -224,7 +226,7 @@ for i = 1:otIters
 
     ## generate functions using new weights, biases
     function ρ_pdeErr_fns(optParam)
-        ρFn(x) = exp(first(phi(x, optParam)))
+        ρNetS(x) = exp(first(phi(x, optParam)))
         pdeErrFn(x) = first(_pde_loss_function(x, optParam))
         # function ηNetS(x)
         #     return first(phi(x, optParam))
@@ -302,13 +304,15 @@ for i = 1:otIters
     pde_train_sets[i+1] = [CsNew]
 
     # remake pde loss function
-    pde_loss_function = NeuralPDE.get_loss_function(
-        _pde_loss_function,
-        pde_train_sets[i+1][1],
-        eltypeθ,
-        parameterless_type_θ,
-        strategy,
-    );
+    pde_loss_function = (θ) -> norm(_pde_loss_function(CsNew, θ))
+
+    # pde_loss_function = NeuralPDE.get_loss_function(
+    #     _pde_loss_function,
+    #     pde_train_sets[i+1][1],
+    #     eltypeθ,
+    #     parameterless_type_θ,
+    #     strategy,
+    # );
 
     # remake optimization loss function
     function loss_function_i(θ, p)
