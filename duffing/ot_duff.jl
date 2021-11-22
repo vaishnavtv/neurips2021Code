@@ -17,6 +17,7 @@ maxOpt2Iters = 1000; # maximum number of training iterations for opt2
 opt = Optim.BFGS(); # Optimizer used for training in OT
 maxOptIters = 1000; # maximum number of training iterations
 α_bc = 1.0f0;
+Q_fpke = 0.1f0;#*1.0I(2); # σ^2
 otIters = 20; # number of OT iterations
 maxNewPts = 200; # number of points added each OT iteration
 
@@ -25,18 +26,18 @@ dx = 0.05;
 
 suff = string(activFunc);
 runExp = true; 
-expNum = 3;
+expNum = 4;
 saveFile = "data_ot/ot_duff_exp$(expNum).jld2";
 runExp_fileName = "out_ot/log$(expNum).txt";
 if runExp
     open(runExp_fileName, "a+") do io
-        write(io, "SS Duffing Oscillator with OT and dx = $(dx). 2 HL with $(nn) neurons in the hl and $(suff) activation. Boundary loss coefficient: $(α_bc). Iteration 0 with 2 opts. $(maxOpt1Iters) iterations with BFGS and $(maxOpt2Iters) with BFGS. Then, running OT for $(otIters) iters, $(maxNewPts) each iter. opt: BFGS for $(maxOptIters). Diffusion in α. Q_fpke = 0.1f0. Using only unique new points.
+        write(io, "SS Duffing Oscillator with OT and dx = $(dx). 2 HL with $(nn) neurons in the hl and $(suff) activation. Boundary loss coefficient: $(α_bc). Iteration 0 with 2 opts. $(maxOpt1Iters) iterations with BFGS and $(maxOpt2Iters) with BFGS. Then, running OT for $(otIters) iters, $(maxNewPts) each iter. opt: BFGS for $(maxOptIters). Diffusion in α. Q_fpke = $(Q_fpke). Using only unique new points. Fixed pdeErrFn.
         Experiment number: $(expNum)\n")
     end
 end
 # Duffing Oscillator Dynamics
 η_duff = 0.2; α_duff = 1.0; β_duff = 0.2;
-f(x) = [x[2]; η_duff.*x[2] .- α_duff.*x[1] .- β_duff.*x[1].^3]; # dynamics
+f(x) = [x[2]; η_duff*x[2] - α_duff*x[1] - β_duff*x[1]^3]; # dynamics
 
 function g(x::Vector)
     return [0.0f0;1.0f0];
@@ -50,7 +51,6 @@ xSym = [x1; x2]
 
 # PDE
 ρ(x) = exp(η(x...));
-Q_fpke = 0.01f0#*1.0I(2); # σ^2
 #  PDE written directly in η
 diffC = 0.5f0*(g(xSym)*Q_fpke*g(xSym)'); # diffusion term
 G = diffC*η(xSym...);
@@ -232,7 +232,7 @@ for i = 1:otIters
         dη(x) = ForwardDiff.gradient(ηNetS, x)
         d2η(x) = ForwardDiff.jacobian(dη, x)
 
-        pdeErrFn(x) = (tr(df(x)) + dot(f(x), dη(x)) - 1/2*sum(Q_fpke.*(d2η(x) + dη(x)*dη(x)')))
+        pdeErrFn(x) = tr(df(x)) + dot(f(x), dη(x)) - Q_fpke / 2 * (d2η(x)[end] + (dη(x)[end])^2)
         return ρNetS, pdeErrFn
     end
     ρFn, pdeErrFn = ρ_pdeErr_fns(optParams[i])
