@@ -1,9 +1,9 @@
 ## Solve the FPKE for the Van der Pol oscillator using baseline PINNs (large training set)
 cd(@__DIR__);
-using NeuralPDE, Flux, ModelingToolkit, GalacticOptim, Optim, Symbolics, JLD2, DiffEqFlux, DomainSets, LinearAlgebra
+using NeuralPDE, Flux, ModelingToolkit, GalacticOptim, Optim, Symbolics, JLD2, DiffEqFlux, LinearAlgebra
 
-# using CUDA
-# CUDA.allowscalar(false)
+using CUDA
+CUDA.allowscalar(false)
 import Random:seed!; seed!(1);
 
 using Quadrature, Cubature, Cuba
@@ -11,10 +11,10 @@ using Quadrature, Cubature, Cuba
 ## parameters for neural network
 nn = 48; # number of neurons in the hidden layer
 activFunc = tanh; # activation function
-opt1 = Optim.BFGS(); # primary optimizer used for training
+opt1 = ADAM(1e-3); # primary optimizer used for training
 maxOpt1Iters = 10000; # maximum number of training iterations for opt1
 opt2 = Optim.LBFGS(); # second optimizer used for fine-tuning
-maxOpt2Iters = 1000; # maximum number of training iterations for opt2
+maxOpt2Iters = 10000; # maximum number of training iterations for opt2
 
 dx = 0.05; # discretization size used for training
 
@@ -22,12 +22,12 @@ dx = 0.05; # discretization size used for training
 suff = string(activFunc);
 expNum = 10;
 saveFile = "data_grid/ll_grid_vdp_exp$(expNum).jld2";
-useGPU = false;
-runExp = false;
+useGPU = true;
+runExp = true;
 runExp_fileName = "out_grid/log$(expNum).txt";
 if runExp
     open(runExp_fileName, "a+") do io
-        write(io, "Steady State vdp with Grid training. 2 HL with $(nn) neurons in the hl and $(suff) activation. $(maxOpt1Iters) iterations with BFGS and then $(maxOpt2Iters) with LBFGS. Not using GPU. 
+        write(io, "Steady State vdp with Grid training. 2 HL with $(nn) neurons in the hl and $(suff) activation. $(maxOpt1Iters) iterations with ADAM and then $(maxOpt2Iters) with LBFGS. using GPU? $(useGPU). 
         Experiment number: $(expNum)\n")
     end
 end
@@ -136,14 +136,6 @@ if useGPU
     train_bound_set = train_bound_set |> gpu;
 end
 
-## ntk for pde
-tx = train_domain_set[1];#[:,1:10]);
-l1(θ) = _pde_loss_function()
-dl1(θ) = Zygote.jacobian(l1, θ)[1];
-tdl1 = dl1(initθ);
-
-##
-
 pde_loss_function = NeuralPDE.get_loss_function(
     _pde_loss_function,
     train_domain_set[1],
@@ -160,8 +152,6 @@ bc_loss_functions = [
 
 bc_loss_function_sum = θ -> sum(map(l -> l(θ), bc_loss_functions))
 @show bc_loss_function_sum(initθ)
-
-## additional loss function
 
 function loss_function_(θ, p)
     return pde_loss_function(θ) + bc_loss_function_sum(θ) #+ norm_loss_function(θ)
@@ -203,9 +193,9 @@ cb_ = function (p, l)
 end
 
 println("Calling GalacticOptim()");
-# res = GalacticOptim.solve(prob, opt1, cb=cb_, maxiters=maxOpt1Iters);
-# prob = remake(prob, u0=res.minimizer)
-# res = GalacticOptim.solve(prob, opt2, cb=cb_, maxiters=maxOpt2Iters);
+res = GalacticOptim.solve(prob, opt1, cb=cb_, maxiters=maxOpt1Iters);
+prob = remake(prob, u0=res.minimizer)
+res = GalacticOptim.solve(prob, opt2, cb=cb_, maxiters=maxOpt2Iters);
 println("Optimization done.");
 
 ## Save data
