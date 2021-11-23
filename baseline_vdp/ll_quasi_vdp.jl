@@ -20,7 +20,7 @@ maxOpt2Iters = 10000; # maximum number of training iterations for opt2
 nPtsPerMB = 2000;
 nMB = 500;
 suff = string(activFunc);
-expNum = 12;
+expNum = 13;
 useGPU = true;
 saveFile = "data_quasi/ll_quasi_vdp_exp$(expNum).jld2";
 runExp = true;
@@ -152,8 +152,22 @@ bc_loss_functions = [
 bc_loss_function_sum = θ -> sum(map(l -> l(θ), bc_loss_functions))
 @show bc_loss_function_sum(initθ)
 
+
+## softadapt from section 3.2.3: https://arxiv.org/pdf/2110.09813.pdf
+function get_λ(nSteps)
+    if nSteps == 0
+        p = [1f0; 1f0];
+    else
+        p = softmax([PDE_losses[nSteps], BC_losses[nSteps]])
+    end
+    return p
+end
+
+nSteps = 0;
 function loss_function_(θ, p)
-    return pde_loss_function(θ) + bc_loss_function_sum(θ) 
+    global nSteps
+    λ = get_λ(nSteps)
+    return λ[1]*pde_loss_function(θ) + λ[2]*bc_loss_function_sum(θ) 
 end
 @show loss_function_(initθ,0)
 
@@ -161,7 +175,6 @@ end
 f_ = OptimizationFunction(loss_function_, GalacticOptim.AutoZygote())
 prob = GalacticOptim.OptimizationProblem(f_, initθ)
 
-nSteps = 0;
 PDE_losses = Float32[];
 BC_losses = Float32[];
 cb_ = function (p, l)
