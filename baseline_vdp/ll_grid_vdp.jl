@@ -20,14 +20,14 @@ dx = 0.05; # discretization size used for training
 
 # file location to save data
 suff = string(activFunc);
-expNum = 14;
+expNum = 15;
 saveFile = "data_grid/ll_grid_vdp_exp$(expNum).jld2";
 useGPU = true;
 runExp = true;
 runExp_fileName = "out_grid/log$(expNum).txt";
 if runExp
     open(runExp_fileName, "a+") do io
-        write(io, "Steady State vdp with Grid training. 3 HL with $(nn) neurons in the hl and $(suff) activation. $(maxOpt1Iters) iterations with ADAM and then $(maxOpt2Iters) with LBFGS. using GPU? $(useGPU). dx = $(dx).
+        write(io, "Steady State vdp with Grid training. 3 HL with $(nn) neurons in the hl and $(suff) activation. $(maxOpt1Iters) iterations with ADAM and then $(maxOpt2Iters) with LBFGS. using GPU? $(useGPU). dx = $(dx). With softadapt.
         Experiment number: $(expNum)\n")
     end
 end
@@ -154,8 +154,21 @@ bc_loss_functions = [
 bc_loss_function_sum = θ -> sum(map(l -> l(θ), bc_loss_functions))
 @show bc_loss_function_sum(initθ)
 
+## softadapt from section 3.2.3: https://arxiv.org/pdf/2110.09813.pdf
+function get_λ(nSteps)
+    if nSteps == 0
+        p = [1f0; 1f0];
+    else
+        p = softmax([PDE_losses[nSteps], BC_losses[nSteps]])
+    end
+    return p
+end
+
+nSteps = 0;
 function loss_function_(θ, p)
-    return pde_loss_function(θ) + bc_loss_function_sum(θ) #+ norm_loss_function(θ)
+    global nSteps
+    λ = get_λ(nSteps)
+    return λ[1]*pde_loss_function(θ) + λ[2]*bc_loss_function_sum(θ) 
 end
 @show loss_function_(initθ,0)
 
