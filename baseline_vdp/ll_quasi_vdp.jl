@@ -27,7 +27,7 @@ runExp = true;
 runExp_fileName = "out_quasi/log$(expNum).txt";
 if runExp
     open(runExp_fileName, "a+") do io
-        write(io, "Steady State vdp with QuasiMonteCarlo training. 3 HL with $(nn) neurons in the hl and $(suff) activation. $(maxOpt1Iters) iterations with ADAM and then $(maxOpt2Iters) with LBFGS.  UniformSample strategy. PDE written directly in η. nPtsPerMB = $(nPtsPerMB). nMB = $(nMB). Using GPU? $(useGPU).
+        write(io, "Steady State vdp with QuasiMonteCarlo training. 3 HL with $(nn) neurons in the hl and $(suff) activation. $(maxOpt1Iters) iterations with ADAM and then $(maxOpt2Iters) with LBFGS.  UniformSample strategy. PDE written directly in η. nPtsPerMB = $(nPtsPerMB). nMB = $(nMB). Using GPU? $(useGPU). With Softadapt.
         Experiment number: $(expNum)\n")
     end
 end
