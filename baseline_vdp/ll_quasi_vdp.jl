@@ -10,7 +10,7 @@ using QuasiMonteCarlo
 
 ## parameters for neural network
 nn = 20; # number of neurons in the hidden layer
-activFunc = tanh; # activation function
+activFunc = softplus; # activation function
 opt1 = ADAM(1e-3); # primary optimizer used for training
 maxOpt1Iters = 100000; # maximum number of training iterations for opt1
 opt2 = Optim.LBFGS(); # second optimizer used for fine-tuning
@@ -20,7 +20,7 @@ maxOpt2Iters = 10000; # maximum number of training iterations for opt2
 nPtsPerMB = 2000;
 nMB = 500;
 suff = string(activFunc);
-expNum = 11;
+expNum = 12;
 useGPU = true;
 saveFile = "data_quasi/ll_quasi_vdp_exp$(expNum).jld2";
 runExp = true;
