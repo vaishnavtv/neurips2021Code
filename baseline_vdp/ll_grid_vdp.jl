@@ -10,24 +10,25 @@ using Quadrature, Cubature, Cuba
 
 ## parameters for neural network
 nn = 20; # number of neurons in the hidden layer
-activFunc = tanh; # activation function
+activFunc = softplus; # activation function
 opt1 = ADAM(1e-3); # primary optimizer used for training
 maxOpt1Iters = 100000; # maximum number of training iterations for opt1
 opt2 = Optim.LBFGS(); # second optimizer used for fine-tuning
 maxOpt2Iters = 10000; # maximum number of training iterations for opt2
 
 dx = 0.05; # discretization size used for training
+α_bc = 1.0 # weight on boundary conditions loss
 
 # file location to save data
 suff = string(activFunc);
-expNum = 15;
+expNum = 16;
 saveFile = "data_grid/ll_grid_vdp_exp$(expNum).jld2";
 useGPU = true;
 runExp = true;
 runExp_fileName = "out_grid/log$(expNum).txt";
 if runExp
     open(runExp_fileName, "a+") do io
-        write(io, "Steady State vdp with Grid training. 3 HL with $(nn) neurons in the hl and $(suff) activation. $(maxOpt1Iters) iterations with ADAM and then $(maxOpt2Iters) with LBFGS. using GPU? $(useGPU). dx = $(dx). With softadapt.
+        write(io, "Steady State vdp with Grid training. 4 HL with $(nn) neurons in the hl and $(suff) activation. $(maxOpt1Iters) iterations with ADAM and then $(maxOpt2Iters) with LBFGS. using GPU? $(useGPU). dx = $(dx). α_bc = $(α_bc)
         Experiment number: $(expNum)\n")
     end
 end
@@ -81,7 +82,7 @@ bcs = [ρ([-maxval,x2]) ~ 0.f0, ρ([maxval,x2]) ~ 0,
 ## Neural network
 dim = 2 # number of dimensions
 # chain = Chain(Dense(dim,nn,activFunc), Dense(nn,nn,activFunc), Dense(nn,1));
-chain = Chain(Dense(dim,nn,activFunc), Dense(nn,nn,activFunc), Dense(nn,nn,activFunc), Dense(nn,1));
+chain = Chain(Dense(dim,nn,activFunc), Dense(nn,nn,activFunc), Dense(nn,nn,activFunc), Dense(nn,nn,activFunc), Dense(nn,1));
 
 initθ = DiffEqFlux.initial_params(chain) 
 if useGPU
@@ -154,21 +155,9 @@ bc_loss_functions = [
 bc_loss_function_sum = θ -> sum(map(l -> l(θ), bc_loss_functions))
 @show bc_loss_function_sum(initθ)
 
-## softadapt from section 3.2.3: https://arxiv.org/pdf/2110.09813.pdf
-function get_λ(nSteps)
-    if nSteps == 0
-        p = [1f0; 1f0];
-    else
-        p = softmax([PDE_losses[nSteps], BC_losses[nSteps]])
-    end
-    return p
-end
-
 nSteps = 0;
 function loss_function_(θ, p)
-    global nSteps
-    λ = get_λ(nSteps)
-    return λ[1]*pde_loss_function(θ) + λ[2]*bc_loss_function_sum(θ) 
+    return pde_loss_function(θ) + α_bc*bc_loss_function_sum(θ) 
 end
 @show loss_function_(initθ,0)
 
