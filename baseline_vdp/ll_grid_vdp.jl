@@ -10,7 +10,7 @@ using Quadrature, Cubature, Cuba
 
 ## parameters for neural network
 nn = 20; # number of neurons in the hidden layer
-activFunc = tanh; # activation function
+activFunc = softplus; # activation function
 opt1 = ADAM(1e-3); # primary optimizer used for training
 maxOpt1Iters = 100000; # maximum number of training iterations for opt1
 opt2 = Optim.LBFGS(); # second optimizer used for fine-tuning
@@ -20,7 +20,7 @@ dx = 0.05; # discretization size used for training
 
 # file location to save data
 suff = string(activFunc);
-expNum = 12;
+expNum = 13;
 saveFile = "data_grid/ll_grid_vdp_exp$(expNum).jld2";
 useGPU = true;
 runExp = true;
