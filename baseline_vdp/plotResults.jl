@@ -99,6 +99,9 @@ RHOFine = RHOPred / trapz((xxFine, yyFine), RHOPred);
 println("The mean squared equation error with dx=$(dx) is:")
 mseEqErr = sum(FFFine[:] .^ 2) / length(FFFine);
 @show mseEqErr;
+maxPtWiseErr = maximum(FFFine);
+@show maxPtWiseErr;
+
 mseEqErrStr = @sprintf "%.2e" mseEqErr;
 XXFine = similar(RHOFine);
 YYFine = similar(RHOFine);
