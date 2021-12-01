@@ -6,14 +6,15 @@ pygui(true);
 # Load data 
 activFunc = tanh;
 suff = string(activFunc);
-nn = 20;
+nn = 48;
 otIters = 20;
 maxNewPts = 200;
-expNum = 2;
+expNum = 4;
 
 cd(@__DIR__);
-include("missileDynamics.jl")
-fileLoc = "dataOT/ot_ll_grid_missile_$(suff)_$(nn)_exp$(expNum).jld2";
+include("cpu_missileDynamics.jl")
+fileLoc = "dataOT/ot_ll_grid_missile_exp$(expNum).jld2";
+# fileLoc = "dataOT/ot_ll_grid_missile_$(suff)_$(nn)_exp$(expNum).jld2";
 
 println("Loading file");
 file = jldopen(fileLoc, "r");
@@ -28,7 +29,7 @@ nEvalFine = 100;
 
 # Neural network
 dim = 2 # number of dimensions
-chain = Chain(Dense(dim, nn, activFunc), Dense(nn, nn, activFunc), Dense(nn, nn, activFunc), Dense(nn, 1));
+chain = Chain(Dense(dim, nn, activFunc), Dense(nn, nn, activFunc),  Dense(nn, 1));
 parameterless_type_θ = DiffEqBase.parameterless_type(optParams[1]);
 phi = NeuralPDE.get_phi(chain, parameterless_type_θ);
 
@@ -66,12 +67,31 @@ for otIter = 0:otIters-1
         end
         ρNetS(x) = exp(ηNetS(x)) # solution after first iteration
         df(x) = ForwardDiff.jacobian(f, x)
+        dg(x) = ForwardDiff.jacobian(z->diag(g(z)),x);
+        dρ(x) = ForwardDiff.gradient(ρNetS,x) 
         dη(x) = ForwardDiff.gradient(ηNetS, x)
         d2η(x) = ForwardDiff.jacobian(dη, x)
-
-
-        pdeErrFn(x) = (tr(df(x)) + dot(f(x), dη(x)) - 1/2*sum(Q_fpke.*(d2η(x) + dη(x)*dη(x)')))
-
+    
+        # pdeErrFn(x) = (tr(df(x)) + dot(f(x), dη(x)) - sum(diffC.*(d2η(x) + dη(x)*dη(x)')))#
+    
+        D1(x) = f(x)*ρNetS(x) + 0.5f0*dg(x)*Q_fpke*diag(g(x));
+        D2(x) = 0.5f0*g(x)*Q_fpke*g(x)'*ρNetS(x);
+        dD1(x) = ForwardDiff.jacobian(D1,x);
+        function diffTerm(x)
+            out = 0;
+            for j=1:dim
+                for i=1:dim
+                    D2_ij(x) = D2(x)[i,j];
+                    out += ForwardDiff.hessian(D2_ij,x)[i,j];
+                end
+            end
+            return out
+        end
+        pdeErrFn(x) = tr(dD1(x)) - diffTerm(x);
+    
+        # diffCTerm(x) = (0.5*g(x)*Q_fpke*g(x)');
+        # diffC1(x) = first(diffCTerm(x));
+        # pdeErrFn(x) = tr(df(x)) + dot(f(x), dη(x)) - (sum(diffCTerm(x).*(d2η(x) + dη(x)*dη(x)')) + first(ForwardDiff.hessian(diffC1, x))+ 2*first(dρ(x))*first(ForwardDiff.gradient(diffC1,x)))
         return ρNetS, pdeErrFn
     end
     ρFn, pdeErrFn = ρ_pdeErr_fns(optParams[otIter])

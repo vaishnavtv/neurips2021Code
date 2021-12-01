@@ -2,7 +2,7 @@
 using JLD2,
     PyPlot,
     NeuralPDE,
-    # ModelingToolkit,
+    ModelingToolkit,
     LinearAlgebra,
     Flux,
     Trapz,
@@ -10,23 +10,27 @@ using JLD2,
     LaTeXStrings,
     ForwardDiff
 pygui(true);
-# @variables x1, x2
-
+@variables x1, x2
+xSym = [x1;x2];
+## rcParams
+# rcParams = PyPlot.PyDict(PyPlot.matplotlib."rcParams")
+# rcParams["font.size"] = 15
 # Load data 
-activFunc = tanh;
+activFunc = softplus;
 dx = 0.05;
 suff = string(activFunc);
-nn = 48;
+nn = 20;
 optFlag = 1;
-expNum = 7;
-Q = 0.1;
+expNum = 17;
+Q_fpke = 0.1;
 strat = "grid";
 
 cd(@__DIR__);
-# fileLoc = "data_$(strat)/ll_$(strat)_vdp_exp$(expNum).jld2";
-fileLoc = "data/dx5eM2_vdp_tanh_48.jld2"
-println("Loading file");
+fileLoc = "data_$(strat)/ll_$(strat)_vdp_exp$(expNum).jld2";
+# fileLoc = "data/dx5eM2_vdp_tanh_48.jld2"
+@info "Loading ss_vdp results from exp: $(expNum) using $(strat) strategy";
 file = jldopen(fileLoc, "r");
+# optParam = read(file, "p1");
 optParam = read(file, "optParam");
 PDE_losses = read(file, "PDE_losses");
 BC_losses = read(file, "BC_losses");
@@ -42,14 +46,14 @@ semilogy(1:nIters, BC_losses, label = "BC");
 # semilogy(1:nIters, NORM_losses, label = "NORM");
 xlabel("Iterations");
 ylabel("ϵ");
-title("Loss Function");
-# title(string(strat," Exp $(expNum)"));
+title("Loss Function exp$(expNum)");
+title(string(strat," Exp $(expNum)"));
 legend();
 tight_layout();
-# savefig("figs_prelim/loss_vdp.png");
 ##
 # Neural network
-chain = Chain(Dense(2, nn, activFunc), Dense(nn, nn, activFunc), Dense(nn, 1));
+chain = Chain(Dense(2,nn,activFunc), Dense(nn,nn,activFunc), Dense(nn,nn,activFunc), Dense(nn,nn,activFunc), Dense(nn,1));
+# chain = Chain(Dense(2, nn, activFunc), Dense(nn, nn, activFunc), Dense(nn, 1));
 parameterless_type_θ = DiffEqBase.parameterless_type(optParam);
 phi = NeuralPDE.get_phi(chain, parameterless_type_θ);
 
@@ -61,6 +65,14 @@ maxval = 4.0f0;
 nEvalFine = 100;
 
 # Generate functions to check solution and PDE error
+# driftTerm = (Differential(x1)(x2*exp(η(x1, x2))) + Differential(x2)(exp(η(x1, x2))*(x2*(1 - (x1^2)) - x1)))*(exp(η(x1, x2))^-1)
+# diffTerm1 = Differential(x2)(Differential(x2)(η(x1,x2))) 
+# diffTerm2 = abs2(Differential(x2)(η(x1,x2))) # works
+# diffTerm = Q_fpke/2*(diffTerm1 + diffTerm2); # diffusion term
+
+# pde = driftTerm - diffTerm ~ 0.0f0 # full pde
+
+
 function ρ_pdeErr_fns(optParam)
     function ηNetS(x)
         return first(phi(x, optParam))
@@ -70,7 +82,7 @@ function ρ_pdeErr_fns(optParam)
     dη(x) = ForwardDiff.gradient(ηNetS, x)
     d2η(x) = ForwardDiff.jacobian(dη, x)
 
-    pdeErrFn(x) = tr(df(x)) + dot(f(x), dη(x)) - Q / 2 * (d2η(x)[end] + (dη(x)[end])^2)
+    pdeErrFn(x) = tr(df(x)) + dot(f(x), dη(x)) - Q_fpke / 2 * (d2η(x)[end] + (dη(x)[end])^2)
     return ρNetS, pdeErrFn
 end
 ρFn, pdeErrFn = ρ_pdeErr_fns(optParam);
@@ -103,7 +115,7 @@ function plotDistErr(figNum)
     clf()
     subplot(1, 2, 1)
     # figure(figNum); clf();
-    pcolor(XXFine, YYFine, RHOPred, shading = "auto", cmap = "inferno");
+    pcolor(XXFine, YYFine, RHOFine, shading = "auto", cmap = "inferno");
     colorbar()
     xlabel("x1")
     ylabel("x2")
@@ -121,10 +133,15 @@ function plotDistErr(figNum)
     tight_layout()
 
 end
-plotDistErr(expNum);
-# savefig("figs_prelim/soln_vdp.png");
-# savefig("figs_grid/ss_vdp_grid_exp$(expNum).png")
+plotDistErr(90+expNum);
+savefig("figs_$(strat)/ss_vdp_$(strat)_exp$(expNum).png");
 
+## quadrature error function
+# using Quadrature, Cubature, Cuba
+# errFnQuad(z,p) = (pdeErrFn(z))^2;
+# prob = QuadratureProblem(errFnQuad, [-maxval, -maxval], [maxval, maxval], p = 0);
+# sol = solve(prob,CubatureJLh(),reltol=1e-6,abstol=1e-3) 
+# @show sol.u
 
 ## normalisation as quadrature problem  
 # μ_ss = [-2.0f0,2.0f0];

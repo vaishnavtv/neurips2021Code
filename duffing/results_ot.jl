@@ -19,7 +19,7 @@ nn = 48;
 otIters = 20;
 maxNewPts = 200;
 strat = "ot";
-expNum = 4;
+expNum = 5;
 
 cd(@__DIR__);
 fileLoc = "data_$(strat)/$(strat)_duff_exp$(expNum).jld2";
@@ -114,9 +114,18 @@ XXFine, YYFine = gridXY(nEvalFine);
 mseEqErrVec = Vector{Float64}(undef, otIters);
 RHOFineVec = Vector{Matrix{Float64}}(undef, otIters);
 pdeErrFineVec = Vector{Matrix{Float64}}(undef, otIters);
+RHOErrFineVec = Vector{Matrix{Float64}}(undef, otIters);
+mseRHOErrVec = Vector{Float64}(undef, otIters);
+maxRHOErrVec = similar(mseRHOErrVec);
 
-# loop over all OT iterations
+# loop over all OT iterations>
+xxFine = range(-maxval, maxval, length = nEvalFine)
+yyFine = range(-maxval, maxval, length = nEvalFine)
+RHOTrue = [rhoTrue([x, y]) for x in xxFine, y in yyFine]
+# normalize
+RHOTrue = RHOTrue / trapz((xxFine, yyFine), RHOTrue);
 for otIter = 0:otIters-1
+
     otIter += 1
     @info "Analysing after $(otIter-1) OT iterations:"
     function ρ_pdeErr_fns(optParam)
@@ -125,16 +134,7 @@ for otIter = 0:otIters-1
         end
         ρNetS(x) = exp(ηNetS(x)) # solution after first iteration
         pdeErrFn(x) = first(_pde_loss_function(x, optParam))
-        # df(x) = ForwardDiff.jacobian(f, x)
-        # dη(x) = ForwardDiff.gradient(ηNetS, x)
-        # d2η(x) = ForwardDiff.jacobian(dη, x)
-
-        # older
-        # pdeErrFn(x) = tr(df(x)) + dot(f(x), dη(x)) - Q_fpke / 2 * (d2η(x)[end] + (dη(x)[end])^2)
-
-        # copied from ot_duff.jl
-        # pdeErrFn(x) = (tr(df(x)) + dot(f(x), dη(x)) - 1/2*sum(Q_fpke.*(d2η(x) + dη(x)*dη(x)')))
-
+        
         return ρNetS, pdeErrFn
 
     end
@@ -146,49 +146,50 @@ for otIter = 0:otIters-1
     end
 
     function compute_RHO_PDEerr(nEvalFine, ρFn, pdeErrFn)
-        xxFine = range(-maxval, maxval, length = nEvalFine)
-        yyFine = range(-maxval, maxval, length = nEvalFine)
-
+       
         RHOFine = [ρFn([x, y]) for x in xxFine, y in yyFine]
         # normalize
         RHOFine = RHOFine / trapz((xxFine, yyFine), RHOFine)
 
         pdeErrFine = [pdeErrFn([x, y])^2 for x in xxFine, y in yyFine]
 
-
-        return RHOFine, pdeErrFine
+        RHOErrFine = abs.(RHOFine - RHOTrue)
+        
+        return RHOFine, pdeErrFine, RHOErrFine
     end
-    RHOFineVec[otIter], pdeErrFineVec[otIter] = compute_RHO_PDEerr(nEvalFine, ρFn, pdeErrFn)
+    RHOFineVec[otIter], pdeErrFineVec[otIter], RHOErrFineVec[otIter] = compute_RHO_PDEerr(nEvalFine, ρFn, pdeErrFn)
 
-    function get_mseEqErr(pdeErrFine)
-        return mean(abs2, pdeErrFine) # sum(pdeErrFine[:] .^ 2) / length(pdeErrFine)
+    function get_mse(ErrFine)
+        return mean(abs2, ErrFine) # sum(pdeErrFine[:] .^ 2) / length(pdeErrFine)
     end
-    mseEqErrVec[otIter] = get_mseEqErr(pdeErrFineVec[otIter])
+    mseEqErrVec[otIter] = get_mse(pdeErrFineVec[otIter])
+    mseRHOErrVec[otIter] =  get_mse(RHOErrFineVec[otIter])
+    maxRHOErrVec[otIter] = maximum(RHOErrFineVec[otIter]);
     println(
         "ϵ_pde = $(mseEqErrVec[otIter])",
     )
 end
 
 ## Plotting on fine grid
-otIter = 13;
+otIter = 4;
 otIter += 1;
 println("Plotting on evaluation set");
 function plotDistErr(nEvalFine, RHOFine, pdeErrFine, figNum)
-    xxFine = range(-maxval, maxval, length = nEvalFine)
-    yyFine = range(-maxval, maxval, length = nEvalFine)
+    # xxFine = range(-maxval, maxval, length = nEvalFine)
+    # yyFine = range(-maxval, maxval, length = nEvalFine)
 
-    RHOTrue = [rhoTrue([x, y]) for x in xxFine, y in yyFine]
+    # RHOTrue = [rhoTrue([x, y]) for x in xxFine, y in yyFine]
 
-    # normalize
-    RHOTrue = RHOTrue / trapz((xxFine, yyFine), RHOTrue)
-    RHOErr = abs.(RHOFine - RHOTrue)
+    # # normalize
+    # RHOTrue = RHOTrue / trapz((xxFine, yyFine), RHOTrue)
+    # RHOErr = abs.(RHOFine - RHOTrue)
 
     println(
         "The mean squared absolute error in the solution after $(otIter-1) iterations is:",
     )
-    mseRHOErr = mean(abs2, RHOErr);  #sum(RHOErr[:] .^ 2) / length(RHOErr)
-    @show mseRHOErr
-    mseRHOErrStr = @sprintf "%.2e" mseRHOErr
+    # mseRHOErr = mean(abs2, RHOErr);  #sum(RHOErr[:] .^ 2) / length(RHOErr)
+    @show mseRHOErrVec[otIter]
+    mseRHOErrStr = @sprintf "%.2e" mseRHOErrVec[otIter]
     mseEqErrStr = @sprintf "%.2e" mseEqErrVec[otIter]
 
     figure(figNum, (8,8))
@@ -227,7 +228,7 @@ function plotDistErr(nEvalFine, RHOFine, pdeErrFine, figNum)
     tight_layout()
 
     subplot(2, 2, 4)
-    pcolor(XXFine, YYFine, RHOErr, shading = "auto", cmap = "jet")
+    pcolor(XXFine, YYFine, RHOErrFineVec[otIter], shading = "auto", cmap = "jet")
     colorbar()
     title("ϵ_ρ = $(mseRHOErrStr)");
     xlabel("x1")
@@ -240,7 +241,7 @@ function plotDistErr(nEvalFine, RHOFine, pdeErrFine, figNum)
 
 end
 plotDistErr(nEvalFine, RHOFineVec[otIter], pdeErrFineVec[otIter], otIter)
-# savefig("figs_prelim/otSoln_vdpr.png");
+# savefig("figs_ot/exp$(expNum)_otIter$(otIter).png");
 
 ## Plot eqErr vs. OT
 println("Plotting equation error vs. OT")
@@ -251,7 +252,7 @@ scatter(1:otIters, mseEqErrVec);
 xlabel("OT iterations");
 xticks(1:otIters);
 ylabel("ϵ");
-title(L"$ϵ_{pde}$");
+title(L"$ϵ_{\rm pde}$");
 tight_layout();
 # savefig("figs_prelim/otError_vdpr.png");
 
