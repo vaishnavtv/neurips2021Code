@@ -17,18 +17,19 @@ opt2 = Optim.LBFGS(); # second optimizer used for fine-tuning
 maxOpt2Iters = 10000; # maximum number of training iterations for opt2
 
 dx = 0.05; # discretization size used for training
-α_bc = 1.0 # weight on boundary conditions loss
+α_bc = 0.0 # weight on boundary conditions loss
 
 # file location to save data
 suff = string(activFunc);
-expNum = 17;
+expNum = 18;
 saveFile = "data_grid/ll_grid_vdp_exp$(expNum).jld2";
 useGPU = true;
 runExp = true;
 runExp_fileName = "out_grid/log$(expNum).txt";
 if runExp
     open(runExp_fileName, "a+") do io
-        write(io, "Steady State vdp with Grid training. 4 HL with $(nn) neurons in the hl and $(suff) activation. $(maxOpt1Iters) iterations with ADAM and then $(maxOpt2Iters) with LBFGS. using GPU? $(useGPU). dx = $(dx). α_bc = $(α_bc)
+        write(io, "Steady State vdp with Grid training. 4 HL with $(nn) neurons in the hl and $(suff) activation. $(maxOpt1Iters) iterations with ADAM and then $(maxOpt2Iters) with LBFGS. using GPU? $(useGPU). dx = $(dx). α_bc = $(α_bc). 
+        No BC loss. Initializing from exp17 solution. 
         Experiment number: $(expNum)\n")
     end
 end
@@ -84,7 +85,12 @@ dim = 2 # number of dimensions
 # chain = Chain(Dense(dim,nn,activFunc), Dense(nn,nn,activFunc), Dense(nn,1));
 chain = Chain(Dense(dim,nn,activFunc), Dense(nn,nn,activFunc), Dense(nn,nn,activFunc), Dense(nn,nn,activFunc), Dense(nn,1));
 
-initθ = DiffEqFlux.initial_params(chain) 
+# initθ = DiffEqFlux.initial_params(chain)
+fileLoc = "data_grid/ll_grid_vdp_exp17.jld2" # initializing at exp17 solution
+file = jldopen(fileLoc, "r");
+initθ = read(file, "optParam");
+close(file);
+
 if useGPU
     initθ = initθ |> gpu;
 end
