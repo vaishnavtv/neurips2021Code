@@ -20,8 +20,8 @@ activFunc = tanh;
 dx = 0.01;
 suff = string(activFunc);
 nn = 48;
-expNum = 27;
-strat = "quasi";
+expNum = 4;
+strat = "ot";
 @info "Plotting results for missile exp$(expNum) using $(strat) strategy"
 
 const dim = 2;
@@ -30,13 +30,14 @@ diffC = 0.5 * (g(xSym) * Q_fpke * g(xSym)'); # diffusion coefficient (constant i
 
 cd(@__DIR__);
 # fileLoc = "data_$(strat)/ll_$(strat)_missile_exp$(expNum).jld2";
-fileLoc = "dataQuasi/ll_$(strat)_missile_$(suff)_$(nn)_exp$(expNum).jld2";
+# fileLoc = "dataQuasi/ll_$(strat)_missile_$(suff)_$(nn)_exp$(expNum).jld2";
+fileLoc = "dataOT/ot_ll_grid_missile_exp$(expNum).jld2";
 
 println("Loading file");
 file = jldopen(fileLoc, "r");
 optParam = read(file, "optParam");
-PDE_losses = read(file, "PDE_losses");
-BC_losses = read(file, "BC_losses");
+PDE_losses = read(file, "PDE_losses1");
+BC_losses = read(file, "BC_losses1");
 # NORM_losses = read(file, "NORM_losses");
 close(file);
 println("Are any of the parameters NaN? $(any(isnan.(optParam)))")
@@ -144,11 +145,13 @@ function plotDistErr(figNum)
     xlabel("M")
     ylabel("α (rad)")
     # suptitle("FT; g = g(x); Q_fpke = $(Q_fpke);")
-    # suptitle("RT; g = $((g(xSym))); Q_fpke = $(Q_fpke);")
+    # suptitle("RT; g = $((g(xSym))); Q_fpke = $(Q_fpke);");
+    suptitle("Removed BC");
     tight_layout()
 
 end
 plotDistErr(3);
+mkpath("figs_$(strat)");
 savefig("figs_$(strat)/$(strat)_exp$(expNum).png");
 
 ## normalisation as quadrature problem  
