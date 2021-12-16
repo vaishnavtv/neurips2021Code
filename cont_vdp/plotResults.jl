@@ -62,7 +62,7 @@ chain = [chain1; chain2];
 
 phi = NeuralPDE.get_phi.(chain, parameterless_type_θ);
 
-maxval = 2.0f0;
+maxval = 4.0f0;
 
 nEvalFine = 100;
 len1 = Int(length(optParam) / 2);
