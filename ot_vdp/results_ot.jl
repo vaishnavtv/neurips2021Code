@@ -104,7 +104,7 @@ for otIter = 0:otIters-1
     end
     mseEqErrVec[otIter] = get_mseEqErr(pdeErrFineVec[otIter])
     println(
-        "ϵ_pde = $(mseEqErrVec[otIter])",
+        "ϵ_pde = $(mseEqErrVec[otIter]), ϵ_ptMax = $(maximum(pdeErrFineVec[otIter])) ",
     )
 end
 
@@ -154,3 +154,13 @@ title(L"$ϵ_{pde}$");
 nNN0 = size(pde_train_sets[1][1], 2);
 tight_layout();
 # savefig("figs_prelim/otError_vdp.png");
+
+## Plot maxPtWiseErr after OT
+figure(1001); clf();
+semilogy(1:otIters, maximum.(pdeErrFineVec));
+scatter(1:otIters, maximum.(pdeErrFineVec));
+xlabel("OT iterations");
+xticks(1:otIters);
+ylabel("ϵ");
+title("Maximum Pointwise ϵ");
+tight_layout();
