@@ -85,10 +85,10 @@ strategy = NeuralPDE.GridTraining(dx);
 
 phi = NeuralPDE.get_phi.(chain, parameterless_type_θ);
 derivative = NeuralPDE.get_numeric_derivative();
-integral = NeuralPDE.get_numeric_integral(strategy, indvars, depvars, chain, derivative);
 
 indvars = [x1, x2]
 depvars = [η, Kc]
+integral = NeuralPDE.get_numeric_integral(strategy, indvars, depvars, chain, derivative);
 
 _pde_loss_function = NeuralPDE.build_loss_function(
     pde,
