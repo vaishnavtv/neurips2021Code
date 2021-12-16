@@ -102,3 +102,4 @@ duffing/figs_*
 duffing/ot_batch.slurm
 cont_vdpr/out*
 cont_vdpr/batch.slurm
+cont_vdpr/figs*
