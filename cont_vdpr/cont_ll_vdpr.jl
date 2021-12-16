@@ -18,14 +18,14 @@ opt = Optim.BFGS(); # Optimizer used for training
 dx = 0.05; # discretization size used for training
 
 # file location to save data
-expNum = 1;
+expNum = 2;
 saveFile = "data/cont_vdpr_exp$(expNum).jld2";
 useGPU = true;
 runExp = true;
 runExp_fileName = "out/log$(expNum).txt";
 if runExp
     open(runExp_fileName, "a+") do io
-        write(io, "Steady state control for vdpr with 2 HL with $(nn) neurons in the HL and $(string(activFunc)) activation. 
+        write(io, "Steady state control for vdpr with 2 HL with $(nn) neurons in the HL and $(string(activFunc)) activation. Fixed domain size. 
         Experiment number: $(expNum)\n")
     end
 end
@@ -59,7 +59,7 @@ Eqn = expand_derivatives(-T1 + T2); # + dx*u(x1,x2)-1 ~ 0;
 pde = simplify(Eqn / ρ(xSym), expand = true) ~ 0.0f0;
 
 # Domain
-maxval = 4.0f0;
+maxval = 2.0f0;
 domains = [x1 ∈ IntervalDomain(-maxval, maxval), x2 ∈ IntervalDomain(-maxval, maxval)];
 
 # Boundary conditions
