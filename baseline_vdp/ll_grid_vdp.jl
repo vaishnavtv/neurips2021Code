@@ -9,27 +9,26 @@ import Random:seed!; seed!(1);
 using Quadrature, Cubature, Cuba
 
 ## parameters for neural network
-nn = 20; # number of neurons in the hidden layer
-activFunc = softplus; # activation function
+nn = 100; # number of neurons in the hidden layer
+activFunc = tanh; # activation function
 opt1 = ADAM(1e-3); # primary optimizer used for training
 maxOpt1Iters = 200000; # maximum number of training iterations for opt1
 opt2 = Optim.LBFGS(); # second optimizer used for fine-tuning
 maxOpt2Iters = 10000; # maximum number of training iterations for opt2
 
 dx = 0.05; # discretization size used for training
-α_bc = 0.0 # weight on boundary conditions loss
+α_bc = 1.0f0 # weight on boundary conditions loss
 
 # file location to save data
 suff = string(activFunc);
-expNum = 18;
+expNum = 19;
 saveFile = "data_grid/ll_grid_vdp_exp$(expNum).jld2";
 useGPU = true;
 runExp = true;
 runExp_fileName = "out_grid/log$(expNum).txt";
 if runExp
     open(runExp_fileName, "a+") do io
-        write(io, "Steady State vdp with Grid training. 4 HL with $(nn) neurons in the hl and $(suff) activation. $(maxOpt1Iters) iterations with ADAM and then $(maxOpt2Iters) with LBFGS. using GPU? $(useGPU). dx = $(dx). α_bc = $(α_bc). 
-        No BC loss. Initializing from exp17 solution. 
+        write(io, "Steady State vdp with Grid training. 4 HL with $(nn) neurons in the hl and $(suff) activation. $(maxOpt1Iters) iterations with ADAM and then $(maxOpt2Iters) with LBFGS. using GPU? $(useGPU). dx = $(dx). α_bc = $(α_bc). $(nn) neurons in 4 HL.
         Experiment number: $(expNum)\n")
     end
 end
@@ -85,11 +84,7 @@ dim = 2 # number of dimensions
 # chain = Chain(Dense(dim,nn,activFunc), Dense(nn,nn,activFunc), Dense(nn,1));
 chain = Chain(Dense(dim,nn,activFunc), Dense(nn,nn,activFunc), Dense(nn,nn,activFunc), Dense(nn,nn,activFunc), Dense(nn,1));
 
-# initθ = DiffEqFlux.initial_params(chain)
-fileLoc = "data_grid/ll_grid_vdp_exp17.jld2" # initializing at exp17 solution
-file = jldopen(fileLoc, "r");
-initθ = read(file, "optParam");
-close(file);
+initθ = DiffEqFlux.initial_params(chain)
 
 if useGPU
     initθ = initθ |> gpu;
