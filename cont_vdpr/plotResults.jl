@@ -1,4 +1,5 @@
-## Plot the results of the bsaeline-PINNs implementation for the Van der Pol Rayleigh oscillator
+## Plot the results of the PINNs + control implementation for the Van der Pol Rayleigh oscillator
+## exp1 works. exp2 has not worked. 
 using JLD2, PyPlot, NeuralPDE, ModelingToolkit, LinearAlgebra, Flux, Trapz, Printf, DiffEqFlux, ForwardDiff
 @variables x1, x2
 pygui(true);
@@ -7,7 +8,8 @@ pygui(true);
 activFunc = tanh;
 suff = string(activFunc);
 nn = 48;
-Q_fpke = 0.1;
+Q_fpke = 0.3f0;
+maxval = 2.0f0;
 
 # parameters for rhoSS_desired
 μ_ss = zeros(2);
@@ -15,8 +17,9 @@ Q_fpke = 0.1;
 rhoTrue(x) = exp(-1 / 2 * (x - μ_ss)' * inv(Σ_ss) * (x - μ_ss)) / (2 * pi * sqrt(det(Σ_ss))); # desired steady-state distribution (gaussian function) 
 
 cd(@__DIR__);
-expNum = 1;
+expNum = 2;
 fileLoc = "data/cont_vdpr_exp$(expNum).jld2";
+mkpath("figs/exp$(expNum)");
 
 println("Loading file");
 file = jldopen(fileLoc, "r");
@@ -40,7 +43,7 @@ ylabel("ϵ");
 title("Loss Functions");
 legend();
 tight_layout();
-# savefig("figs_prelim/loss_contVdp.png");
+# savefig("figs/loss_contVdpr.png");
 ##
 
 parameterless_type_θ = DiffEqBase.parameterless_type(optParam);
@@ -51,7 +54,6 @@ chain = [chain1; chain2];
 
 phi = NeuralPDE.get_phi.(chain, parameterless_type_θ);
 
-maxval = 4.0f0;
 
 nEvalFine = 100;
 len1 = Int(length(optParam) / 2);
@@ -104,24 +106,23 @@ ylabel("x2");
 title(L"Solution Error; $ϵ_{ρ}=$ %$(mseRHOErrStr)");
 axis("auto");
 tight_layout();
-
+savefig("figs/exp$(expNum)/soln_contVdpr.png");
 ## check trajectory with controlled Dynamics 
 using DifferentialEquations
 # Dynamics with controller Kc
-function vdpDyn(x)
+function vdprDyn(x)
     dx = similar(x)
     # u = first(phi[2](x, optParam));
     u = first(phi[2](x, optParam_Kc))
     dx[1] = x[2]
-    dx[2] = -x[1] + (1 - x[1]^2) * x[2] + u
+    dx[2] = -x[1] + (1 - x[1]^2 - x[2]^2) * x[2] + u
     return (dx)
 end
-tx = zeros(2)
-#
+
 tEnd = 500.0;
 function nlSim(x0)
     # function to simulate nonlinear controlled dynamics with initial condition x0 and controller K
-    odeFn(x, p, t) = vdpDyn(x)
+    odeFn(x, p, t) = vdprDyn(x)
     prob = ODEProblem(odeFn, x0, (0.0, tEnd))
     sol = solve(prob, Tsit5(), reltol = 1e-6, abstol = 1e-6)
     return sol
@@ -156,14 +157,14 @@ function plotTraj(sol, figNum)
     tight_layout()
 end
 
-tx = -maxVal .+ 2*maxVal * rand(2);
+tx = -maxval .+ 2*maxval * rand(2);
 @show tx
 solSim = nlSim(tx);
 println("x1 initial value: $(solSim[1,1]);  x1 terminal value: $(solSim[1,end])");
 println("Terminal value state norm: $(norm(solSim[:,end]))");
 figure(3); clf();
 plotTraj(solSim, 3);
-
+savefig("figs/exp$(expNum)/traj_contVdpr.png");
 ## check terminal values over grid
 nEvalTerm = 10;
 maxTermVal = 2;
@@ -181,14 +182,10 @@ ylabel("x2");
 title("Steady-state norm");
 colorbar();
 tight_layout();
-# savefig("figs_prelim/norm_contVdp.png");
+savefig("figs/exp$(expNum)/norm_contVdpr.png");
 
 ##
-function f(x)
-    u_ = first(phi[2](x, optParam_Kc))
-    out = [x[2]; -x[1] + (1 - x[1]^2) * x[2] + u_]
-    return out
-end
+f(x) = vdprDyn(x);
 
 function ρ_pdeErr_fns(optParam)
     function ηNetS(x)

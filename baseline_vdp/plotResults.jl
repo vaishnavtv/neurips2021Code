@@ -21,7 +21,7 @@ dx = 0.05;
 suff = string(activFunc);
 nn = 20;
 optFlag = 1;
-expNum = 17;
+expNum = 18;
 Q_fpke = 0.1;
 strat = "grid";
 
