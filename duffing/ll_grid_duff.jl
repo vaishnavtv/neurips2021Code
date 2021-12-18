@@ -9,7 +9,7 @@ import Random:seed!; seed!(1);
 using Quadrature, Cubature, Cuba
 
 ## parameters for neural network
-nn = 48; # number of neurons in the hidden layer
+nn = 20; # number of neurons in the hidden layer
 activFunc = tanh; # activation function
 opt1 = ADAM(1e-3); # primary optimizer used for training
 maxOpt1Iters = 100000; # maximum number of training iterations for opt1
@@ -22,14 +22,14 @@ dx = 0.01; # discretization size used for training
 
 # file location to save data
 suff = string(activFunc);
-expNum = 5;
+expNum = 6;
 saveFile = "data_grid/ll_grid_duff_exp$(expNum).jld2";
 useGPU = true;
 runExp = true;
 runExp_fileName = "out_grid/log$(expNum).txt";
 if runExp
     open(runExp_fileName, "a+") do io
-        write(io, "Steady State Duffing oscillator with Grid training. 2 HL with $(nn) neurons in the hl and $(suff) activation. $(maxOpt1Iters) iterations with $(opt1) and then $(maxOpt2Iters) with $(opt2). Using GPU? = $(useGPU). dx = $(dx).α_pde = $(α_pde). α_bc = $(α_bc). Using l2 norm loss instead of MSE.
+        write(io, "Steady State Duffing oscillator with Grid training. 4 HL with $(nn) neurons in the hl and $(suff) activation. $(maxOpt1Iters) iterations with $(opt1) and then $(maxOpt2Iters) with $(opt2). Using GPU? = $(useGPU). dx = $(dx).α_pde = $(α_pde). α_bc = $(α_bc). 
         Experiment number: $(expNum)\n")
     end
 end
@@ -77,7 +77,7 @@ bcs = [ρ([-maxval,x2]) ~ 0.f0, ρ([maxval,x2]) ~ 0,
 
 ## Neural network
 dim = 2 # number of dimensions
-chain = Chain(Dense(dim,nn,activFunc), Dense(nn,nn,activFunc), Dense(nn,1));
+chain = Chain(Dense(dim,nn,activFunc), Dense(nn,nn,activFunc), Dense(nn,nn,activFunc), Dense(nn,nn,activFunc), Dense(nn,1));
 
 initθ = DiffEqFlux.initial_params(chain) 
 if useGPU
@@ -133,14 +133,14 @@ if useGPU
     train_bound_set = train_bound_set |> gpu;
 end
 
-pde_loss_function = (θ) -> norm(_pde_loss_function(train_domain_set[1], θ))
-# pde_loss_function = NeuralPDE.get_loss_function(
-#     _pde_loss_function,
-#     train_domain_set[1],
-#     eltypeθ,
-#     parameterless_type_θ,
-#     strategy,
-# );
+# pde_loss_function = (θ) -> norm(_pde_loss_function(train_domain_set[1], θ))
+pde_loss_function = NeuralPDE.get_loss_function(
+    _pde_loss_function,
+    train_domain_set[1],
+    eltypeθ,
+    parameterless_type_θ,
+    strategy,
+);
 @show pde_loss_function(initθ)
 
 bc_loss_functions = [
