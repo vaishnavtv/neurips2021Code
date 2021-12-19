@@ -17,19 +17,19 @@ opt2 = Optim.LBFGS(); # second optimizer used for fine-tuning
 maxOpt2Iters = 10000; # maximum number of training iterations for opt2
 
 dx = 0.01; # discretization size used for training
-α_pde = 400f0;
-α_bc = 0.1f0;
+α_pde = 1f0;
+α_bc = 1f0;
 
 # file location to save data
 suff = string(activFunc);
-expNum = 7;
+expNum = 8;
 saveFile = "data_grid/ll_grid_duff_exp$(expNum).jld2";
 useGPU = true;
 runExp = true;
 runExp_fileName = "out_grid/log$(expNum).txt";
 if runExp
     open(runExp_fileName, "a+") do io
-        write(io, "Steady State Duffing oscillator with Grid training. 4 HL with $(nn) neurons in the hl and $(suff) activation. $(maxOpt1Iters) iterations with $(opt1) and then $(maxOpt2Iters) with $(opt2). Using GPU? = $(useGPU). dx = $(dx).α_pde = $(α_pde). α_bc = $(α_bc). Using α loss coefficients as used in 19-Xu_SteadyFP paper.
+        write(io, "Steady State Duffing oscillator with Grid training. 4 HL with $(nn) neurons in the hl and $(suff) activation. $(maxOpt1Iters) iterations with $(opt1) and then $(maxOpt2Iters) with $(opt2). Using GPU? = $(useGPU). dx = $(dx).α_pde = $(α_pde). α_bc = $(α_bc). Using dynamics as given in 09-Kumar_PUFEM paper.
         Experiment number: $(expNum)\n")
     end
 end
@@ -40,7 +40,7 @@ end
 xSym = [x1;x2]
 
 # Duffing oscillator Dynamics
-η_duff = 0.2f0; α_duff = 1.0f0; β_duff = 0.2f0;
+η_duff = 10f0; α_duff = -15f0; β_duff = 30f0;
 f(x) = [x[2]; η_duff.*x[2] .- α_duff.*x[1] .- β_duff.*x[1].^3];
 
 function g(x::Vector)
@@ -48,7 +48,7 @@ function g(x::Vector)
 end
 
 # PDE
-Q_fpke = 0.1f0; # Q = σ^2
+Q_fpke = 1f0; # Q = σ^2
 ρ(x) = exp(η(x[1],x[2]));
 
 #  PDE written directly in η
