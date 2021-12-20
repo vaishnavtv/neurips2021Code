@@ -154,6 +154,7 @@ prob = GalacticOptim.OptimizationProblem(f_, initθ)
 
 PDE_losses = Float32[];
 BC_losses = Float32[];
+nSteps = 0;
 cb_ = function (p, l)
     global nSteps = nSteps + 1
     println("[$nSteps] Current loss is: $l")
