@@ -20,17 +20,17 @@ maxOpt2Iters = 10000; # maximum number of training iterations for opt2
 α_bc = 1f0;
 
 # file location to save data
-nPtsPerMB = 2000;
+nPtsPerMB = 5000;
 nMB = 500;
 suff = string(activFunc);
-expNum = 1;
+expNum = 2;
 useGPU = true;
-saveFile = "data_quasi/ll_quasi_vdp_exp$(expNum).jld2";
+saveFile = "data_quasi/ll_quasi_duff_exp$(expNum).jld2";
 runExp = true;
 runExp_fileName = "out_quasi/log$(expNum).txt";
 if runExp
     open(runExp_fileName, "a+") do io
-        write(io, "Steady State Duffing Oscillator with QuasiMonteCarlo training. 4 HL with $(nn) neurons in the hl and $(suff) activation. $(maxOpt1Iters) iterations with $(opt1) and then $(maxOpt2Iters) with $(opt2). Using GPU? = $(useGPU).α_pde = $(α_pde). α_bc = $(α_bc). Using dynamics as given in 09-Kumar_PUFEM paper.
+        write(io, "Steady State Duffing Oscillator with QuasiMonteCarlo training. 4 HL with $(nn) neurons in the hl and $(suff) activation. $(maxOpt1Iters) iterations with $(opt1) and then $(maxOpt2Iters) with $(opt2). Using GPU? = $(useGPU).α_pde = $(α_pde). α_bc = $(α_bc). Using dynamics as given in 09-Kumar_PUFEM paper.nPtsPerMB = $(nPtsPerMB). nMB = $(nMB).
         Experiment number: $(expNum)\n")
     end
 end
