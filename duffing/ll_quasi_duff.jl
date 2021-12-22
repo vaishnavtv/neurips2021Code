@@ -16,14 +16,14 @@ maxOpt1Iters = 200000; # maximum number of training iterations for opt1
 opt2 = Optim.LBFGS(); # second optimizer used for fine-tuning
 maxOpt2Iters = 10000; # maximum number of training iterations for opt2
 
-α_pde = 1f0;
-α_bc = 1f0;
+α_pde = 400f0;
+α_bc = 0.1f0;
 
 # file location to save data
-nPtsPerMB = 5000;
-nMB = 500;
+nPtsPerMB = 2000;
+nMB = 1000;
 suff = string(activFunc);
-expNum = 2;
+expNum = 3;
 useGPU = true;
 saveFile = "data_quasi/ll_quasi_duff_exp$(expNum).jld2";
 runExp = true;
