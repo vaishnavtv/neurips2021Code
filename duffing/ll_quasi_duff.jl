@@ -11,19 +11,19 @@ using QuasiMonteCarlo
 ## parameters for neural network
 nn = 20; # number of neurons in the hidden layer
 activFunc = tanh; # activation function
-opt1 = ADAM(1e-3); # primary optimizer used for training
+opt1 = Optim.LBFGS(); # primary optimizer used for training
 maxOpt1Iters = 200000; # maximum number of training iterations for opt1
 opt2 = Optim.LBFGS(); # second optimizer used for fine-tuning
 maxOpt2Iters = 10000; # maximum number of training iterations for opt2
 
-α_pde = 400f0;
-α_bc = 0.1f0;
+α_pde = 1f0;
+α_bc = 1f0;
 
 # file location to save data
 nPtsPerMB = 2000;
-nMB = 1000;
+nMB = 500;
 suff = string(activFunc);
-expNum = 3;
+expNum = 4;
 useGPU = true;
 saveFile = "data_quasi/ll_quasi_duff_exp$(expNum).jld2";
 runExp = true;
