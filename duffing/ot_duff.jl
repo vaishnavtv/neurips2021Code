@@ -8,7 +8,7 @@ import Random: seed!;
 seed!(1);
 
 ## parameters for neural network
-nn = 48; # number of neurons in the hidden layer
+nn = 20; # number of neurons in the hidden layer
 activFunc = tanh; # activation function
 opt1 = Optim.BFGS();#ADAM(1e-3); # primary optimizer used for training
 maxOpt1Iters = 10000; # maximum number of training iterations for opt1
@@ -17,7 +17,7 @@ maxOpt2Iters = 1000; # maximum number of training iterations for opt2
 opt = Optim.BFGS(); # Optimizer used for training in OT
 maxOptIters = 1000; # maximum number of training iterations
 α_bc = 1.0f0;
-Q_fpke = 0.1f0;#*1.0I(2); # σ^2
+Q_fpke = 1f0;#*1.0I(2); # σ^2
 otIters = 20; # number of OT iterations
 maxNewPts = 200; # number of points added each OT iteration
 
@@ -26,17 +26,18 @@ dx = 0.05;
 
 suff = string(activFunc);
 runExp = true; 
-expNum = 6;
+expNum = 7;
 saveFile = "data_ot/ot_duff_exp$(expNum).jld2";
 runExp_fileName = "out_ot/log$(expNum).txt";
 if runExp
     open(runExp_fileName, "a+") do io
-        write(io, "SS Duffing Oscillator with OT and dx = $(dx). 2 HL with $(nn) neurons in the hl and $(suff) activation. Boundary loss coefficient: $(α_bc). Iteration 0 with 2 opts. $(maxOpt1Iters) iterations with BFGS and $(maxOpt2Iters) with BFGS. Then, running OT for $(otIters) iters, $(maxNewPts) each iter. opt: BFGS for $(maxOptIters). Diffusion in α. Q_fpke = $(Q_fpke). Using only unique new points. Fixed pdeErrFn, using _pde_loss_function now. Using norm instead of MSE.
+        write(io, "SS Duffing Oscillator with OT and dx = $(dx). 4 HL with $(nn) neurons in the hl and $(suff) activation. Boundary loss coefficient: $(α_bc). Iteration 0 with 2 opts. $(maxOpt1Iters) iterations with BFGS and $(maxOpt2Iters) with BFGS. Then, running OT for $(otIters) iters, $(maxNewPts) each iter. opt: BFGS for $(maxOptIters). Diffusion in α. Q_fpke = $(Q_fpke). Using only unique new points. Fixed pdeErrFn, using _pde_loss_function now. Using norm instead of MSE. Using dynamics given in 09-Kumar_PUFEM paper.
         Experiment number: $(expNum)\n")
     end
 end
 # Duffing Oscillator Dynamics
-η_duff = 0.2; α_duff = 1.0; β_duff = 0.2;
+η_duff = 10f0; α_duff = -15f0; β_duff = 30f0;
+# η_duff = 0.2; α_duff = 1.0; β_duff = 0.2;
 f(x) = [x[2]; η_duff*x[2] - α_duff*x[1] - β_duff*x[1]^3]; # dynamics
 
 function g(x::Vector)
@@ -76,7 +77,8 @@ bcs = [ρ([-maxval,x2]) ~ 0.f0, ρ([maxval,x2]) ~ 0,
 
 ## Neural network
 dim = 2 # number of dimensions
-chain = Chain(Dense(dim, nn, activFunc), Dense(nn, nn, activFunc), Dense(nn, 1)) ;#|> gpu;
+chain = Chain(Dense(dim,nn,activFunc), Dense(nn,nn,activFunc), Dense(nn,nn,activFunc), Dense(nn,nn,activFunc), Dense(nn,1));
+# chain = Chain(Dense(dim, nn, activFunc), Dense(nn, nn, activFunc), Dense(nn, 1)) ;#|> gpu;
 
 initθ = DiffEqFlux.initial_params(chain) #|> gpu;
 flat_initθ = initθ
