@@ -22,11 +22,11 @@ otIters = 20; # number of OT iterations
 maxNewPts = 200; # number of points added each OT iteration
 
 ## Grid discretization
-dx = 0.05;
+dx = 0.01;
 
 suff = string(activFunc);
 runExp = true; 
-expNum = 7;
+expNum = 8;
 saveFile = "data_ot/ot_duff_exp$(expNum).jld2";
 runExp_fileName = "out_ot/log$(expNum).txt";
 if runExp
