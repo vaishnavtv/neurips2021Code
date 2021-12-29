@@ -106,3 +106,4 @@ cont_vdpr/figs*
 duffing/quasi_batch.slurm
 ex_1d/figs_*
 ex_1d/out_*
+ex_1d/grid_batch.slurm
