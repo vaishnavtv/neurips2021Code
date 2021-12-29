@@ -13,8 +13,21 @@ opt1 = Optim.LBFGS(); # primary optimizer used for training
 maxOpt1Iters = 10000; # maximum number of training iterations for opt1
 opt2 = Optim.LBFGS(); # second optimizer used for fine-tuning
 maxOpt2Iters = 10000; # maximum number of training iterations for opt2
+Q_fpke = 0.25f0; # Q = σ^2
 
 dx = 0.01; # discretization size used for training
+
+expNum = 1;
+runExp = true;
+useGPU = true;
+saveFile = "data/eta_exp$(expNum).jld2";
+runExp_fileName = "out_eta/log$(expNum).txt";
+if runExp
+    open(runExp_fileName, "a+") do io
+        write(io, "Steady State 1D with grid training. 2 HL with $(nn) neurons in the hl and $(string(activFunc)) activation. $(maxOpt1Iters) iterations with $(opt1) and then $(maxOpt2Iters) with $(opt2). Q_fpke = $(Q_fpke).
+        Experiment number: $(expNum)\n")
+    end
+end
 
 ## set up the NeuralPDE framework using low-level API
 @parameters x1
@@ -25,11 +38,10 @@ xSym = x1;
 # 1D Dynamics
 α = 0.3; β = 0.5;
 f(x) = α*x - β*x^3
-
 g(x) = 1.0f0;
 
 # PDE
-Q_fpke = 0.25f0; # Q = σ^2
+ρ_true(x) = exp((1/(2*Q_fpke))*(2*α*x^2 - β*x^4)); # true analytical solution, before normalziation
 ρ(x) = exp(η(xSym));
 F = f(xSym)*ρ(xSym);
 G = 0.5f0*(g(xSym)*Q_fpke*g(xSym)')*ρ(xSym);
@@ -46,20 +58,22 @@ maxval = 2.2f0;
 domains = [x1 ∈ IntervalDomain(-maxval,maxval)];
 
 # Boundary conditions
-bcs = [ρ([-maxval]) ~ 0.f0, ρ([maxval]) ~ 0]
+bcs = [ρ(-maxval) ~ 0.f0, ρ(maxval) ~ 0]
 
 ## Neural network
 dim = 1 # number of dimensions
 chain = Chain(Dense(dim,nn,activFunc), Dense(nn,nn,activFunc), Dense(nn,1));
 # chain = Chain(Dense(dim,nn,activFunc), Dense(nn,nn,activFunc), Dense(nn,nn,activFunc), Dense(nn,nn,activFunc), Dense(nn,1));
 
-initθ = DiffEqFlux.initial_params(chain)
+initθ = DiffEqFlux.initial_params(chain);
+if useGPU
+    initθ = initθ |> gpu;
+end
 flat_initθ = initθ;
 eltypeθ = eltype(flat_initθ);
 parameterless_type_θ = DiffEqBase.parameterless_type(flat_initθ);
 
 strategy = NeuralPDE.GridTraining(dx);
-
 
 phi = NeuralPDE.get_phi(chain, parameterless_type_θ);
 derivative = NeuralPDE.get_numeric_derivative();
@@ -98,7 +112,11 @@ _bc_loss_functions = [
 ]
 
 train_domain_set, train_bound_set =
-    NeuralPDE.generate_training_sets(domains, dx, [pde], bcs, eltypeθ, indvars, depvars) ;
+    NeuralPDE.generate_training_sets(domains, dx, [pde], bcs, eltypeθ, indvars, depvars);
+if useGPU
+    train_domain_set = train_domain_set |> gpu;
+    train_bound_set = train_bound_set |> gpu;
+end
 
 pde_loss_function = NeuralPDE.get_loss_function(
     _pde_loss_function,
@@ -156,23 +174,6 @@ prob = remake(prob, u0=res.minimizer)
 res = GalacticOptim.solve(prob, opt2, cb=cb_, maxiters=maxOpt2Iters);
 println("Optimization done.");
 
-## Plot results
-import ModelingToolkit: Interval, infimum, supremum
-using PyPlot; pygui(true);
-xs = [infimum(d.domain):dx:supremum(d.domain) for d in domains][1]
-u_predict  = [exp(first(phi([x],res.minimizer))) for x in xs]
-
-figure(1); clf();
-plot(xs ,u_predict, label = "predict");
-xlabel("x"); ylabel("ρ");
-title("Steady-state Solution");
-tight_layout(); 
-# savefig("figs_eta/hl2nn48Tanh.png");
-
-figure(2); clf();
-nIters = length(PDE_losses);
-semilogy(1:nIters, PDE_losses, label = "PDE");
-semilogy(1:nIters, BC_losses, label = "BC");
-title("training loss");
-xlabel("Iteration"); ylabel("ϵ")
-tight_layout();
+if runExp
+    jldsave(saveFile;optParam = Array(res.minimizer), PDE_losses, BC_losses);
+end
