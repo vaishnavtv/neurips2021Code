@@ -36,7 +36,7 @@ end
 xSym = x1;
 
 # 1D Dynamics
-α = 0.3; β = 0.5;
+α = 0.3f0; β = 0.5f0;
 f(x) = α*x - β*x^3
 g(x) = 1.0f0;
 
@@ -44,13 +44,16 @@ g(x) = 1.0f0;
 ρ_true(x) = exp((1/(2*Q_fpke))*(2*α*x^2 - β*x^4)); # true analytical solution, before normalziation
 ρ(x) = exp(η(xSym));
 F = f(xSym)*ρ(xSym);
-G = 0.5f0*(g(xSym)*Q_fpke*g(xSym)')*ρ(xSym);
+#  PDE written directly in η
+diffC = 0.5f0*(g(xSym)*Q_fpke*g(xSym)'); # diffusion term
+G = diffC*η(xSym...);
 
-T1 = sum([Differential(xSym[i])(F[i]) for i in 1:length(xSym)]);
+T1 = sum([(Differential(xSym[i])(f(xSym)[i]) + (f(xSym)[i]* Differential(xSym[i])(η(xSym...)))) for i in 1:length(xSym)]); # drift term
 T2 = sum([(Differential(xSym[i])*Differential(xSym[j]))(G[i,j]) for i in 1:length(xSym), j=1:length(xSym)]);
+T2 += sum([(Differential(xSym[i])*Differential(xSym[j]))(diffC[i,j])  - (Differential(xSym[i])*Differential(xSym[j]))(diffC[i,j])*η(xSym...) + diffC[i,j]*abs2(Differential(xSym[i])(η(xSym...))) for i in 1:length(xSym), j=1:length(xSym)]); # complete diffusion term, modified for GPU
 
-Eqn = expand_derivatives(-T1+T2); # + dx*u(x1,x2)-1 ~ 0;
-pdeOrig = simplify(Eqn/ρ(xSym)) ~ 0.0f0;
+Eqn = expand_derivatives(-T1+T2); 
+pdeOrig = simplify(Eqn, expand = true) ~ 0.0f0;
 pde = pdeOrig;
 
 ## Domain
@@ -58,7 +61,7 @@ maxval = 2.2f0;
 domains = [x1 ∈ IntervalDomain(-maxval,maxval)];
 
 # Boundary conditions
-bcs = [ρ(-maxval) ~ 0.f0, ρ(maxval) ~ 0]
+bcs = [ρ(-maxval) ~ 0.0f0, ρ(maxval) ~ 0.0f0]
 
 ## Neural network
 dim = 1 # number of dimensions
