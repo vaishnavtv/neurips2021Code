@@ -10,14 +10,14 @@ using Quadrature, Cubature, Cuba
 nn = 48; # number of neurons in the hidden layer
 activFunc = tanh; # activation function
 opt1 = ADAM(1e-3); # primary optimizer used for training
-maxOpt1Iters = 40000; # maximum number of training iterations for opt1
+maxOpt1Iters = 10000; # maximum number of training iterations for opt1
 opt2 = ADAM(1e-3); # second optimizer used for fine-tuning
 maxOpt2Iters = 10000; # maximum number of training iterations for opt2
 Q_fpke = 0.25f0; # Q = σ^2
 
 dx = 0.01; # discretization size used for training
 
-expNum = 4;
+expNum = 5;
 runExp = true;
 useGPU = true;
 saveFile = "data/eta_exp$(expNum).jld2";
