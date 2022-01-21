@@ -4,17 +4,33 @@ using LinearAlgebra, DifferentialEquations, ForwardDiff, Trapz, Printf
 using PyPlot; pygui(true);
 cd(@__DIR__);
 simMOC = false;
-simMOC_c = true;
+simMOC_c = false;
 simDyn = false;
-tEnd = 10.0; tInt = tEnd/10;
-f(x) = [x[2]; (-x[1] + (1 - x[1]^2) * x[2])]; # vdp model
-# Km = 1;
-# f(x) = [-x[2]/(Km + x[1])*x[1]; 0]; # michaelis-menten model from Andrea Weiss' thesis
+tEnd = 1.0; tInt = tEnd/10;
+propRHO = true; # propagate ρ̇ = - ρ*(∇.f(x)) if true, else propagate η̇ = -tr(∇.f(x)), where η = ln(ρ/ρ0) and η0 = 0.
+
+# van der pol oscillator
+# f(x) = [x[2]; (-x[1] + (1 - x[1]^2) * x[2])]; 
+# minval = -4.0f0; maxval = 4.0f0; 
+# μ_0 = [0,0]; 
+# Σ_0 = 0.1*[1; 1] .* 1.0I(2);
+
+## michaelis-menten model from Andrea Weiss' thesis
+Km = 1;
+f(x) = [-x[2]/(Km + x[1])*x[1]; 0]; 
+minval = 0.0f0; maxval = 3.0f0; # for MM Model, use tEnd = 1.0
+μ_0 = [2,2]; # for mm model
+Σ_0 = [1/8; 1/40] .* 1.0I(2); # for mm model
+
 # f(x) = -1.0f0.*x # linear dynamcis
+
 df(x) = ForwardDiff.jacobian(f,x);
-uDyn(rho, x) = -tr(df(x)); #-rho*tr(df(x));
-minval = -4.0f0; maxval = 4.0f0; 
-# minval = 0.0f0; maxval = 3.0f0; # for MM Model
+
+if propRHO
+    uDyn(rho,x) = -rho*tr(df(x)); # propagating rho directly
+else
+    uDyn(rho, x) = -tr(df(x)); # propagating log(rho/rho0)
+end
 
 # propagate density using MOC
 # if simMOC 
@@ -36,25 +52,29 @@ for i = 1:nEvalFine, j = 1:nEvalFine
 end
 
 # XU0 = [[x, y, 1/nGridPnts] for x in xxFine, y in yyFine]; 
-# μ_ss = [2,2]; # for mm model
-# Σ_ss = [1/8; 1/40] .* 1.0I(2); # for mm model
-μ_ss = [0,0]; 
-Σ_ss = 0.1*[1; 1] .* 1.0I(2);
 
-rho0(x) =  exp(-1 / 2 * (x - μ_ss)' * inv(Σ_ss) * (x - μ_ss)) / (2 * pi * sqrt(det(Σ_ss))); # ρ at t0
+rho0(x) =  exp(-1 / 2 * (x - μ_0)' * inv(Σ_0) * (x - μ_0)) / (2 * pi * sqrt(det(Σ_0))); # ρ at t0
 # rho0(x) = 1/64;
 RHO0 = [rho0([x,y]) for x in xxFine, y in yyFine ];
 norm_RHO0 = trapz((xxFine, yyFine), RHO0);
 @show norm_RHO0
 # XU0 =  [[x, y, rho0([x,y])] for x in xxFine, y in yyFine];
 ##
-XU_t = [nlSimContMOC([x, y, 0.0f0]) for x in xxFine, y in yyFine];
+if propRHO
+    XU_t = [nlSimContMOC([x, y, rho0([x,y])]) for x in xxFine, y in yyFine];
+else
+    XU_t = [nlSimContMOC([x, y, 0.0f0]) for x in xxFine, y in yyFine];
+end
 tSpan = 0:tInt:tEnd;
 U0_sol = [XU_t[i,j][1][3] for i in 1:nEvalFine, j in 1:nEvalFine]; # zero everywhere
 for (t, tVal) in enumerate(tSpan)
     local X1grid = [XU_t[i,j][t][1] for i in 1:nEvalFine, j in 1:nEvalFine];
     local X2grid = [XU_t[i,j][t][2] for i in 1:nEvalFine, j in 1:nEvalFine];
-    local RHOgrid = [RHO0[i,j]*exp(XU_t[i,j][t][3]) for i in 1:nEvalFine, j in 1:nEvalFine];
+    if propRHO
+        local RHOgrid = [(XU_t[i,j][t][3]) for i in 1:nEvalFine, j in 1:nEvalFine];
+    else
+        local RHOgrid = [RHO0[i,j]*exp(XU_t[i,j][t][3]) for i in 1:nEvalFine, j in 1:nEvalFine];
+    end
     local normC = trapz((X1grid[:,1], X2grid[2,:]), RHOgrid)
     @show normC;
     normC_str = @sprintf("|ρ| = %.3f",normC);
@@ -70,13 +90,19 @@ for (t, tVal) in enumerate(tSpan)
     # sleep(0.1);
 end
 ##
-
-XUEND = [nlSimContMOC([x, y, 0.0f0 ])[end] for x in xxFine, y in yyFine];
+if propRHO
+    XUEND = [nlSimContMOC([x, y, rho0([x,y]) ])[end] for x in xxFine, y in yyFine];
+else
+    XUEND = [nlSimContMOC([x, y, 0.0f0 ])[end] for x in xxFine, y in yyFine];
+end
 
 X1END = [XUEND[i,j][1] for i in 1:nEvalFine, j in 1:nEvalFine];
 X2END = [XUEND[i,j][2] for i in 1:nEvalFine, j in 1:nEvalFine];
-
-RHOEND = [(RHO0[i,j]*exp(XUEND[i,j][3])) for i in 1:nEvalFine, j in 1:nEvalFine];
+if propRHO
+    RHOEND = [(XUEND[i,j][3]) for i in 1:nEvalFine, j in 1:nEvalFine];
+else
+    RHOEND = [(RHO0[i,j]*exp(XUEND[i,j][3])) for i in 1:nEvalFine, j in 1:nEvalFine];
+end
 
 
 ##
@@ -93,7 +119,7 @@ ylim(minval,  maxval);
 tight_layout();
 
 figure(243); clf();
-contourf(X1END, X2END, RHOEND);
+contour(X1END, X2END, RHOEND);
 title("ρ at t = $(tEnd)");
 colorbar();
 xlabel("x1");
