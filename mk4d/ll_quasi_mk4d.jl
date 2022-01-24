@@ -3,15 +3,15 @@
 
 using NeuralPDE, Flux, ModelingToolkit, GalacticOptim, Optim, Symbolics, JLD2, DiffEqFlux
 
-# using CUDA
-# CUDA.allowscalar(false)
+using CUDA
+CUDA.allowscalar(false)
 
 import Random:seed!; seed!(1);
 using QuasiMonteCarlo
 
 ## parameters for neural network
-nn = 20; # number of neurons in the hidden layer
-activFunc = softplus; # activation function
+nn = 48; # number of neurons in the hidden layer
+activFunc = tanh; # activation function
 opt1 = ADAM(1e-3); # primary optimizer used for training
 maxOpt1Iters = 100000; # maximum number of training iterations for opt1
 opt2 = Optim.LBFGS(); # second optimizer used for fine-tuning
@@ -24,12 +24,11 @@ suff = string(activFunc);
 expNum = 1;
 useGPU = true;
 saveFile = "data_quasi/ll_quasi_mk4d_exp$(expNum).jld2";
-runExp = false;
+runExp = true;
 runExp_fileName = "out_quasi/log$(expNum).txt";
 if runExp
     open(runExp_fileName, "a+") do io
-        write(io, "Steady State 4D linear dynamics with QuasiMonteCarlo training. 3 HL with $(nn) neurons in the hl and $(suff) activation. $(maxOpt1Iters) iterations with ADAM and then $(maxOpt2Iters) with LBFGS.  UniformSample strategy. PDE written directly in η. nPtsPerMB = $(nPtsPerMB). nMB = $(nMB). Using GPU? $(useGPU). With Softadapt.
-        Experiment number: $(expNum)\n")
+        write(io, "Steady State 4D linear dynamics with QuasiMonteCarlo training. 2 HL with $(nn) neurons in the hl and $(suff) activation. $(maxOpt1Iters) iterations with ADAM and then $(maxOpt2Iters) with LBFGS.  UniformSample strategy. PDE written directly in η. nPtsPerMB = $(nPtsPerMB). nMB = $(nMB). Using GPU? $(useGPU).         Experiment number: $(expNum)\n")
     end
 end
 ## set up the NeuralPDE framework using low-level API
@@ -55,18 +54,16 @@ end
 println("Defining PDE");
 Q_fpke = 0.4f0; # Q = σ^2
 ρ(x) = exp(η(xSym...));
-F = f(xSym)*ρ(xSym);
-G = 0.5f0*(g(xSym)*Q_fpke*g(xSym)')*ρ(xSym);
+# F = f(xSym)*ρ(xSym);
+# G = 0.5f0*(g(xSym)*Q_fpke*g(xSym)')*ρ(xSym);
 
-T1 = sum([Differential(xSym[i])(F[i]) for i in 1:length(xSym)]);
-T2 = sum([(Differential(xSym[i])*Differential(xSym[j]))(G[i,j]) for i in 1:length(xSym), j=1:length(xSym)]);
+# T1 = sum([Differential(xSym[i])(F[i]) for i in 1:length(xSym)]);
+# T2 = sum([(Differential(xSym[i])*Differential(xSym[j]))(G[i,j]) for i in 1:length(xSym), j=1:length(xSym)]);
 
-Eqn = expand_derivatives(-T1+T2); # + dx*u(x1,x2)-1 ~ 0;
-pdeOrig = simplify(Eqn/ρ(xSym)) ~ 0.0f0;
-pde = pdeOrig;
-println("PDE defined symbolically.")
-
-# pde = (0.05f0Differential(x2)(Differential(x2)(η(x1, x2)))*exp(η(x1, x2)) + 0.05f0exp(η(x1, x2))*(Differential(x2)(η(x1, x2))^2) - (exp(η(x1, x2))*(1 - (x1^2))) - (x2*Differential(x1)(η(x1, x2))*exp(η(x1, x2))) - (Differential(x2)(η(x1, x2))*exp(η(x1, x2))*(x2*(1 - (x1^2)) - x1)))*(exp(η(x1, x2))^-1) ~ 0.0f0  # simplified pde rewritten with constants in float32 format
+# Eqn = expand_derivatives(-T1+T2); # + dx*u(x1,x2)-1 ~ 0;
+# pdeOrig = simplify(Eqn/ρ(xSym)) ~ 0.0f0;
+# pde = pdeOrig;
+# println("PDE defined symbolically.")
 
 # Equation written directly in η
 diffC = 0.5f0*(g(xSym)*Q_fpke*g(xSym)'); # diffusion term
@@ -78,8 +75,8 @@ T2_2 += sum([(Differential(xSym[i])*Differential(xSym[j]))(diffC[i,j]) - (Differ
 
 Eqn = expand_derivatives(-T1_2+T2_2); 
 pdeOrig2 = simplify(Eqn, expand = true) ~ 0.0f0;
-# pde = pdeOrig2;
-println("PDE η defined symbolically.")
+pde = pdeOrig2;
+println("PDE in  η defined symbolically.")
 
 ## Domain
 maxval = 4.0;
