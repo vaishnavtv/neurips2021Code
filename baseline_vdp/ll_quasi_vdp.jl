@@ -20,14 +20,14 @@ maxOpt2Iters = 10000; # maximum number of training iterations for opt2
 nPtsPerMB = 2000;
 nMB = 500;
 suff = string(activFunc);
-expNum = 13;
+expNum = 14;
 useGPU = true;
 saveFile = "data_quasi/ll_quasi_vdp_exp$(expNum).jld2";
 runExp = true;
 runExp_fileName = "out_quasi/log$(expNum).txt";
 if runExp
     open(runExp_fileName, "a+") do io
-        write(io, "Steady State vdp with QuasiMonteCarlo training. 3 HL with $(nn) neurons in the hl and $(suff) activation. $(maxOpt1Iters) iterations with ADAM and then $(maxOpt2Iters) with LBFGS.  UniformSample strategy. PDE written directly in η. nPtsPerMB = $(nPtsPerMB). nMB = $(nMB). Using GPU? $(useGPU). With Softadapt.
+        write(io, "Steady State vdp with QuasiMonteCarlo training. 3 HL with $(nn) neurons in the hl and $(suff) activation. $(maxOpt1Iters) iterations with ADAM and then $(maxOpt2Iters) with LBFGS.  UniformSample strategy. PDE written directly in η. nPtsPerMB = $(nPtsPerMB). nMB = $(nMB). Using GPU? $(useGPU). With Softadapt, rerunning exp 13.
         Experiment number: $(expNum)\n")
     end
 end
