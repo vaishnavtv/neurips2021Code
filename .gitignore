@@ -107,3 +107,6 @@ duffing/quasi_batch.slurm
 ex_1d/figs_*
 ex_1d/out_*
 ex_1d/grid_batch.slurm
+mk4d/out_*
+mk4d/quasi_batch.slurm
+mk4d/figs_*
