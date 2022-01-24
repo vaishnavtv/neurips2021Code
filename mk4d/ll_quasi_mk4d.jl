@@ -21,14 +21,15 @@ maxOpt2Iters = 10000; # maximum number of training iterations for opt2
 nPtsPerMB = 2000;
 nMB = 500;
 suff = string(activFunc);
-expNum = 1;
+expNum = 2;
 useGPU = true;
 saveFile = "data_quasi/ll_quasi_mk4d_exp$(expNum).jld2";
 runExp = true;
 runExp_fileName = "out_quasi/log$(expNum).txt";
 if runExp
     open(runExp_fileName, "a+") do io
-        write(io, "Steady State 4D linear dynamics with QuasiMonteCarlo training. 2 HL with $(nn) neurons in the hl and $(suff) activation. $(maxOpt1Iters) iterations with ADAM and then $(maxOpt2Iters) with LBFGS.  UniformSample strategy. PDE written directly in η. nPtsPerMB = $(nPtsPerMB). nMB = $(nMB). Using GPU? $(useGPU).         Experiment number: $(expNum)\n")
+        write(io, "Steady State 4D linear dynamics with QuasiMonteCarlo training. 2 HL with $(nn) neurons in the hl and $(suff) activation. $(maxOpt1Iters) iterations with ADAM and then $(maxOpt2Iters) with LBFGS.  UniformSample strategy. PDE written directly in η. nPtsPerMB = $(nPtsPerMB). nMB = $(nMB). Using GPU? $(useGPU). PDE fixed to use GPU.
+        Experiment number: $(expNum)\n")
     end
 end
 ## set up the NeuralPDE framework using low-level API
@@ -70,8 +71,9 @@ diffC = 0.5f0*(g(xSym)*Q_fpke*g(xSym)'); # diffusion term
 G2 = diffC*η(xSym...);
 
 T1_2 = sum([(Differential(xSym[i])(f(xSym)[i]) + (f(xSym)[i]* Differential(xSym[i])(η(xSym...)))) for i in 1:length(xSym)]); # drift term
-T2_2 = sum([(Differential(xSym[i])*Differential(xSym[j]))(G2[i,j]) for i in 1:length(xSym), j=1:length(xSym)]);
-T2_2 += sum([(Differential(xSym[i])*Differential(xSym[j]))(diffC[i,j]) - (Differential(xSym[i])*Differential(xSym[j]))(diffC[i,j])*η(xSym...) + diffC[i,j]*(Differential(xSym[i])(η(xSym...)))*(Differential(xSym[j])(η(xSym...))) for i in 1:length(xSym), j=1:length(xSym)]); # complete diffusion term
+# T2_2 = sum([(Differential(xSym[i])*Differential(xSym[j]))(G2[i,j]) for i in 1:length(xSym), j=1:length(xSym)]);
+# T2_2 += sum([(Differential(xSym[i])*Differential(xSym[j]))(diffC[i,j]) - (Differential(xSym[i])*Differential(xSym[j]))(diffC[i,j])*η(xSym...) + diffC[i,j]*(Differential(xSym[i])(η(xSym...)))*(Differential(xSym[j])(η(xSym...))) for i in 1:length(xSym), j=1:length(xSym)]); # complete diffusion term
+T2_2 = 0.2f0*abs2(Differential(x2)(η(x1, x2, x3, x4))) + 0.2f0*abs2(Differential(x4)(η(x1, x2, x3, x4))) + 0.2f0Differential(x2)(Differential(x2)(η(x1, x2, x3, x4))) + 0.2f0Differential(x4)(Differential(x4)(η(x1, x2, x3, x4)));
 
 Eqn = expand_derivatives(-T1_2+T2_2); 
 pdeOrig2 = simplify(Eqn, expand = true) ~ 0.0f0;
