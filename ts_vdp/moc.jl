@@ -77,15 +77,30 @@ for (t, tVal) in enumerate(tSpan)
     end
     local normC = trapz((X1grid[:,1], X2grid[2,:]), RHOgrid)
     @show normC;
-    normC_str = @sprintf("|ρ| = %.3f",normC);
-    figure(45); clf();
+    # normC_str = @sprintf("|ρ| = %.3f",normC);
+    figure(45,(8,4)); clf();
+    subplot(1,2,1);
     pcolor(X1grid, X2grid, RHOgrid); colorbar();
     xlabel("x1"); ylabel("x2");
     xlim(minval, maxval);
     ylim(minval,  maxval);
-    title(string("t = $(tVal);", normC_str));
+    title(string("t = $(tVal);"));#, normC_str));
     suptitle("Propagating ρ using MOC");
     tight_layout();
+
+    ## Marginal PDF ρ(x1) = ∫_{x2Domain} ρ_{x1,x2} dx2 (not normalized)
+    RHO_X1 = similar(xxFine); 
+    tol = 5e-3; # 
+    for (xInd,xVal) in enumerate(xxFine)
+        ind = findall(z->abs(z-xVal) < tol, X1grid); # find all x1 in new grid close to xVal
+        ind_p = sortperm(X2grid[ind]); # sort corresponding x2 
+        RHO_X1[xInd] = trapz((X2grid[ind])[ind_p], (RHOgrid[ind])[ind_p]); # integrate numerically
+    end
+    subplot(1,2,2); 
+    scatter(xxFine, RHO_X1); 
+    xlabel("x1"); ylabel("ρ(x1)");
+    tight_layout();
+
     # savefig("figs/moc_lin_t1/t$(t).png");
     # sleep(0.1);
 end
@@ -243,4 +258,29 @@ end
 # tx1 = 0.0f0; tx2 = 1.0f0;
 # drho_dx1 = ForwardDiff.derivative(z->rhoNN_Fn(z,tx2), tx1)
 #endregion
+
+## marginal pdf attempt 
+# ts = 5; # time index
+# tx2 = [XU_t[i,j][ts][1] for i in 1:nEvalFine, j in 1:nEvalFine];
+# ux2 = [XU_t[i,j][ts][2] for i in 1:nEvalFine, j in 1:nEvalFine];
+# px2 = [XU_t[i,j][ts][3] for i in 1:nEvalFine, j in 1:nEvalFine];
+
+# figure(46);clf();
+# pcolor(tx2, ux2, px2); colorbar();
+# xlabel("x1"); ylabel("x2");
+# tight_layout();
+
+# tol = 5e-3;
+# rx1_t2 = similar(xxFine);
+# for (xInd,x) in enumerate(xxFine)
+#     ind = findall(y->abs(y-x) < tol, tx2);
+#     ind_p = sortperm(ux2[ind]);
+#     rx1_t2[xInd] = trapz((ux2[ind])[ind_p], (px2[ind])[ind_p]);
+# end
+# figure(23);clf();
+# scatter(xxFine, rx1_t2);
+
+# minimum(rx1_t2)
+
+
 
