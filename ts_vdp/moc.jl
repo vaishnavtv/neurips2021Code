@@ -93,11 +93,10 @@ for (t, tVal) in enumerate(tSpan)
     tol = 5e-3; # 
     for (xInd,xVal) in enumerate(xxFine)
         ind = findall(z->abs(z-xVal) < tol, X1grid); # find all x1 in new grid close to xVal
-        ind_p = sortperm(X2grid[ind]); # sort corresponding x2 
-        RHO_X1[xInd] = trapz((X2grid[ind])[ind_p], (RHOgrid[ind])[ind_p]); # integrate numerically
+        RHO_X1[xInd] = trapz((X2grid[ind]), (RHOgrid[ind])); # integrate numerically
     end
     subplot(1,2,2); 
-    scatter(xxFine, RHO_X1); 
+    scatter(xxFine, RHO_X1, color = "r"); 
     xlabel("x1"); ylabel("ρ(x1)");
     tight_layout();
 
