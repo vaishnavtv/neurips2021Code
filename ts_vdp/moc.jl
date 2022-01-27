@@ -84,7 +84,7 @@ for (t, tVal) in enumerate(tSpan)
     xlabel("x1"); ylabel("x2");
     xlim(minval, maxval);
     ylim(minval,  maxval);
-    title(string("t = $(tVal);"));#, normC_str));
+    title(string("ρ(x1,x2) at t = $(tVal);"));#, normC_str));
     suptitle("Propagating ρ using MOC");
     tight_layout();
 
@@ -100,7 +100,7 @@ for (t, tVal) in enumerate(tSpan)
     xlabel("x1"); ylabel("ρ(x1)");
     tight_layout();
 
-    # savefig("figs/moc_lin_t1/t$(t).png");
+    # savefig("figs_moc/moc_mm/t$(t).png");
     # sleep(0.1);
 end
 ##
