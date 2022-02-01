@@ -15,13 +15,13 @@ opt2 = ADAM(1e-3); # second optimizer used for fine-tuning
 maxOpt2Iters = 10000; # maximum number of training iterations for opt2
 Q_fpke = 0.25f0; # Q = σ^2
 
-dx = 0.01; # discretization size used for training
+dx = [0.01f0; 0.001f0]; # discretization size used for training
 
 expNum = 1;
-runExp = false;
+runExp = true;
 useGPU = false;
-saveFile = "data_ts/eta_exp$(expNum).jld2";
-runExp_fileName = "out_ts/log$(expNum).txt";
+saveFile = "data_ts_grid/eta_exp$(expNum).jld2";
+runExp_fileName = "out_ts_grid/log$(expNum).txt";
 if runExp
     open(runExp_fileName, "a+") do io
         write(io, "Transient 1D with grid training. 2 HL with $(nn) neurons in the hl and $(string(activFunc)) activation. $(maxOpt1Iters) iterations with $(opt1) and then $(maxOpt2Iters) with $(opt2). Q_fpke = $(Q_fpke).
