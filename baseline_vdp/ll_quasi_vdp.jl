@@ -1,5 +1,5 @@
 ## Solve the FPKE for the Van der Pol oscillator using baseline PINNs (large training set)
-
+cd(@__DIR__);
 using NeuralPDE, Flux, ModelingToolkit, GalacticOptim, Optim, Symbolics, JLD2, DiffEqFlux
 
 using CUDA
@@ -207,7 +207,6 @@ res = GalacticOptim.solve(prob, opt2, cb=cb_, maxiters=maxOpt2Iters);
 println("Optimization done.");
 
 ## Save data
-cd(@__DIR__);
 if runExp
     jldsave(saveFile;optParam = Array(res.minimizer), PDE_losses, BC_losses);
 end

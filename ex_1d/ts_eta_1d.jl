@@ -5,6 +5,8 @@ using NeuralPDE, Flux, ModelingToolkit, GalacticOptim, Optim, Symbolics, JLD2, D
 import Random:seed!; seed!(1);
 
 using Quadrature, Cubature, Cuba
+using CUDA
+CUDA.allowscalar(false)
 
 ## parameters for neural network
 nn = 48; # number of neurons in the hidden layer
@@ -17,14 +19,14 @@ Q_fpke = 0.25f0; # Q = σ^2
 
 dx = [0.01f0; 0.001f0]; # discretization size used for training
 
-expNum = 1;
+expNum = 2;
 runExp = true;
-useGPU = false;
+useGPU = true;
 saveFile = "data_ts_grid/eta_exp$(expNum).jld2";
 runExp_fileName = "out_ts_grid/log$(expNum).txt";
 if runExp
     open(runExp_fileName, "a+") do io
-        write(io, "Transient 1D with grid training. 2 HL with $(nn) neurons in the hl and $(string(activFunc)) activation. $(maxOpt1Iters) iterations with $(opt1) and then $(maxOpt2Iters) with $(opt2). Q_fpke = $(Q_fpke).
+        write(io, "Transient 1D with grid training. 2 HL with $(nn) neurons in the hl and $(string(activFunc)) activation. $(maxOpt1Iters) iterations with $(opt1) and then $(maxOpt2Iters) with $(opt2). Q_fpke = $(Q_fpke). useGPU = $(useGPU).
         Experiment number: $(expNum)\n")
     end
 end
@@ -170,6 +172,13 @@ cb_ = function (p, l)
     push!(PDE_losses, pde_loss_function(p))
     push!(BC_losses, bc_loss_function_sum(p))
 
+    if runExp # if running job file
+        open(runExp_fileName, "a+") do io
+            write(io, "[$nSteps] Current loss is: $l \n")
+        end;
+        
+        jldsave(saveFile; optParam=Array(p), PDE_losses, BC_losses);
+    end
     return false
 end
 
