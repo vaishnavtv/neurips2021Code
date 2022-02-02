@@ -5,28 +5,27 @@ using NeuralPDE, Flux, ModelingToolkit, GalacticOptim, Optim, Symbolics, JLD2, D
 import Random:seed!; seed!(1);
 
 using Quadrature, Cubature, Cuba
-using CUDA
-CUDA.allowscalar(false)
 
 ## parameters for neural network
 nn = 48; # number of neurons in the hidden layer
 activFunc = tanh; # activation function
 opt1 = ADAM(1e-3); # primary optimizer used for training
 maxOpt1Iters = 10000; # maximum number of training iterations for opt1
-opt2 = ADAM(1e-3); # second optimizer used for fine-tuning
+opt2 = Optim.LBFGS(); # second optimizer used for fine-tuning
 maxOpt2Iters = 10000; # maximum number of training iterations for opt2
-Q_fpke = 0.25f0; # Q = σ^2
+Q_fpke = 0.0f0; # Q = σ^2
 
 dx = [0.01f0; 0.001f0]; # discretization size used for training
 
-expNum = 2;
+expNum = 3;
+tEnd = 0.1f0;
 runExp = true;
-useGPU = true;
+useGPU = false;
 saveFile = "data_ts_grid/eta_exp$(expNum).jld2";
 runExp_fileName = "out_ts_grid/log$(expNum).txt";
 if runExp
     open(runExp_fileName, "a+") do io
-        write(io, "Transient 1D with grid training. 2 HL with $(nn) neurons in the hl and $(string(activFunc)) activation. $(maxOpt1Iters) iterations with $(opt1) and then $(maxOpt2Iters) with $(opt2). Q_fpke = $(Q_fpke). useGPU = $(useGPU).
+        write(io, "Transient 1D with grid training. 2 HL with $(nn) neurons in the hl and $(string(activFunc)) activation. $(maxOpt1Iters) iterations with $(opt1) and then $(maxOpt2Iters) with $(opt2). Q_fpke = $(Q_fpke). useGPU = $(useGPU). tEnd = $(tEnd).
         Experiment number: $(expNum)\n")
     end
 end
@@ -60,7 +59,7 @@ pdeOrig = simplify(Eqn, expand = true) ~ 0.0f0;
 pde = pdeOrig;
 
 ## Domain
-maxval = 2.2f0; tEnd = 0.1f0;
+maxval = 2.2f0; 
 domains = [x1 ∈ IntervalDomain(-maxval,maxval),
             t ∈ IntervalDomain(0.0f0, tEnd)];
 
@@ -74,6 +73,8 @@ chain = Chain(Dense(dim,nn,activFunc), Dense(nn,nn,activFunc), Dense(nn,1));
 
 initθ = DiffEqFlux.initial_params(chain);
 if useGPU
+    using CUDA
+    CUDA.allowscalar(false)
     initθ = initθ |> gpu;
 end
 flat_initθ = initθ;
