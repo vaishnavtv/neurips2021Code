@@ -31,7 +31,7 @@ strat = "quasi";
 # chain = Chain(Dense(3, nn, activFunc), Dense(nn, nn, activFunc), Dense(nn, nn, activFunc), Dense(nn, 1));
 chain = Chain(Dense(3, nn, activFunc), Dense(nn, nn, activFunc), Dense(nn, 1));
 
-t0 = 0.0; tEnd = 5.0f0;
+t0 = 0.0; tEnd = 0.1f0;
 Q_fpke = 0.1f0#*1.0I(2); # σ^2
 Q_fpke_str = string(Q_fpke);
 # diffC = 0.5 * (g(xSym) * Q_fpke * g(xSym)'); # diffusion coefficient (constant in our case, not a fn of x)
@@ -45,7 +45,7 @@ file = jldopen(fileLoc, "r");
 optParam = read(file, "optParam");
 PDE_losses = read(file, "PDE_losses");
 BC_losses = read(file, "BC_losses");
-NORM_losses = read(file, "NORM_losses");
+# NORM_losses = read(file, "NORM_losses");
 # IC_losses = read(file, "IC_losses");
 close(file);
 println("Are any of the parameters NaN? $(any(isnan.(optParam)))")
@@ -54,7 +54,7 @@ nIters = length(PDE_losses);
 figure(1); clf();
 semilogy(1:nIters, PDE_losses, label =  "PDE");
 semilogy(1:nIters, BC_losses, label = "BC");
-semilogy(1:nIters, NORM_losses, label = "NORM");
+# semilogy(1:nIters, NORM_losses, label = "NORM");
 # semilogy(1:nIters, IC_losses, label = "IC");
 xlabel("Iterations");
 ylabel("ϵ");
@@ -210,9 +210,9 @@ for (tInd, tVal) in enumerate(ttFine)
     @show normC_moc;
     x1Grid = X1grid[:,1]; x2Grid = X2grid[2,:];
     # RHOgrid_NN = [ρFn([x, y, tVal]) for x in x1Grid, y in x2Grid];
-    RHOgrid_NN = [ρFn(XU_t[i,j][tInd]) for i in 1:nEvalFine, j in 1:nEvalFine];
+    RHOgrid_NN = [ρFn([XU_t[i,j][tInd][1:2]; tVal]) for i in 1:nEvalFine, j in 1:nEvalFine];
     normC_nn = trapz((X1grid[:,1], X2grid[2,:]), RHOgrid_NN);
-    RHOgrid_NN /= normC_nn;
+    # RHOgrid_NN /= normC_nn;
     @show normC_nn;
 
     figure(45, (12,4)); clf();
@@ -243,7 +243,7 @@ for (tInd, tVal) in enumerate(ttFine)
     suptitle("t = $(t_str)")
     tight_layout();
 
-    # savefig("figs_$(strat)//exp$(expNum)/t$(tInd).png");
+    savefig("figs_$(strat)//exp$(expNum)/t$(tInd).png");
     # sleep(0.1);
 end
 
