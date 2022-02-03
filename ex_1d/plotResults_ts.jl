@@ -1,14 +1,14 @@
 # Plot results for the transient state FPKE for the 1D problem
 
 cd(@__DIR__);
-using JLD2, NeuralPDE, Flux, Trapz, PyPlot
+using JLD2, NeuralPDE, Flux, Trapz, PyPlot, ModelingToolkit
 pygui(true);
 
-expNum = 1;
+expNum = 4;
 nn = 48; 
 activFunc = tanh;
-Q_fpke = 0.25;
-tEnd = 0.1f0;
+Q_fpke = 0.;
+tEnd = 1.0f0;
 fileLoc = "data_ts_grid/eta_exp$(expNum).jld2";
 @info "Loading ts results for 1d system from exp $(expNum)";
 
@@ -56,7 +56,7 @@ pdeOrig = simplify(Eqn, expand = true) ~ 0.0f0;
 pde = pdeOrig;
 
 ## Domain
-maxval = 2.2f0; tEnd = 0.1f0;
+maxval = 2.2f0; 
 domains = [x1 ∈ IntervalDomain(-maxval,maxval),
             t ∈ IntervalDomain(0.0f0, tEnd)];
 
@@ -68,6 +68,7 @@ flat_initθ = optParam;
 eltypeθ = eltype(flat_initθ);
 parameterless_type_θ = DiffEqBase.parameterless_type(flat_initθ);
 
+dx = [0.01f0; 0.01f0]; # discretization size used for training (irrelevant for plotting)
 strategy = NeuralPDE.GridTraining(dx);
 
 phi = NeuralPDE.get_phi(chain, parameterless_type_θ);
@@ -87,17 +88,6 @@ _pde_loss_function = NeuralPDE.build_loss_function(
     integral,
     chain,
     optParam,
-    strategy,
-);
-
-train_domain_set, train_bound_set =
-    NeuralPDE.generate_training_sets(domains, dx, [pde], bcs, eltypeθ, indvars, depvars);
-
-pde_loss_function = NeuralPDE.get_loss_function(
-    _pde_loss_function,
-    train_domain_set[1],
-    eltypeθ,
-    parameterless_type_θ,
     strategy,
 );
 
@@ -151,7 +141,7 @@ plotDistErr(expNum+100);
 
 ## compare with MOC
 mkpath("figs_moc/exp$(expNum)") # to save figs
-using DifferentialEquations, ForwardDiff, Printf
+using DifferentialEquations, ForwardDiff, Printf, LinearAlgebra
 df(x) = ForwardDiff.derivative(f,x);
 uDyn(rho, x) = -tr(df(x)); 
 # uDyn(rho,x) = -rho*tr(df(x));
