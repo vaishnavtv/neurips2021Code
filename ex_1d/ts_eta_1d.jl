@@ -13,12 +13,12 @@ opt1 = ADAM(1e-3); # primary optimizer used for training
 maxOpt1Iters = 10000; # maximum number of training iterations for opt1
 opt2 = Optim.LBFGS(); # second optimizer used for fine-tuning
 maxOpt2Iters = 10000; # maximum number of training iterations for opt2
-Q_fpke = 0.0f0; # Q = σ^2
+Q_fpke = 0.1f0; # Q = σ^2
 
-dx = [0.01f0; 0.01f0]; # discretization size used for training
+dx = [0.01f0; 0.001f0]; # discretization size used for training
 
-expNum = 5;
-tEnd = 10.0f0;
+expNum = 6;
+tEnd = 1.0f0;
 runExp = true;
 useGPU = false;
 saveFile = "data_ts_grid/eta_exp$(expNum).jld2";
