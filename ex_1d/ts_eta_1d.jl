@@ -17,8 +17,8 @@ Q_fpke = 0.0f0; # Q = σ^2
 
 dx = [0.01f0; 0.01f0]; # discretization size used for training
 
-expNum = 4;
-tEnd = 1.0f0;
+expNum = 5;
+tEnd = 10.0f0;
 runExp = true;
 useGPU = false;
 saveFile = "data_ts_grid/eta_exp$(expNum).jld2";
