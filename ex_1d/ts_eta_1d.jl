@@ -43,7 +43,7 @@ g(x) = 1.0f0;
 
 # PDE
 ρ_true(x) = exp((1/(2*Q_fpke))*(2*α*x^2 - β*x^4)); # true analytical solution, before normalziation
-ρ(x) = exp(η(x1,t));
+ρ(x) = exp(η(x,t));
 F = f(xSym)*ρ(xSym);
 #  PDE written directly in η
 diffC = 0.5f0*(g(xSym)*Q_fpke*g(xSym)'); # diffusion term
