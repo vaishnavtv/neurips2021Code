@@ -111,3 +111,4 @@ mk4d/out_*
 mk4d/quasi_batch.slurm
 mk4d/figs_*
 ex_1d/ts_grid.slurm
+mk4d/batch_ts_quasi.slurm
