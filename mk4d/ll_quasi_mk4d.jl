@@ -3,9 +3,6 @@
 
 using NeuralPDE, Flux, ModelingToolkit, GalacticOptim, Optim, Symbolics, JLD2, DiffEqFlux
 
-using CUDA
-CUDA.allowscalar(false)
-
 import Random:seed!; seed!(1);
 using QuasiMonteCarlo
 
@@ -21,8 +18,8 @@ maxOpt2Iters = 10000; # maximum number of training iterations for opt2
 nPtsPerMB = 5000;
 nMB = 100;
 suff = string(activFunc);
-expNum = 3;
-useGPU = true;
+expNum = 4;
+useGPU = false;
 saveFile = "data_quasi/ll_quasi_mk4d_exp$(expNum).jld2";
 runExp = true;
 runExp_fileName = "out_quasi/log$(expNum).txt";
@@ -99,6 +96,8 @@ chain = Chain(Dense(dim,nn,activFunc), Dense(nn,nn,activFunc), Dense(nn,1));
 
 initθ = DiffEqFlux.initial_params(chain) #|> gpu;
 if useGPU
+    using CUDA
+    CUDA.allowscalar(false)
     initθ = initθ |> gpu;
 end
 flat_initθ = initθ
