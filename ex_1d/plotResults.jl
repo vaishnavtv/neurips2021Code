@@ -1,8 +1,13 @@
 ## Plot results for the 1D example
 cd(@__DIR__);
-using JLD2, NeuralPDE, Flux, Trapz, PyPlot, DiffEqBase
+using JLD2, NeuralPDE, Flux, Trapz, PyPlot
 pygui(true);
 
+expNum = 4;
+nn = 48; 
+activFunc = tanh;
+Q_fpke = 0.25;
+α = 0.3f0; β = 0.5f0;
 fileLoc = "data/eta_exp$(expNum).jld2";
 @info "Loading ss results for 1d system from exp $(expNum)";
 
@@ -22,7 +27,7 @@ xlabel("Iterations"); ylabel("ϵ");
 title("Loss Function exp$(expNum)"); legend();
 tight_layout();
 
-chain = Chain(Dense(2,nn,activFunc), Dense(nn,nn,activFunc), Dense(nn,nn,activFunc), Dense(nn,nn,activFunc), Dense(nn,1));
+chain = Chain(Dense(1,nn,activFunc), Dense(nn,nn,activFunc), Dense(nn,1));
 parameterless_type_θ = DiffEqBase.parameterless_type(optParam);
 phi = NeuralPDE.get_phi(chain, parameterless_type_θ);
 
@@ -37,20 +42,18 @@ u_real = [ρ_true(x) for x in xs];
 norm_real = trapz(xs, u_real);
 u_real /= norm_real;
 
-figure(1); clf();
+println("The maximum pointwise absolute error is $(maximum(abs.(u_predict - u_real)))");
+##
+figure(2, (8,4)); clf();
+subplot(1,2,1);
 plot(xs ,u_predict, label = "predict");
 scatter(xs ,u_real, s = 0.5, c = "r", label = "true");
 xlabel("x"); ylabel("ρ");
-title("Steady-state Solution"); legend();
-tight_layout();
-if runExp 
-    savefig("figs_eta/exp$(expNum).png");
-end
+title("Exp$(expNum): Steady-state ρ"); legend();
 
-figure(2); clf();
-nIters = length(PDE_losses);
-semilogy(1:nIters, PDE_losses, label = "PDE");
-semilogy(1:nIters, BC_losses, label = "BC");
-title("training loss");
-xlabel("Iteration"); ylabel("ϵ")
+subplot(1,2,2);
+plot(xs, abs.(u_predict - u_real)); 
+xlabel("x"); ylabel("ϵ");
+title("Absolute Error");
 tight_layout();
+savefig("figs_eta/exp$(expNum).png");
