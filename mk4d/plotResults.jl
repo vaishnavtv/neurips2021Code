@@ -193,7 +193,7 @@ function plotDistErr(figNum,x1Fine,x2Fine,RHOFine, label1, label2)
     clf()
     # pcolor(XX, YY, RHOFine, shading = "auto", cmap = "inferno"); colorbar();
     # pcolor(xvFine_XX, xαFine_YY, RHO12Fine, shading = "auto", cmap = "inferno")
-    surf(XX, YY, RHOFine, cmap = "jet"); #zlabel("Marginal PDF ρ($(label1), $(label2))");
+    surf(XX, YY, RHOFine, cmap = "hsv"); #zlabel("Marginal PDF ρ($(label1), $(label2))");
     xlabel(label1); ylabel(label2)
     axis("auto")
     title("Marginal PDF ρ($(label1), $(label2))");
