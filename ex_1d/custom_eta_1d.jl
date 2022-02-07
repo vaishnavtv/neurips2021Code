@@ -121,11 +121,11 @@ function _custom_pde_loss_function(y, θ)
     # equivalent to _pde_loss_function (obtained from build_loss_function)
     ηFn(z) = (Array(phi(z,θ)));
     # ρFn(y) = exp(sum(Array(phi(y, θ))));
-    dηFn(z) = ForwardDiff.jacobian(ηFn, z);
+    dηFn(z) = Zygote.jacobian(ηFn, z)[1];
 
     function pdeErr(z)
-        t1 = ForwardDiff.jacobian(f,[z]) + f(z)*ForwardDiff.jacobian(ηFn,[z]);
-        t2 = Q_fpke/2*(ForwardDiff.jacobian(ηFn,[z]).^2 + ForwardDiff.jacobian(dηFn,[z]));
+        t1 = Zygote.jacobian(f,[z])[1] + f(z)*Zygote.jacobian(ηFn,[z])[1];
+        t2 = Q_fpke/2*((Zygote.jacobian(ηFn,[z])[1]).^2 + Zygote.hessian(y->first(ηFn(y)),[z]));
         return (-t1 + t2)
     end
 
@@ -153,7 +153,7 @@ end
 ##
 # using BenchmarkTools
 # @btime _pde_loss_function(train_domain_set[1], initθ); #   6.424 ms (998 allocations: 3.44 MiB)
-# @btime _custom_pde_loss_function(train_domain_set[1], initθ); # 31.750 ms (140702 allocations: 21.61 MiB)
+# @btime _custom_pde_loss_function(train_domain_set[1], initθ); # 31.750 ms (140702 allocations: 21.61 MiB) with ForwardDiff, 208.840 ms (809699 allocations: 105.56 MiB) with Zygote
 # @btime _custom_pde_loss_function_finD(train_domain_set[1], initθ); # 1.166 s (7505843 allocations: 1.10 GiB)
 
 ##
