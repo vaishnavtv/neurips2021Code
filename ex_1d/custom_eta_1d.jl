@@ -12,7 +12,7 @@ nn = 48; # number of neurons in the hidden layer
 activFunc = tanh; # activation function
 opt1 = ADAM(1e-3); # primary optimizer used for training
 maxOpt1Iters = 10000; # maximum number of training iterations for opt1
-opt2 = ADAM(1e-3); # second optimizer used for fine-tuning
+opt2 = Optim.LBFGS(); # second optimizer used for fine-tuning
 maxOpt2Iters = 10000; # maximum number of training iterations for opt2
 Q_fpke = 0.25f0; # Q = σ^2
 
@@ -21,11 +21,11 @@ dx = 0.01; # discretization size used for training
 expNum = 1;
 runExp = false;
 useGPU = false;
-saveFile = "data_ad_self/oneD_exp$(expNum).jld2";
+saveFile = "data_custom_1d/custom_ex1d_exp$(expNum).jld2";
 runExp_fileName = "out_ad_self/log$(expNum).txt";
 if runExp
     open(runExp_fileName, "a+") do io
-        write(io, "Steady State 1D with grid training. 2 HL with $(nn) neurons in the hl and $(string(activFunc)) activation. $(maxOpt1Iters) iterations with $(opt1) and then $(maxOpt2Iters) with $(opt2). Q_fpke = $(Q_fpke).
+        write(io, "Steady State 1D with grid training. 2 HL with $(nn) neurons in the hl and $(string(activFunc)) activation. $(maxOpt1Iters) iterations with $(opt1) and then $(maxOpt2Iters) with $(opt2). Q_fpke = $(Q_fpke). useGPU = $(useGPU).
         Experiment number: $(expNum)\n")
     end
 end
@@ -111,26 +111,30 @@ m = central_fdm(5,1);
 g1(z) = Array(phi(z,initθ));
 dg1_fD(z) = ForwardDiff.jacobian(g1, [z]);
 dg1_finD(z) = FiniteDifferences.jacobian(m, g1, [z])[1]
-@show dg1_fD(0.0);
-@show dg1_finD(0.0);
+# @show dg1_fD(0.0);
+# @show dg1_finD(0.0);
 
 
 
 ##
 function _custom_pde_loss_function(y, θ)
     # equivalent to _pde_loss_function (obtained from build_loss_function)
-    ηFn(z) = (Array(phi(z,θ)));
+    ηFn(z) = sum(Array(phi([z],θ)));
     # ρFn(y) = exp(sum(Array(phi(y, θ))));
-    dηFn(z) = Zygote.jacobian(ηFn, z)[1];
+    # dηFn(z) = Zygote.jacobian(ηFn, z)[1];
 
     function pdeErr(z)
-        t1 = Zygote.jacobian(f,[z])[1] + f(z)*Zygote.jacobian(ηFn,[z])[1];
-        t2 = Q_fpke/2*((Zygote.jacobian(ηFn,[z])[1]).^2 + Zygote.hessian(y->first(ηFn(y)),[z]));
-        return (-t1 + t2)
+        t1 = Zygote.jacobian(f,[z])[1] + f(z)*Zygote.jacobian(ηFn,z)[1];
+        t2 = Q_fpke/2*((Zygote.jacobian(ηFn,z)[1]).^2 .+ Zygote.hessian(ηFn,z));
+        # t3 = sum(Zygote.hessian(ηFn,z));
+        return sum(-t1 + t2)
+        # return t3
     end
 
     return pdeErr.(y)
 end
+# txg = ForwardDiff.jacobian(x->_custom_pde_loss_function(train_domain_set[1][:,1:2], x), initθ);
+# @show txg
 
 function _custom_pde_loss_function_finD(y, θ)
     # equivalent to _pde_loss_function (obtained from build_loss_function)
@@ -146,8 +150,8 @@ function _custom_pde_loss_function_finD(y, θ)
 
     return pdeErr.(y)
 end
-# @show _pde_loss_function(train_domain_set[1][:,1:2], initθ)
-# @show _custom_pde_loss_function(train_domain_set[1][:,1:2], initθ);
+@show _pde_loss_function(train_domain_set[1][:,1:2], initθ)
+@show _custom_pde_loss_function(train_domain_set[1][:,1:2], initθ);
 # @show _custom_pde_loss_function_finD(train_domain_set[1][:,1:2], initθ);
 
 ##
@@ -199,7 +203,7 @@ bc_loss_function_sum = θ -> sum(map(l -> l(θ), bc_loss_functions))
 
 nSteps = 0;
 function loss_function_(θ, p)
-    return pde_loss_function(θ) + bc_loss_function_sum(θ) 
+    return custom_pde_loss_function(θ) + bc_loss_function_sum(θ) 
 end
 @show loss_function_(initθ,0)
 
@@ -231,9 +235,9 @@ cb_ = function (p, l)
 end
 
 println("Calling GalacticOptim()");
-# res = GalacticOptim.solve(prob, opt1, cb=cb_, maxiters=maxOpt1Iters);
-# prob = remake(prob, u0=res.minimizer)
-# res = GalacticOptim.solve(prob, opt2, cb=cb_, maxiters=maxOpt2Iters);
+res = GalacticOptim.solve(prob, opt1, cb=cb_, maxiters=maxOpt1Iters);
+prob = remake(prob, u0=res.minimizer)
+res = GalacticOptim.solve(prob, opt2, cb=cb_, maxiters=maxOpt2Iters);
 println("Optimization done.");
 
 if runExp
