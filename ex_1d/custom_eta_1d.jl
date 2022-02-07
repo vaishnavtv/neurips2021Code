@@ -20,7 +20,7 @@ dx = 0.01; # discretization size used for training
 
 expNum = 1;
 runExp = false;
-useGPU = false;
+useGPU = true;
 saveFile = "data_custom_1d/custom_ex1d_exp$(expNum).jld2";
 runExp_fileName = "out_ad_self/log$(expNum).txt";
 if runExp
@@ -39,6 +39,12 @@ xSym = x1;
 # 1D Dynamics
 α = 0.3f0; β = 0.5f0;
 f(x) = (α*x - β*x.^3);
+df(x) = Zygote.jacobian(f,x)[1];
+# Zygote.jacobian(f, [0.0])[1]
+# df([0.0])
+tx0 = train_domain_set[1][:,1:2]
+[df(tx0[:,i]) for i in 1:2]
+tx = diag(df(train_domain_set[1][:,1:2]))
 g(x) = 1.0f0;
 
 # PDE
@@ -109,29 +115,35 @@ _pde_loss_function = NeuralPDE.build_loss_function(
 using ForwardDiff, FiniteDifferences
 m = central_fdm(5,1);
 g1(z) = Array(phi(z,initθ));
-dg1_fD(z) = ForwardDiff.jacobian(g1, [z]);
+dg1_fD(z) = Zygote.jacobian(g1, [z])[1];
 dg1_finD(z) = FiniteDifferences.jacobian(m, g1, [z])[1]
 # @show dg1_fD(0.0);
 # @show dg1_finD(0.0);
 
-
+##
+t1Fn(z) = sum(phi(z, initθ));
+dt1Fn(z) = Zygote.jacobian(t1Fn,z)[1];
+d2t1Fn(z) = Zygote.hessian(t1Fn,z)#[1];
+tx0 = train_domain_set[1][:,1:2];
+# @show dt1Fn(tx0) # this is fine
+# @show d2t1Fn(tx0) # not working
 
 ##
 function _custom_pde_loss_function(y, θ)
     # equivalent to _pde_loss_function (obtained from build_loss_function)
-    ηFn(z) = sum(Array(phi([z],θ)));
+    ηFn(z) = sum((phi(z,θ)));
     # ρFn(y) = exp(sum(Array(phi(y, θ))));
     # dηFn(z) = Zygote.jacobian(ηFn, z)[1];
 
     function pdeErr(z)
-        t1 = Zygote.jacobian(f,[z])[1] + f(z)*Zygote.jacobian(ηFn,z)[1];
-        t2 = Q_fpke/2*((Zygote.jacobian(ηFn,z)[1]).^2 .+ Zygote.hessian(ηFn,z));
-        # t3 = sum(Zygote.hessian(ηFn,z));
-        return sum(-t1 + t2)
-        # return t3
+        # t1 = Zygote.jacobian(ηFn,z)[1]*f(z) +df(z) ;
+        # t2 = Q_fpke/2*((Zygote.jacobian(ηFn,z)[1]).^2)# .+ Zygote.hessian(ηFn,z));
+        t3 = (Zygote.hessian(ηFn,z));
+        # return sum(-t1 + t2)
+        return t3
     end
 
-    return pdeErr.(y)
+    return [pdeErr(y[:,i]) for i in 1:size(y,2)]
 end
 # txg = ForwardDiff.jacobian(x->_custom_pde_loss_function(train_domain_set[1][:,1:2], x), initθ);
 # @show txg
