@@ -8,9 +8,9 @@ dx = 0.05;
 suff = string(activFunc);
 nn = 48;
 optFlag = 1;
-expNum = 5;
+expNum = 9;
 Q_fpke = 1f0;
-strat = "quasi";
+strat = "grid";
 
 cd(@__DIR__);
 fileLoc = "data_$(strat)/ll_$(strat)_duff_exp$(expNum).jld2";
@@ -32,7 +32,7 @@ semilogy(1:nIters, BC_losses, label = "BC");
 # semilogy(1:nIters, NORM_losses, label = "NORM");
 xlabel("Iterations");
 ylabel("ϵ");
-title("Loss Function exp$(expNum)");
+title("Loss Function $(strat) exp$(expNum)");
 legend();
 tight_layout();
 
@@ -139,15 +139,14 @@ function plotDistErr(figNum)
     figure(figNum, [8, 8])
     clf()
     subplot(2, 2, 1)
-    pcolor(XXFine, YYFine, RHOFine, shading = "auto", cmap = "inferno");
-    colorbar()
+    pcolor(XXFine, YYFine, RHOFine, shading = "auto", cmap = "jet"); colorbar()
     xlabel("x1")
     ylabel("x2")
     axis("auto")
     PyPlot.title("Prediction")
 
     subplot(2, 2, 2)
-    pcolor(XXFine, YYFine, RHOTrueFine, shading = "auto", cmap = "inferno");
+    pcolor(XXFine, YYFine, RHOTrueFine, shading = "auto", cmap = "jet");
     colorbar()
     xlabel("x1")
     ylabel("x2")
