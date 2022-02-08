@@ -9,10 +9,10 @@ import Random:seed!; seed!(1);
 using QuasiMonteCarlo
 
 ## parameters for neural network
-nn = 20; # number of neurons in the hidden layer
+nn = 48; # number of neurons in the hidden layer
 activFunc = tanh; # activation function
-opt1 = Optim.LBFGS(); # primary optimizer used for training
-maxOpt1Iters = 200000; # maximum number of training iterations for opt1
+opt1 = ADAM(1e-3); # primary optimizer used for training
+maxOpt1Iters = 100000; # maximum number of training iterations for opt1
 opt2 = Optim.LBFGS(); # second optimizer used for fine-tuning
 maxOpt2Iters = 10000; # maximum number of training iterations for opt2
 
@@ -23,14 +23,14 @@ maxOpt2Iters = 10000; # maximum number of training iterations for opt2
 nPtsPerMB = 2000;
 nMB = 500;
 suff = string(activFunc);
-expNum = 4;
+expNum = 5;
 useGPU = true;
 saveFile = "data_quasi/ll_quasi_duff_exp$(expNum).jld2";
 runExp = true;
 runExp_fileName = "out_quasi/log$(expNum).txt";
 if runExp
     open(runExp_fileName, "a+") do io
-        write(io, "Steady State Duffing Oscillator with QuasiMonteCarlo training. 4 HL with $(nn) neurons in the hl and $(suff) activation. $(maxOpt1Iters) iterations with $(opt1) and then $(maxOpt2Iters) with $(opt2). Using GPU? = $(useGPU).α_pde = $(α_pde). α_bc = $(α_bc). Using dynamics as given in 09-Kumar_PUFEM paper.nPtsPerMB = $(nPtsPerMB). nMB = $(nMB).
+        write(io, "Steady State Duffing Oscillator with QuasiMonteCarlo training. 2 HL with $(nn) neurons in the hl and $(suff) activation. $(maxOpt1Iters) iterations with $(opt1) and then $(maxOpt2Iters) with $(opt2). Using GPU? = $(useGPU).α_pde = $(α_pde). α_bc = $(α_bc). Using dynamics as given in 09-Kumar_PUFEM paper.nPtsPerMB = $(nPtsPerMB). nMB = $(nMB).
         Experiment number: $(expNum)\n")
     end
 end
@@ -75,7 +75,7 @@ bcs = [ρ([-maxval,x2]) ~ 0.f0, ρ([maxval,x2]) ~ 0,
 
 ## Neural network
 dim = 2 # number of dimensions
-chain = Chain(Dense(dim,nn,activFunc), Dense(nn,nn,activFunc), Dense(nn,nn,activFunc), Dense(nn,nn,activFunc), Dense(nn,1));
+chain = Chain(Dense(dim,nn,activFunc), Dense(nn,nn,activFunc), Dense(nn,1));
 
 initθ = DiffEqFlux.initial_params(chain) #|> gpu;
 if useGPU
