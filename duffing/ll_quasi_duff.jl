@@ -42,7 +42,7 @@ xSym = [x1;x2]
 
 # Duffing oscillator Dynamics
 η_duff = 10f0; α_duff = -15f0; β_duff = 30f0;
-f(x) = [x[2]; η_duff.*x[2] .- α_duff.*x[1] .- β_duff.*x[1].^3];
+f(x) = [x[2]; -η_duff.*x[2] .- α_duff.*x[1] .- β_duff.*x[1].^3];
 
 function g(x::Vector)
     return [0.0f0;1.0f0];
