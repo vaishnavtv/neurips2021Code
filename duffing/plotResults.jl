@@ -8,8 +8,8 @@ dx = 0.05;
 suff = string(activFunc);
 nn = 48;
 optFlag = 1;
-expNum = 5;
-Q_fpke = 0.1;
+expNum = 9;
+Q_fpke = 1f0;
 strat = "grid";
 
 cd(@__DIR__);
@@ -32,20 +32,22 @@ semilogy(1:nIters, BC_losses, label = "BC");
 # semilogy(1:nIters, NORM_losses, label = "NORM");
 xlabel("Iterations");
 ylabel("ϵ");
-title("Loss Function exp$(expNum)");
+title("Loss Function $(strat) exp$(expNum)");
 legend();
 tight_layout();
 
 ##
 # Neural network
-chain = Chain(Dense(2, nn, activFunc), Dense(nn, nn, activFunc), Dense(nn, 1));
+chain = Chain(Dense(2,nn,activFunc), Dense(nn,nn,activFunc), Dense(nn,1));
+# chain = Chain(Dense(2, nn, activFunc), Dense(nn, nn, activFunc), Dense(nn, 1));
 # nn = 20; chain = Chain(Dense(2, nn, activFunc), Dense(nn, nn, activFunc), Dense(nn, nn, activFunc), Dense(nn, nn, activFunc), Dense(nn, 1));
 parameterless_type_θ = DiffEqBase.parameterless_type(optParam);
 phi = NeuralPDE.get_phi(chain, parameterless_type_θ);
 
 # Duffing oscillator Dynamics
-η_duff = 0.2; α_duff = 1.0; β_duff = 0.2;
-f(x) = [x[2]; η_duff.*x[2] .- α_duff.*x[1] .- β_duff.*x[1].^3];
+# η_duff = 0.2; α_duff = 1.0; β_duff = 0.2;
+η_duff = 10f0; α_duff = -15f0; β_duff = 30f0;
+f(x) = [x[2]; -η_duff.*x[2] .- α_duff.*x[1] .- β_duff.*x[1].^3];
 
 function g(x::Vector)
     return [0.0f0;1.0f0];
@@ -86,7 +88,7 @@ nEvalFine = 100;
 
 ## True solution
 rhoTrue(x) = exp(-η_duff / Q_fpke * (x[2].^2 + α_duff.*x[1].^2 + β_duff/2*x[1].^4));
-
+# df(x) = ForwardDiff.jacobian(f,x);
 
 # Generate functions to check solution and PDE error
 function ρ_pdeErr_fns(optParam)
@@ -95,6 +97,14 @@ function ρ_pdeErr_fns(optParam)
     end
     ρNetS(x) = exp(ηNetS(x)) # solution after first iteration
     pdeErrFn(x) = first(_pde_loss_function(x, optParam))
+    
+    ## checking for the true solution 
+    # ηNetS(x) = (-η_duff / Q_fpke * (x[2].^2 + α_duff.*x[1].^2 + β_duff/2*x[1].^4));
+    # ρNetS(x) = rhoTrue(x);
+    
+    # dη(x) = ForwardDiff.gradient(ηNetS, x)
+    # d2η(x) = ForwardDiff.jacobian(dη, x)
+    # pdeErrFn(x) = tr(df(x)) + dot(f(x), dη(x)) - Q_fpke / 2 * (d2η(x)[end] + (dη(x)[end])^2)
     
     return ρNetS, pdeErrFn
 end
@@ -126,18 +136,17 @@ end
 ## Plot shown in paper
 function plotDistErr(figNum)
 
-    figure(figNum, [12, 4])
+    figure(figNum, [8, 8])
     clf()
-    subplot(1, 3, 1)
-    pcolor(XXFine, YYFine, RHOFine, shading = "auto", cmap = "inferno");
-    colorbar()
+    subplot(2, 2, 1)
+    pcolor(XXFine, YYFine, RHOFine, shading = "auto", cmap = "jet"); colorbar()
     xlabel("x1")
     ylabel("x2")
     axis("auto")
     PyPlot.title("Prediction")
 
-    subplot(1, 3, 2)
-    pcolor(XXFine, YYFine, RHOTrueFine, shading = "auto", cmap = "inferno");
+    subplot(2, 2, 2)
+    pcolor(XXFine, YYFine, RHOTrueFine, shading = "auto", cmap = "jet");
     colorbar()
     xlabel("x1")
     ylabel("x2")
@@ -148,12 +157,19 @@ function plotDistErr(figNum)
     mseRHOErr = sum(errNorm[:] .^ 2) / length(errNorm);
     mseRHOErrStr = @sprintf "%.2e" mseRHOErr;
 
-    subplot(1, 3, 3)
+    subplot(2, 2, 3)
     pcolor(XXFine, YYFine, errNorm, shading = "auto", cmap = "inferno")
     colorbar()
     axis("auto")
     title(L"Solution Error; $ϵ_{ρ}=$ %$mseRHOErrStr");
-# PyPlot.title(L"Equation Error; $ϵ_{pde}$ = %$(mseEqErrStr)")
+    xlabel("x1")
+    ylabel("x2")
+
+    subplot(2, 2, 4)
+    pcolor(XXFine, YYFine, FFFine, shading = "auto", cmap = "inferno")
+    colorbar()
+    axis("auto")
+    title(L"Equation Error; $ϵ_{pde}$ = %$(mseEqErrStr)")
     xlabel("x1")
     ylabel("x2")
 

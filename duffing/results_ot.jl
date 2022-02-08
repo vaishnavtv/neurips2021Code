@@ -15,11 +15,11 @@ using Statistics
 # Load data 
 activFunc = tanh; #dx = 0.25;
 suff = string(activFunc);
-nn = 48;
+nn = 20;
 otIters = 20;
 maxNewPts = 200;
 strat = "ot";
-expNum = 5;
+expNum = 7;
 
 cd(@__DIR__);
 fileLoc = "data_$(strat)/$(strat)_duff_exp$(expNum).jld2";
@@ -34,12 +34,13 @@ newPtsAll = read(file, "newPtsAll");
 close("file");
 
 nEvalFine = 100;
-Q_fpke = 0.1;
+Q_fpke = 1f0;
 ## True solution
 rhoTrue(x) = exp(-η_duff / Q_fpke * (x[2].^2 + α_duff.*x[1].^2 + β_duff/2*x[1].^4));
 
 # Duffing oscillator Dynamics
-η_duff = 0.2; α_duff = 1.0; β_duff = 0.2;
+# η_duff = 0.2; α_duff = 1.0; β_duff = 0.2;
+η_duff = 10f0; α_duff = -15f0; β_duff = 30f0;
 f(x) = [x[2]; η_duff.*x[2] .- α_duff.*x[1] .- β_duff.*x[1].^3];
 
 function g(x::Vector)
@@ -50,7 +51,8 @@ maxval = 2.0;
 
 # Neural network
 dim = 2 # number of dimensions
-chain = Chain(Dense(dim, nn, activFunc), Dense(nn, nn, activFunc), Dense(nn, 1));
+chain = Chain(Dense(2,nn,activFunc), Dense(nn,nn,activFunc), Dense(nn,nn,activFunc), Dense(nn,nn,activFunc), Dense(nn,1));
+# chain = Chain(Dense(dim, nn, activFunc), Dense(nn, nn, activFunc), Dense(nn, 1));
 parameterless_type_θ = DiffEqBase.parameterless_type(optParams[1]);
 phi = NeuralPDE.get_phi(chain, parameterless_type_θ);
 
@@ -171,7 +173,7 @@ for otIter = 0:otIters-1
 end
 
 ## Plotting on fine grid
-otIter = 4;
+otIter = 0;
 otIter += 1;
 println("Plotting on evaluation set");
 function plotDistErr(nEvalFine, RHOFine, pdeErrFine, figNum)

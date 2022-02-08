@@ -3,6 +3,7 @@ cd(@__DIR__);
 include("f16_controller.jl"); # contains trimming inputs, A,B,K for reduced 4-state system
 
 using LinearAlgebra, DifferentialEquations, ForwardDiff, Trapz, Printf, PyPlot
+using Statistics
 pygui(true);
 
 tEnd = 1.0; tInt = tEnd/10;
@@ -91,6 +92,8 @@ end
 tSpan = 0:tInt:tEnd;
 for (t, tVal) in enumerate(tSpan)
     local V_grid = [XU_t[i,j,k,l][t][1] for i in 1:nEvalFine, j in 1:nEvalFine, k in 1:nEvalFine, l in 1:nEvalFine];
+    local a_grid = [XU_t[i,j,k,l][t][2] for i in 1:nEvalFine, j in 1:nEvalFine, k in 1:nEvalFine, l in 1:nEvalFine];
+    local th_grid = [XU_t[i,j,k,l][t][3] for i in 1:nEvalFine, j in 1:nEvalFine, k in 1:nEvalFine, l in 1:nEvalFine];
     local q_grid = [XU_t[i,j,k,l][t][4] for i in 1:nEvalFine, j in 1:nEvalFine, k in 1:nEvalFine, l in 1:nEvalFine];
     if propRHO
         local RHOgrid = [(XU_t[i,j,k,l][t][5]) for i in 1:nEvalFine, j in 1:nEvalFine, k in 1:nEvalFine, l in 1:nEvalFine]; # joint pdf
@@ -100,15 +103,24 @@ for (t, tVal) in enumerate(tSpan)
     # local normC = trapz((V_grid[:,1], q_grid[2,:]), RHOgrid)
     # @show normC;
     # normC_str = @sprintf("|ρ| = %.3f",normC);
-    figure(45); clf();
-    scatter(V_grid[:,])
-    # pcolor(V_grid, q_grid, RHOgrid); colorbar();
-    xlabel("x1"); ylabel("x2");
-    xlim(xV_min, xV_max);
-    ylim(xq_min,  xq_max);
-    title(string("t = $(tVal);"));#, normC_str));
-    suptitle("Propagating ρ using MOC");
-    tight_layout();
+
+    ## Get marginal PDF RHO_vq
+    vTol = 50; aTol = 0.02; thTol = 0.02; qTol = 0.01;
+    RHO_vaq = ndgrid(vFine,αFine, qFine);
+    for (vInd, vVal) in enumerate(vFine), (aInd, aVal) in enumerate(αFine), (qInd, qVal) in enumerate(qFine)
+        ind_v = findall(z->abs(z - vVal) < vTol, V_grid);
+        ind_a = findall(z->abs(z - aVal) < aTol, a_grid);
+        ind_q = findall(z->abs(z - qVal) < aTol, a_grid);
+    end
+
+    # figure(45); clf();
+    # # pcolor(V_grid, q_grid, RHOgrid); colorbar();
+    # xlabel("x1"); ylabel("x2");
+    # xlim(xV_min, xV_max);
+    # ylim(xq_min,  xq_max);
+    # title(string("t = $(tVal);"));#, normC_str));
+    # suptitle("Propagating ρ using MOC");
+    # tight_layout();
     
 end
 
@@ -133,7 +145,68 @@ end
 # @show sol.u
 
 
-## testing NumericalIntegration
-# using NumericalIntegration
-# integrate((vFine, αFine, θFine, qFine), RHO0, Trapezoidal())
+## testing marginal PDF
+ts = 5;
+tx1 = [XU_t[i,j,k,l][ts][1] for i in 1:nEvalFine, j in 1:nEvalFine, k in 1:nEvalFine, l in 1:nEvalFine];
+tx2 = [XU_t[i,j,k,l][ts][2] for i in 1:nEvalFine, j in 1:nEvalFine, k in 1:nEvalFine, l in 1:nEvalFine];
+tx3 = [XU_t[i,j,k,l][ts][3] for i in 1:nEvalFine, j in 1:nEvalFine, k in 1:nEvalFine, l in 1:nEvalFine];
+tx4 = [XU_t[i,j,k,l][ts][4] for i in 1:nEvalFine, j in 1:nEvalFine, k in 1:nEvalFine, l in 1:nEvalFine];
 
+px = [RHO0[i,j,k,l]*exp(XU_t[i,j,k,l][ts][5]) for i in 1:nEvalFine, j in 1:nEvalFine, k in 1:nEvalFine, l in 1:nEvalFine];
+# vTol = 50; aTol = 0.02; thTol = 0.02; qTol = 0.01;
+
+RHO_vaq = zeros(nEvalFine,nEvalFine, nEvalFine);
+ux1 = similar(RHO_vaq);
+ux2 = similar(RHO_vaq); ux4 = similar(RHO_vaq);
+RHO_va = zeros(nEvalFine, nEvalFine);
+aFine = αFine;
+
+tvFine = collect(LinRange(minimum(tx1), maximum(tx1), nEvalFine));
+taFine = collect(LinRange(minimum(tx2), maximum(tx2), nEvalFine));
+tqFine = collect(LinRange(minimum(tx4), maximum(tx4), nEvalFine));
+vTol = (tvFine[2] - tvFine[1])/2 ; 
+aTol = (taFine[2] - taFine[1])/2 ; 
+# thTol = 0.02; 
+qTol = (tqFine[2] - tqFine[1])/2;
+
+## get 3D marginal PDF RHO_vaq and associated grids
+nEmpty_vaq = 0;
+# for (vInd, vVal) in enumerate(tvFine), (aInd, aVal) in enumerate(taFine), (qInd, qVal) in enumerate(tqFine)
+    vVal = tvFine[1]; aVal = taFine[1]; qVal = tqFine[1];
+    ind_v = findall(z->abs(z - vVal) < vTol, tx1);
+    # find all v in new grid close to vVal
+    ind_a = findall(z->abs(z - aVal) < aTol, tx2); 
+    # find all a in new grid close to aVal
+    ind_q = findall(z->abs(z - qVal) < qTol, tx4);
+    # find all q in new grid close to qVal
+
+    ind_vaq =  intersect(ind_v, ind_a, ind_q) ;
+    if isempty(ind_vaq)
+        nEmpty_vaq += 1;
+    end
+    # RHO_vaq[vInd, aInd, qInd] = trapz(tx3[ind_vaq],px[ind_vaq]);
+    # ux1[vInd, aInd, qInd] = mean(tx1[ind_vaq]) #trapz(tx3[ind_vaq],tx1[ind_vaq]);
+    # ux2[vInd, aInd, qInd] = mean(tx2[ind_vaq]) #trapz(tx3[ind_vaq],tx2[ind_vaq]);
+    # ux4[vInd, aInd, qInd] = mean(tx4[ind_vaq]) #trapz(tx3[ind_vaq],tx4[ind_vaq]);
+
+    # println("$(trapz(tx3[ind_vaq],px[ind_vaq]))");
+    # println("$(trapz(tx3[ind_vaq],tx1[ind_vaq]))");
+
+# end
+@show nEmpty_vaq
+## get 2D marginal PDF RHO_va and associated grids
+uvFine = collect(LinRange(minimum(ux1), maximum(ux1), nEvalFine));
+uaFine = collect(LinRange(minimum(ux2), maximum(ux2), nEvalFine));
+
+vx1 = zeros(nEvalFine, nEvalFine); vx2 = similar(vx1);
+for (vInd, vVal) in enumerate(uvFine), (aInd, aVal) in enumerate(uaFine)
+    ind_v = findall(z->abs(z - vVal) < vTol, ux1);
+    ind_a = findall(z->abs(z - aVal) < aTol, ux2);
+
+    ind_va = intersect(ind_v, ind_a);
+    RHO_va[vInd, aInd] = trapz(ux4[ind_va], RHO_vaq[ind_va]);
+    vx1[vInd, aInd] = mean(ux1[ind_v]) #trapz(ux4[ind_va], ux1[ind_va]);
+    vx2[vInd, aInd] = mean(ux2[ind_a]) #trapz(ux4[ind_va], ux2[ind_va]);
+end
+
+    
