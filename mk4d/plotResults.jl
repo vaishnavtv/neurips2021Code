@@ -9,7 +9,7 @@ dx = 0.05*ones(4,1);
 suff = string(activFunc);
 nn = 48;
 
-expNum = 2;
+expNum = 5;
 cd(@__DIR__);
 fileLoc = "data_quasi/ll_quasi_mk4d_exp$(expNum).jld2";
 

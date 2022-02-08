@@ -16,12 +16,12 @@ xSym = [x1;x2];
 # rcParams = PyPlot.PyDict(PyPlot.matplotlib."rcParams")
 # rcParams["font.size"] = 15
 # Load data 
-activFunc = softplus;
+activFunc = tanh;
 dx = 0.05;
 suff = string(activFunc);
-nn = 20;
+nn = 100;
 optFlag = 1;
-expNum = 18;
+expNum = 19;
 Q_fpke = 0.1;
 strat = "grid";
 
@@ -52,6 +52,7 @@ legend();
 tight_layout();
 ##
 # Neural network
+# chain = Chain(Dense(2,nn,activFunc), Dense(nn,nn,activFunc), Dense(nn,nn,activFunc), Dense(nn,nn,activFunc), Dense(nn,1));
 chain = Chain(Dense(2,nn,activFunc), Dense(nn,nn,activFunc), Dense(nn,nn,activFunc), Dense(nn,nn,activFunc), Dense(nn,1));
 # chain = Chain(Dense(2, nn, activFunc), Dense(nn, nn, activFunc), Dense(nn, 1));
 parameterless_type_θ = DiffEqBase.parameterless_type(optParam);
