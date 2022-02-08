@@ -8,7 +8,7 @@ import Random: seed!;
 seed!(1);
 
 ## parameters for neural network
-nn = 20; # number of neurons in the hidden layer
+nn = 48; # number of neurons in the hidden layer
 activFunc = tanh; # activation function
 opt1 = Optim.BFGS();#ADAM(1e-3); # primary optimizer used for training
 maxOpt1Iters = 10000; # maximum number of training iterations for opt1
@@ -26,7 +26,7 @@ dx = 0.01;
 
 suff = string(activFunc);
 runExp = true; 
-expNum = 8;
+expNum = 9;
 saveFile = "data_ot/ot_duff_exp$(expNum).jld2";
 runExp_fileName = "out_ot/log$(expNum).txt";
 if runExp
@@ -38,7 +38,7 @@ end
 # Duffing Oscillator Dynamics
 η_duff = 10f0; α_duff = -15f0; β_duff = 30f0;
 # η_duff = 0.2; α_duff = 1.0; β_duff = 0.2;
-f(x) = [x[2]; η_duff*x[2] - α_duff*x[1] - β_duff*x[1]^3]; # dynamics
+f(x) = [x[2]; -η_duff*x[2] - α_duff*x[1] - β_duff*x[1]^3]; # dynamics
 
 function g(x::Vector)
     return [0.0f0;1.0f0];
@@ -77,7 +77,7 @@ bcs = [ρ([-maxval,x2]) ~ 0.f0, ρ([maxval,x2]) ~ 0,
 
 ## Neural network
 dim = 2 # number of dimensions
-chain = Chain(Dense(dim,nn,activFunc), Dense(nn,nn,activFunc), Dense(nn,nn,activFunc), Dense(nn,nn,activFunc), Dense(nn,1));
+chain = Chain(Dense(dim,nn,activFunc), Dense(nn,nn,activFunc), Dense(nn,1));
 # chain = Chain(Dense(dim, nn, activFunc), Dense(nn, nn, activFunc), Dense(nn, 1)) ;#|> gpu;
 
 initθ = DiffEqFlux.initial_params(chain) #|> gpu;
