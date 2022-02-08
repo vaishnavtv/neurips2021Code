@@ -42,9 +42,9 @@ f(x) = (α*x - β*x.^3);
 df(x) = Zygote.jacobian(f,x)[1];
 # Zygote.jacobian(f, [0.0])[1]
 # df([0.0])
-tx0 = train_domain_set[1][:,1:2]
-[df(tx0[:,i]) for i in 1:2]
-tx = diag(df(train_domain_set[1][:,1:2]))
+# tx0 = train_domain_set[1][:,1:2]
+# [df(tx0[:,i]) for i in 1:2]
+# tx = diag(df(train_domain_set[1][:,1:2]))
 g(x) = 1.0f0;
 
 # PDE
@@ -124,23 +124,24 @@ dg1_finD(z) = FiniteDifferences.jacobian(m, g1, [z])[1]
 t1Fn(z) = sum(phi(z, initθ));
 dt1Fn(z) = Zygote.jacobian(t1Fn,z)[1];
 d2t1Fn(z) = Zygote.hessian(t1Fn,z)#[1];
-tx0 = train_domain_set[1][:,1:2];
-# @show dt1Fn(tx0) # this is fine
-# @show d2t1Fn(tx0) # not working
+# tx0 = train_domain_set[1][:,1:2];
+# @show dt1Fn(tx0) # this is fine, works on both gpu and cpu
+# @show d2t1Fn(tx0[:,2]) # not working on gpu, works on cpu
+
+u_ = (cord, θ, phi)->sum(phi(cord, θ));
+# @show dphi1 =derivative(phi, u_, tx0[:,2], [0.0049215667], 1, initθ ); # same as dt1Fn(tx0[:,2])
+# @show dphi2 =derivative(phi, u_, tx0[:,2], [[0.0049215667], [0.0049215667]],2, initθ ); # same as d2t1Fn(tx0[:,2])
 
 ##
 function _custom_pde_loss_function(y, θ)
     # equivalent to _pde_loss_function (obtained from build_loss_function)
-    ηFn(z) = sum((phi(z,θ)));
-    # ρFn(y) = exp(sum(Array(phi(y, θ))));
-    # dηFn(z) = Zygote.jacobian(ηFn, z)[1];
+    fd_dphi1(z) = derivative(phi, u_, z, [0.0049215667f0], 1, θ); # gradient of η wrt input using finite difference
+    fd_dphi2(z) = derivative(phi, u_, z, [[0.0049215667f0], [0.0049215667f0]],2, θ); # hessian of η wrt input using finite difference
 
     function pdeErr(z)
-        # t1 = Zygote.jacobian(ηFn,z)[1]*f(z) +df(z) ;
-        # t2 = Q_fpke/2*((Zygote.jacobian(ηFn,z)[1]).^2)# .+ Zygote.hessian(ηFn,z));
-        t3 = (Zygote.hessian(ηFn,z));
-        # return sum(-t1 + t2)
-        return t3
+        fd_t1 = fd_dphi1(z)*f(z) + df(z);
+        fd_t2 = Q_fpke/2*(fd_dphi1(z).^2 .+ fd_dphi2(z));
+        return sum(-fd_t1 .+ fd_t2)
     end
 
     return [pdeErr(y[:,i]) for i in 1:size(y,2)]
@@ -168,9 +169,9 @@ end
 
 ##
 # using BenchmarkTools
-# @btime _pde_loss_function(train_domain_set[1], initθ); #   6.424 ms (998 allocations: 3.44 MiB)
-# @btime _custom_pde_loss_function(train_domain_set[1], initθ); # 31.750 ms (140702 allocations: 21.61 MiB) with ForwardDiff, 208.840 ms (809699 allocations: 105.56 MiB) with Zygote
-# @btime _custom_pde_loss_function_finD(train_domain_set[1], initθ); # 1.166 s (7505843 allocations: 1.10 GiB)
+# @btime _pde_loss_function(train_domain_set[1], initθ); #   1.146 ms (3691 allocations: 169.28 KiB)
+# @btime _custom_pde_loss_function(train_domain_set[1], initθ); # 583.718 ms (1476030 allocations: 67.78 MiB) with NeuralPDE's derivative used for finite difference based gradients and hessians
+# @btime _custom_pde_loss_function_finD(train_domain_set[1], initθ); # 1.166 s (7505843 allocations: 1.10 GiB) # the worst
 
 ##
 bc_indvars = NeuralPDE.get_argument(bcs, indvars, depvars);
