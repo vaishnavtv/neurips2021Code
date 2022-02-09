@@ -132,6 +132,11 @@ u_ = (cord, θ, phi)->sum(phi(cord, θ));
 # @show dphi1 =derivative(phi, u_, tx0[:,2], [0.0049215667], 1, initθ ); # same as dt1Fn(tx0[:,2])
 # @show dphi2 =derivative(phi, u_, tx0[:,2], [[0.0049215667], [0.0049215667]],2, initθ ); # same as d2t1Fn(tx0[:,2])
 
+## symbolic loss function 
+# _depvars, _indvars, dict_indvars, dict_depvars, dict_depvar_input = NeuralPDE.get_vars(indvars, depvars);
+# expr_loss_function = NeuralPDE.build_symbolic_loss_function(pde,indvars,depvars,#,dict_indvars,dict_depvars,
+# dict_depvar_input,phi,derivative,integral,chain,initθ,strategy);
+
 ##
 function _custom_pde_loss_function(y, θ)
     # equivalent to _pde_loss_function (obtained from build_loss_function)
@@ -139,12 +144,12 @@ function _custom_pde_loss_function(y, θ)
     fd_dphi2(z) = derivative(phi, u_, z, [[0.0049215667f0], [0.0049215667f0]],2, θ); # hessian of η wrt input using finite difference
 
     function pdeErr(z)
-        fd_t1 = fd_dphi1(z)*f(z) + df(z);
-        fd_t2 = Q_fpke/2*(fd_dphi1(z).^2 .+ fd_dphi2(z));
+        fd_t1 = fd_dphi1(z).*f(z) .+ df(z); # drift term
+        fd_t2 = Q_fpke/2*(fd_dphi1(z).^2 .+ fd_dphi2(z)); # diffusion term
         return sum(-fd_t1 .+ fd_t2)
     end
 
-    return [pdeErr(y[:,i]) for i in 1:size(y,2)]
+    return [pdeErr(@view y[:,i]) for i in 1:size(y,2)]
 end
 # txg = ForwardDiff.jacobian(x->_custom_pde_loss_function(train_domain_set[1][:,1:2], x), initθ);
 # @show txg
@@ -163,14 +168,14 @@ function _custom_pde_loss_function_finD(y, θ)
 
     return pdeErr.(y)
 end
-@show _pde_loss_function(train_domain_set[1][:,1:2], initθ)
-@show _custom_pde_loss_function(train_domain_set[1][:,1:2], initθ);
+# @show _pde_loss_function(train_domain_set[1][:,1:2], initθ)
+# @show _custom_pde_loss_function(train_domain_set[1][:,1:2], initθ);
 # @show _custom_pde_loss_function_finD(train_domain_set[1][:,1:2], initθ);
 
-##
+#
 # using BenchmarkTools
-# @btime _pde_loss_function(train_domain_set[1], initθ); #   1.146 ms (3691 allocations: 169.28 KiB)
-# @btime _custom_pde_loss_function(train_domain_set[1], initθ); # 583.718 ms (1476030 allocations: 67.78 MiB) with NeuralPDE's derivative used for finite difference based gradients and hessians
+# @btime _pde_loss_function(train_domain_set[1][:,1:5], initθ); #   1.146 ms (3691 allocations: 169.28 KiB)
+# @btime _custom_pde_loss_function(train_domain_set[1][:,1:5], initθ); # 583.718 ms (1476030 allocations: 67.78 MiB) with NeuralPDE's derivative used for finite difference based gradients and hessians
 # @btime _custom_pde_loss_function_finD(train_domain_set[1], initθ); # 1.166 s (7505843 allocations: 1.10 GiB) # the worst
 
 ##
@@ -248,9 +253,9 @@ cb_ = function (p, l)
 end
 
 println("Calling GalacticOptim()");
-res = GalacticOptim.solve(prob, opt1, cb=cb_, maxiters=maxOpt1Iters);
-prob = remake(prob, u0=res.minimizer)
-res = GalacticOptim.solve(prob, opt2, cb=cb_, maxiters=maxOpt2Iters);
+# res = GalacticOptim.solve(prob, opt1, cb=cb_, maxiters=maxOpt1Iters);
+# prob = remake(prob, u0=res.minimizer)
+# res = GalacticOptim.solve(prob, opt2, cb=cb_, maxiters=maxOpt2Iters);
 println("Optimization done.");
 
 if runExp
