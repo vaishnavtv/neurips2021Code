@@ -189,7 +189,7 @@ function plotDistErr(figNum,x1Fine,x2Fine,RHOFine, label1, label2)
         YY[i, j] = x2Fine[j]
     end
 
-    figure(figNum, [8, 4])
+    figure(figNum)#, [8, 4])
     clf()
     # pcolor(XX, YY, RHOFine, shading = "auto", cmap = "inferno"); colorbar();
     # pcolor(xvFine_XX, xαFine_YY, RHO12Fine, shading = "auto", cmap = "inferno")
