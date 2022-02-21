@@ -2,6 +2,7 @@
 cd(@__DIR__);
 using NeuralPDE, Flux, ModelingToolkit, GalacticOptim, Optim, Symbolics, JLD2, DiffEqFlux, LinearAlgebra
 using ForwardDiff, Statistics
+println("Packages loaded.")
 
 import Random:seed!; seed!(1);
 
@@ -62,6 +63,7 @@ T2 += sum([(Differential(xSym[i])*Differential(xSym[j]))(diffC[i,j])  - (Differe
 Eqn = expand_derivatives(-T1+T2); 
 pdeOrig = simplify(Eqn, expand = true) ~ 0.0f0;
 pde = pdeOrig;
+println("PDE defined.");
 
 ## Domain
 maxval = 2.2f0;
@@ -138,18 +140,32 @@ u_ = (cord, θ, phi)->sum(phi(cord, θ));
 # dict_depvar_input,phi,derivative,integral,chain,initθ,strategy);
 
 ##
+# loss_b = similar(train_domain_set[1]); # output of build loss function
+# loss_b_tmp = similar(loss_b[:,1]);
 function _custom_pde_loss_function(y, θ)
     # equivalent to _pde_loss_function (obtained from build_loss_function)
     fd_dphi1(z) = derivative(phi, u_, z, [0.0049215667f0], 1, θ); # gradient of η wrt input using finite difference
     fd_dphi2(z) = derivative(phi, u_, z, [[0.0049215667f0], [0.0049215667f0]],2, θ); # hessian of η wrt input using finite difference
 
     function pdeErr(z)
-        fd_t1 = fd_dphi1(z).*f(z) .+ df(z); # drift term
-        fd_t2 = Q_fpke/2*(fd_dphi1(z).^2 .+ fd_dphi2(z)); # diffusion term
-        return sum(-fd_t1 .+ fd_t2)
+        # fd_t1 = fd_dphi1(z)#.*f(z) #.+ df(z); # drift term
+        # fd_t2 = Q_fpke/2*(fd_dphi1(z).^2 )#.+ fd_dphi2(z)); # diffusion term
+        # return sum(-fd_t1 .+ fd_t2)
+
+        out = sum(fd_dphi1(z)#.*f(z) #.+ df(z);
+            .+ Q_fpke/2*(fd_dphi1(z).^2));
+        return out
     end
 
-    return [pdeErr(@view y[:,i]) for i in 1:size(y,2)]
+    # for i in 1:size(y,2)
+    #     loss_b[:,i] = pdeErr(@view y[:,i]);
+    # end
+    # return [pdeErr(@view y[:,i]) for i in 1:size(y,2)]
+    out2 = Vector{Float32}(undef, size(y,2));
+    for i in 1:size(y,2)
+        out2[i] = pdeErr(@view y[:,i])
+    end
+    return out2
 end
 # txg = ForwardDiff.jacobian(x->_custom_pde_loss_function(train_domain_set[1][:,1:2], x), initθ);
 # @show txg
@@ -168,16 +184,25 @@ function _custom_pde_loss_function_finD(y, θ)
 
     return pdeErr.(y)
 end
-# @show _pde_loss_function(train_domain_set[1][:,1:2], initθ)
-# @show _custom_pde_loss_function(train_domain_set[1][:,1:2], initθ);
+@info "Testing custom loss function...";
+@show _pde_loss_function(train_domain_set[1][:,1:2], initθ)
+@show _custom_pde_loss_function(train_domain_set[1][:,1:2], initθ);
 # @show _custom_pde_loss_function_finD(train_domain_set[1][:,1:2], initθ);
 
 #
-# using BenchmarkTools
+using BenchmarkTools
 # @btime _pde_loss_function(train_domain_set[1][:,1:5], initθ); #   1.146 ms (3691 allocations: 169.28 KiB)
 # @btime _custom_pde_loss_function(train_domain_set[1][:,1:5], initθ); # 583.718 ms (1476030 allocations: 67.78 MiB) with NeuralPDE's derivative used for finite difference based gradients and hessians
 # @btime _custom_pde_loss_function_finD(train_domain_set[1], initθ); # 1.166 s (7505843 allocations: 1.10 GiB) # the worst
 
+##
+# function pdeErr!(loss_b_tmp, z)
+#     loss_b_tmp[1] = sum(-(fd_dphi1(z).*f(z) .+ df(z))); # drift term
+#     loss_b_tmp[1] += sum(Q_fpke/2*(fd_dphi1(z).^2 .+ fd_dphi2(z))); # diffusion term
+#     # loss_b_tmp[1] = sum(-fd_t1 + fd_t2)
+#     # return sum(-fd_t1 .+ fd_t2)
+# end
+# @btime pdeErr(tmpY)
 ##
 bc_indvars = NeuralPDE.get_argument(bcs, indvars, depvars);
 _bc_loss_functions = [
