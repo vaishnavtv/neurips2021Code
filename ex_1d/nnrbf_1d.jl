@@ -18,16 +18,16 @@ maxOpt2Iters = 10000; # maximum number of training iterations for opt2
 Q_fpke = 0.25f0; # Q = σ^2
 
 dx = 0.01; # discretization size used for training
-nBasis = 5; # Number of basis functions in nnrbf
+nBasis = 20; # Number of basis functions in nnrbf
 
-expNum = 1;
+expNum = 2;
 runExp = true;
 useGPU = false;
 saveFile = "data_nnrbf/eta_exp$(expNum).jld2";
 runExp_fileName = "out_nnrbf/log$(expNum).txt";
 if runExp
     open(runExp_fileName, "a+") do io
-        write(io, "NNRBF: Steady State 1D with grid training. nBasis = $(nBasis). Q_fpke = $(Q_fpke). With norm_loss_function defined as loss = 1-dA*[ρ(x)^2 for x in train_set]. useGPU = $(useGPU). dx = $(dx).
+        write(io, "NNRBF: Steady State 1D with grid training. nBasis = $(nBasis). Q_fpke = $(Q_fpke). useGPU = $(useGPU). dx = $(dx). Equation written in η.
         $(maxOpt1Iters) iterations with $(opt1) and then $(maxOpt2Iters) with $(opt2).
         Experiment number: $(expNum)\n")
     end
@@ -35,7 +35,7 @@ end
 
 ## set up the NeuralPDE framework using low-level API
 @parameters x1
-@variables  ρs(..)#, η(..)
+@variables  ρs(..), η(..)
 
 xSym = x1;
 
@@ -47,32 +47,33 @@ g(x) = 1.0f0;
 # PDE
 ρ_true(x) = exp((1/(2*Q_fpke))*(2*α*x^2 - β*x^4)); # true analytical solution, before normalziation
 
-# # PDE written in ρ
 println("Defining PDE...");
-ρ(x) = ρs(x...);
-F = f(xSym)*ρ(xSym);
-diffC = 0.5f0*(g(xSym)*Q_fpke*g(xSym)'); # diffusion term
-G = diffC*ρs(xSym...);
-
-T1 = sum([Differential(xSym[i])(F[i]) for i in 1:length(xSym)])
-T2 = sum([(Differential(xSym[i]) * Differential(xSym[j]))(G[i, j]) for j in 1:length(xSym) for i = 1:length(xSym)])
-Eqn = simplify(expand_derivatives(-T1 + T2))
-pde = Eqn ~ 0.0f0;
-println("PDE defined.");
-# sleep(100000);
-# #  PDE written directly in η
-# ρ(x) = exp(η(xSym));
+# # PDE written in ρ
+# ρ(x) = ρs(x...);
 # F = f(xSym)*ρ(xSym);
 # diffC = 0.5f0*(g(xSym)*Q_fpke*g(xSym)'); # diffusion term
-# G = diffC*η(xSym...);
+# G = diffC*ρs(xSym...);
 
-# T1 = sum([(Differential(xSym[i])(f(xSym)[i]) + (f(xSym)[i]* Differential(xSym[i])(η(xSym...)))) for i in 1:length(xSym)]); # drift term
-# T2 = sum([(Differential(xSym[i])*Differential(xSym[j]))(G[i,j]) for i in 1:length(xSym), j=1:length(xSym)]);
-# T2 += sum([(Differential(xSym[i])*Differential(xSym[j]))(diffC[i,j])  - (Differential(xSym[i])*Differential(xSym[j]))(diffC[i,j])*η(xSym...) + diffC[i,j]*abs2(Differential(xSym[i])(η(xSym...))) for i in 1:length(xSym), j=1:length(xSym)]); # complete diffusion term, modified for GPU
+# T1 = sum([Differential(xSym[i])(F[i]) for i in 1:length(xSym)])
+# T2 = sum([(Differential(xSym[i]) * Differential(xSym[j]))(G[i, j]) for j in 1:length(xSym) for i = 1:length(xSym)])
+# Eqn = simplify(expand_derivatives(-T1 + T2))
+# pde = Eqn ~ 0.0f0;
 
-# Eqn = expand_derivatives(-T1+T2); 
-# pdeOrig = simplify(Eqn, expand = true) ~ 0.0f0;
-# pde = pdeOrig;
+# #  PDE written directly in η
+ρ(x) = exp(η(x...));
+F = f(xSym)*ρ(xSym);
+diffC = 0.5f0*(g(xSym)*Q_fpke*g(xSym)'); # diffusion term
+G = diffC*η(xSym...);
+
+T1 = sum([(Differential(xSym[i])(f(xSym)[i]) + (f(xSym)[i]* Differential(xSym[i])(η(xSym...)))) for i in 1:length(xSym)]); # drift term
+T2 = sum([(Differential(xSym[i])*Differential(xSym[j]))(G[i,j]) for i in 1:length(xSym), j=1:length(xSym)]);
+T2 += sum([(Differential(xSym[i])*Differential(xSym[j]))(diffC[i,j])  - (Differential(xSym[i])*Differential(xSym[j]))(diffC[i,j])*η(xSym...) + diffC[i,j]*abs2(Differential(xSym[i])(η(xSym...))) for i in 1:length(xSym), j=1:length(xSym)]); # complete diffusion term, modified for GPU
+
+Eqn = expand_derivatives(-T1+T2); 
+pdeOrig = simplify(Eqn, expand = true) ~ 0.0f0;
+pde = pdeOrig;
+# #
+println("PDE defined.");
 
 ## Domain
 maxval = 2.2f0;
@@ -104,7 +105,7 @@ phi = NeuralPDE.get_phi(chain, parameterless_type_θ);
 derivative = NeuralPDE.get_numeric_derivative();
 
 indvars = [x1]
-depvars = [ρs(x1)]
+depvars = [η(x1)] #[ρs(x1)]
 
 integral = NeuralPDE.get_numeric_integral(strategy, indvars, depvars, chain, derivative);
 
@@ -162,7 +163,7 @@ bc_loss_function_sum = θ -> sum(map(l -> l(θ), bc_loss_functions))
 
 ## NORM LOSS FUNCTION
 function norm_loss_function(θ)
-    norm_loss = sum(abs2, [sum(phi(x, θ)) for x in train_domain_set[1]])  - 1f0
+    norm_loss = sum(abs2, [(phi(x, θ)) for x in train_domain_set[1]])  - 1f0
     return norm_loss
 end
 @show norm_loss_function(initθ)
@@ -171,7 +172,7 @@ end
 
 nSteps = 0;
 function loss_function_(θ, p)
-    return pde_loss_function(θ) + bc_loss_function_sum(θ) + norm_loss_function(θ)
+    return pde_loss_function(θ) + bc_loss_function_sum(θ)# + norm_loss_function(θ)
 end
 @show loss_function_(initθ,0)
 
