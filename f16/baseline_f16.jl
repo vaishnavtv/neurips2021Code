@@ -9,23 +9,27 @@ include("f16_controller.jl")
 using NeuralPDE, Flux, ModelingToolkit, GalacticOptim, Optim, DiffEqFlux, Symbolics, JLD2, ForwardDiff
 using F16Model
 
-using CUDA
+using CUDA, Adapt
 CUDA.allowscalar(false)
     
-import Random: seed!;
+import Random:seed!;
 seed!(1);
 
 # parameters for neural network
-nn = 50; # number of neurons in the hidden layers
+nn = 5; # number of neurons in the hidden layers
 activFunc = tanh; # activation function
 maxOptIters = 1000; # maximum number of training iterations
 # opt = Optim.LBFGS(); # Optimizer used for training
 opt = ADAM(5e-3); 
 expNum = 7;
 saveFile = "data/baseline_f16_ADAM_gpu_$(expNum)_$(maxOptIters).jld2";
-open("out/log$(expNum).txt", "a+") do io
-    write(io, "Running with $(nn) neurons in 2 hidden layers for $(maxOptIters) iterations. Using just ADAM with lr 1e-3. Discretization size updated (~60k points). \n")
-end;
+runExp = false; # flag to check if running batch file
+runExp_fileName = ("out_ll_quad/log$(expNum).txt");
+if runExp
+    open("out/log$(expNum).txt", "a+") do io
+        write(io, "Running with $(nn) neurons in 2 hidden layers for $(maxOptIters) iterations. Using just ADAM with lr 1e-3. Discretization size updated (~60k points). \n")
+    end;
+end
 ##
 # Nominal Controller for Longitudinal F16Model trimmmed at specified altitude and velocity in 
 # Trim vehicle at specified altitude and velocity
@@ -37,7 +41,7 @@ function f16Model_4x(x4, xbar, ubar, Kc)
     # x4 are the states, not perturbations
     xFull = Vector{Real}(undef, length(xbar))
     xFull .= xbar
-    xFull[ind_x] .= Array(x4)#(x4)
+    xFull[ind_x] .= Array(x4)# (x4)
     uFull = Vector{Real}(undef, length(ubar))
     uFull .= ubar
     u = (Kc * (Array(x4) .- xbar[ind_x])) # controller
@@ -71,26 +75,28 @@ f(x) = f16Model_4x(x, xbar, ubar, Kc)
 
 ## PDE
 function g(x)
-    return Float32.([1.0; 1.0; 1.0; 1.0]) # diffusion in all states(?)
+    return Float32.(1.0I(4)) # Float32.([1.0; 1.0; 1.0; 1.0]) # diffusion in all states(?)
 end
 
 D_xV = Differential(xV);
 D_xα = Differential(xα);
 D_xθ = Differential(xθ);
 D_xq = Differential(xq);
-Q = 0.3f0; # Q = σ^2
+Q_fpke = 0.3f0; # Q = σ^2
 
 ρ(x) = exp(η(x[1], x[2], x[3], x[4]));
-G = 0.5f0 * (g(xSym) * Q * g(xSym)') * ρ(xSym);
+# G = 0.5f0 * (g(xSym) * Q * g(xSym)') * ρ(xSym);
+diffC = 1 / 2 * g(xSym) * Q_fpke * g(xSym)'; # diffusion coefficient D
+G = diffC * ρ(xSym);
 T2 = sum([
     (Differential(xSym[i]) * Differential(xSym[j]))(G[i, j]) for i = 1:length(xSym), j = 1:length(xSym)
 ]);
 
-Eqn = expand_derivatives(T2);
-pdeOrig = simplify(Eqn) ~ 0.0f0; # only term2, term1 coming from self-written function since it cannot be expressed symbolically atm
-pde = ((0.15f0(Differential(xq)(η(xV, xα, xθ, xq))^2) + 0.15f0(Differential(xα)(η(xV, xα, xθ, xq))^2) + 0.15f0(Differential(xθ)(η(xV, xα, xθ, xq))^2) + 0.15f0(Differential(xV)(η(xV, xα, xθ, xq))^2))*exp(η(xV, xα, xθ, xq)) + 0.15f0Differential(xθ)(Differential(xq)(η(xV, xα, xθ, xq)))*exp(η(xV, xα, xθ, xq)) + 0.15f0Differential(xθ)(Differential(xθ)(η(xV, xα, xθ, xq)))*exp(η(xV, xα, xθ, xq)) + 0.15f0Differential(xV)(Differential(xV)(η(xV, xα, xθ, xq)))*exp(η(xV, xα, xθ, xq)) + 0.15f0Differential(xα)(Differential(xα)(η(xV, xα, xθ, xq)))*exp(η(xV, xα, xθ, xq)) + 0.15f0Differential(xα)(Differential(xq)(η(xV, xα, xθ, xq)))*exp(η(xV, xα, xθ, xq)) + 0.15f0Differential(xq)(Differential(xV)(η(xV, xα, xθ, xq)))*exp(η(xV, xα, xθ, xq)) + 0.15f0Differential(xq)(Differential(xα)(η(xV, xα, xθ, xq)))*exp(η(xV, xα, xθ, xq)) + 0.15f0Differential(xθ)(Differential(xα)(η(xV, xα, xθ, xq)))*exp(η(xV, xα, xθ, xq)) + 0.15f0Differential(xq)(Differential(xq)(η(xV, xα, xθ, xq)))*exp(η(xV, xα, xθ, xq)) + 0.15f0Differential(xα)(Differential(xθ)(η(xV, xα, xθ, xq)))*exp(η(xV, xα, xθ, xq)) + 0.15f0Differential(xq)(Differential(xθ)(η(xV, xα, xθ, xq)))*exp(η(xV, xα, xθ, xq)) + 0.15f0Differential(xV)(Differential(xθ)(η(xV, xα, xθ, xq)))*exp(η(xV, xα, xθ, xq)) + 0.15f0Differential(xV)(Differential(xq)(η(xV, xα, xθ, xq)))*exp(η(xV, xα, xθ, xq)) + 0.15f0Differential(xα)(Differential(xV)(η(xV, xα, xθ, xq)))*exp(η(xV, xα, xθ, xq)) + 0.15f0Differential(xθ)(Differential(xV)(η(xV, xα, xθ, xq)))*exp(η(xV, xα, xθ, xq)) + 0.15f0Differential(xV)(Differential(xα)(η(xV, xα, xθ, xq)))*exp(η(xV, xα, xθ, xq)) + 0.3f0Differential(xq)(η(xV, xα, xθ, xq))*Differential(xV)(η(xV, xα, xθ, xq))*exp(η(xV, xα, xθ, xq)) + 0.3f0Differential(xq)(η(xV, xα, xθ, xq))*Differential(xα)(η(xV, xα, xθ, xq))*exp(η(xV, xα, xθ, xq)) + 0.3f0Differential(xα)(η(xV, xα, xθ, xq))*Differential(xV)(η(xV, xα, xθ, xq))*exp(η(xV, xα, xθ, xq)) + 0.3f0Differential(xθ)(η(xV, xα, xθ, xq))*Differential(xα)(η(xV, xα, xθ, xq))*exp(η(xV, xα, xθ, xq)) + 0.3f0Differential(xV)(η(xV, xα, xθ, xq))*Differential(xθ)(η(xV, xα, xθ, xq))*exp(η(xV, xα, xθ, xq)) + 0.3f0Differential(xq)(η(xV, xα, xθ, xq))*Differential(xθ)(η(xV, xα, xθ, xq))*exp(η(xV, xα, xθ, xq)))~0.0f0; #*(exp(η(xV, xα, xθ, xq))^-1) ~ 0.0f0;
+Eqn = expand_derivatives(T2); 
+pdeOrig = simplify(Eqn / ρ(xSym)) ~ 0.0f0; # only term2, term1 coming from self-written function since it cannot be expressed symbolically atm
+# pde = ((0.15f0(Differential(xq)(η(xV, xα, xθ, xq))^2) + 0.15f0(Differential(xα)(η(xV, xα, xθ, xq))^2) + 0.15f0(Differential(xθ)(η(xV, xα, xθ, xq))^2) + 0.15f0(Differential(xV)(η(xV, xα, xθ, xq))^2))*exp(η(xV, xα, xθ, xq)) + 0.15f0Differential(xθ)(Differential(xq)(η(xV, xα, xθ, xq)))*exp(η(xV, xα, xθ, xq)) + 0.15f0Differential(xθ)(Differential(xθ)(η(xV, xα, xθ, xq)))*exp(η(xV, xα, xθ, xq)) + 0.15f0Differential(xV)(Differential(xV)(η(xV, xα, xθ, xq)))*exp(η(xV, xα, xθ, xq)) + 0.15f0Differential(xα)(Differential(xα)(η(xV, xα, xθ, xq)))*exp(η(xV, xα, xθ, xq)) + 0.15f0Differential(xα)(Differential(xq)(η(xV, xα, xθ, xq)))*exp(η(xV, xα, xθ, xq)) + 0.15f0Differential(xq)(Differential(xV)(η(xV, xα, xθ, xq)))*exp(η(xV, xα, xθ, xq)) + 0.15f0Differential(xq)(Differential(xα)(η(xV, xα, xθ, xq)))*exp(η(xV, xα, xθ, xq)) + 0.15f0Differential(xθ)(Differential(xα)(η(xV, xα, xθ, xq)))*exp(η(xV, xα, xθ, xq)) + 0.15f0Differential(xq)(Differential(xq)(η(xV, xα, xθ, xq)))*exp(η(xV, xα, xθ, xq)) + 0.15f0Differential(xα)(Differential(xθ)(η(xV, xα, xθ, xq)))*exp(η(xV, xα, xθ, xq)) + 0.15f0Differential(xq)(Differential(xθ)(η(xV, xα, xθ, xq)))*exp(η(xV, xα, xθ, xq)) + 0.15f0Differential(xV)(Differential(xθ)(η(xV, xα, xθ, xq)))*exp(η(xV, xα, xθ, xq)) + 0.15f0Differential(xV)(Differential(xq)(η(xV, xα, xθ, xq)))*exp(η(xV, xα, xθ, xq)) + 0.15f0Differential(xα)(Differential(xV)(η(xV, xα, xθ, xq)))*exp(η(xV, xα, xθ, xq)) + 0.15f0Differential(xθ)(Differential(xV)(η(xV, xα, xθ, xq)))*exp(η(xV, xα, xθ, xq)) + 0.15f0Differential(xV)(Differential(xα)(η(xV, xα, xθ, xq)))*exp(η(xV, xα, xθ, xq)) + 0.3f0Differential(xq)(η(xV, xα, xθ, xq))*Differential(xV)(η(xV, xα, xθ, xq))*exp(η(xV, xα, xθ, xq)) + 0.3f0Differential(xq)(η(xV, xα, xθ, xq))*Differential(xα)(η(xV, xα, xθ, xq))*exp(η(xV, xα, xθ, xq)) + 0.3f0Differential(xα)(η(xV, xα, xθ, xq))*Differential(xV)(η(xV, xα, xθ, xq))*exp(η(xV, xα, xθ, xq)) + 0.3f0Differential(xθ)(η(xV, xα, xθ, xq))*Differential(xα)(η(xV, xα, xθ, xq))*exp(η(xV, xα, xθ, xq)) + 0.3f0Differential(xV)(η(xV, xα, xθ, xq))*Differential(xθ)(η(xV, xα, xθ, xq))*exp(η(xV, xα, xθ, xq)) + 0.3f0Differential(xq)(η(xV, xα, xθ, xq))*Differential(xθ)(η(xV, xα, xθ, xq))*exp(η(xV, xα, xθ, xq)))*(exp(η(xV, xα, xθ, xq))^-1) ~ 0.0f0;
+pde = ((0.15f0 * (Differential(xθ)(η(xV, xα, xθ, xq))^2) + 0.15f0 * (Differential(xq)(η(xV, xα, xθ, xq))^2) + 0.15f0 * (Differential(xα)(η(xV, xα, xθ, xq))^2) + 0.15f0 * (Differential(xV)(η(xV, xα, xθ, xq))^2)) * exp(η(xV, xα, xθ, xq)) + 0.15f0 * Differential(xq)(Differential(xq)(η(xV, xα, xθ, xq))) * exp(η(xV, xα, xθ, xq)) + 0.15f0 * Differential(xV)(Differential(xV)(η(xV, xα, xθ, xq))) * exp(η(xV, xα, xθ, xq)) + 0.15f0 * Differential(xθ)(Differential(xθ)(η(xV, xα, xθ, xq))) * exp(η(xV, xα, xθ, xq)) + 0.15f0 * Differential(xα)(Differential(xα)(η(xV, xα, xθ, xq))) * exp(η(xV, xα, xθ, xq))) * (exp(η(xV, xα, xθ, xq))^-1) ~ 0.0f0;
 
-# pde = exp(η(xV, xα, xθ, xq))*(0.15f0(Differential(xα)(η(xV, xα, xθ, xq))^2) + 0.15f0(Differential(xV)(η(xV, xα, xθ, xq))^2)) + 0.15f0Differential(xV)(Differential(xV)(η(xV, xα, xθ, xq)))*exp(η(xV, xα, xθ, xq)) + 0.15f0Differential(xα)(Differential(xα)(η(xV, xα, xθ, xq)))*exp(η(xV, xα, xθ, xq)) + 0.15f0Differential(xα)(Differential(xV)(η(xV, xα, xθ, xq)))*exp(η(xV, xα, xθ, xq)) + 0.15f0Differential(xV)(Differential(xα)(η(xV, xα, xθ, xq)))*exp(η(xV, xα, xθ, xq)) + 0.3f0Differential(xα)(η(xV, xα, xθ, xq))*Differential(xV)(η(xV, xα, xθ, xq))*exp(η(xV, xα, xθ, xq)) ~ 0.0f0;
 ## Domain
 xV_min = 100;
 xV_max = 1500;
@@ -98,8 +104,8 @@ xα_min = deg2rad(-20);
 xα_max = deg2rad(40);
 xθ_min = xα_min;
 xθ_max = xα_max;
-xq_min = -pi/6;
-xq_max = pi/6;
+xq_min = -pi / 6;
+xq_max = pi / 6;
 domains = [
     xV ∈ IntervalDomain(xV_min, xV_max),
     xα ∈ IntervalDomain(xα_min, xα_max),
@@ -110,7 +116,7 @@ domains = [
 ## Grid discretization
 dV = 100.0; dα = deg2rad(10); 
 dθ = dα; dq = deg2rad(10);
-dx = 0.5*[dV; dα; dθ; dq]; # grid discretization in V (ft/s), α (rad), θ (rad), q (rad/s)
+dx = [dV; dα; dθ; dq]; # grid discretization in V (ft/s), α (rad), θ (rad), q (rad/s)
 
 
 # Boundary conditions
@@ -145,6 +151,13 @@ depvars = [η]
 integral = NeuralPDE.get_numeric_integral(strategy, indvars, depvars, chain, derivative);
 
 ##
+train_domain_set, train_bound_set =
+    NeuralPDE.generate_training_sets(domains, dx, [pde], bcs, eltypeθ, indvars, depvars);
+train_domain_set = train_domain_set |> gpu
+# train_domain_set_cpu = Array(train_domain_set[1])
+nTrainDomainSet = size(train_domain_set[1], 2)
+
+
 _pde_term2_loss_function = NeuralPDE.build_loss_function(
     pde,
     indvars,
@@ -157,6 +170,11 @@ _pde_term2_loss_function = NeuralPDE.build_loss_function(
     strategy,
 );
 
+_pde_term2_loss_function(train_domain_set[1], initθ)
+##
+depvars, indvars, dict_indvars, dict_depvars, dict_depvar_input = NeuralPDE.get_vars(indvars, depvars);
+expr_pde_term2_loss_function = NeuralPDE.build_symbolic_loss_function(pde, indvars, depvars, dict_depvar_input, phi, derivative, integral, chain, initθ, strategy);
+##
 bc_indvars = NeuralPDE.get_variables(bcs, indvars, depvars);
 _bc_loss_functions = [
     NeuralPDE.build_loss_function(
@@ -169,27 +187,21 @@ _bc_loss_functions = [
         chain,
         initθ,
         strategy,
-        bc_indvars = bc_indvar,
+        bc_indvars=bc_indvar,
     ) for (bc, bc_indvar) in zip(bcs, bc_indvars)
-]
+];
 
-train_domain_set, train_bound_set =
-    NeuralPDE.generate_training_sets(domains, dx, [pde], bcs, eltypeθ, indvars, depvars);
-train_domain_set = train_domain_set |> gpu
-train_domain_set_cpu = Array(train_domain_set[1])
-nTrainDomainSet = size(train_domain_set[1],2)
-
-# CUDA.allowscalar(true); # not able to do pde loss function otherwise.
-function term1_pde_loss_function(θ)
+##
+CUDA.allowscalar(false); # not able to do pde loss function otherwise.
+function _pde_term1_loss_function(cord, θ)
     # custom self-written pde loss function
-    ρFn(y) = exp(first(Array(phi(y, θ)))); # phi is the NN representing η
+    ρFn(y) = exp(sum(phi(y, θ))); # phi is the NN representing η
 
-    fxρ(y) = f(y)*ρFn(y);
-    gxρ(y) = 0.5 * (g(y) * Q * g(y)') * ρFn(y);
+    fxρ(y) = f(y) * ρFn(y);
     
     function term1(y)
         tmp = ForwardDiff.jacobian(fxρ, y)
-        return sum(diag(tmp))
+        return tr(tmp)
     end
     # function term2(y) # takes too long to compute
     #     tmp = 0;
@@ -205,37 +217,77 @@ function term1_pde_loss_function(θ)
     #     end
     #     return tmp
     # end
-    pdeErr(y) = (-term1(y))^2;# + term2(y))^2; # pdeErr evaluated at state y
+    pdeErr(y) = norm(y)*sum(θ); # 1 / ρFn(y);# * (-term1(y));# + term2(y))^2; # pdeErr evaluated at state y
     
-    # errCols = mapslices(pdeErr, train_domain_set_cpu, dims = 1); # pde error for each column/state in training set (slightly better than map)
-    # errCols = map(pdeErr, eachslice(train_domain_set_cpu, dims = 2)); # pde error for each column/state in training set
+    # tmp = Float32.(permutedims(mapslices(pdeErr, cord, dims = 1))); # pde error for each column/state in training set (slightly better than map)
+    # tmp = Float32.(permutedims(mapcols(pdeErr, cord)))
+    # tmp = permutedims(map(pdeErr, eachslice(cord, dims=2))); # pde error for each column/state in training set
     # tmp = Float32(sum(errCols)/nTrainDomainSet); # mean squared error
-
-    tmp = Float32(sum(pdeErr(train_domain_set_cpu[:,i]) for i in 1:nTrainDomainSet)/nTrainDomainSet) #mean squared error
-    return tmp
+    # cordArr = Array(cord);
+    # tmp = adapt(eltypeθ, (permutedims([pdeErr(cordArr[:,i]) for i in 1:size(cord, 2)])))
+    tmp = adapt(eltypeθ, mapcols(pdeErr, cord));
+    # tmp = Float32(sum(pdeErr(train_domain_set_cpu[:,i]) for i in 1:nTrainDomainSet)/nTrainDomainSet) #mean squared error
+    return adapt(parameterless_type_θ, tmp)
 end
-@show term1_pde_loss_function(initθ)
+tmpTDS = train_domain_set[1][:,1:10];
+tmp = _pde_term1_loss_function(tmpTDS, initθ);
+@show typeof(tmp)
+tmp4 = Zygote.gradient(z -> sum(_pde_term1_loss_function(tmpTDS, z)), initθ)[1];
+@show typeof(tmp4)
 
-term2_pde_loss_function = NeuralPDE.get_loss_function(
-    _pde_term2_loss_function,
+tmp2 = _pde_term2_loss_function(tmpTDS, initθ);
+@show typeof(tmp2)
+tmp5 = Zygote.gradient(z -> sum(_pde_term2_loss_function(tmpTDS, z)), initθ)[1];
+@show typeof(tmp5)
+
+ρFn(xbar[ind_x])
+_combined_loss_function_build(cord, θ) = _pde_term2_loss_function(cord, θ) + _pde_term1_loss_function(cord, θ)
+tmp6 = _combined_loss_function_build(tmpTDS, initθ);
+@show typeof(tmp6)
+
+tmp7 = Zygote.gradient(z -> sum(_combined_loss_function_build(tmpTDS, z)), initθ)[1];
+@show size(tmp7)
+
+# pde_term1_loss_function = NeuralPDE.get_loss_function(
+#     _pde_term1_loss_function,
+#     train_domain_set[1],
+#     eltypeθ,
+#     parameterless_type_θ,
+#     strategy,
+# );
+# pde_term2_loss_function = NeuralPDE.get_loss_function(
+#     _pde_term2_loss_function,
+#     train_domain_set[1],
+#     eltypeθ,
+#     parameterless_type_θ,
+#     strategy,
+# );
+combined_pde_loss_function = NeuralPDE.get_loss_function(
+    _combined_loss_function_build,
     train_domain_set[1],
     eltypeθ,
     parameterless_type_θ,
     strategy,
 );
-@show term2_pde_loss_function(initθ)
-pde_loss_function_custom(θ) = term1_pde_loss_function(θ)# + term2_pde_loss_function(θ); # full pde loss function (custom written)
-@show pde_loss_function_custom(initθ)
+# combined_pde_loss_function(θ) = mean(abs2, _pde_term1_loss_function(train_domain_set[1], θ))# + _pde_term2_loss_function(train_domain_set[1], θ))
 
+@show combined_pde_loss_function(initθ)
+# @show pde_term1_loss_function(initθ)
+# @show pde_term2_loss_function(initθ)
+tmp8 = Zygote.gradient(combined_pde_loss_function, initθ);
+@show size(tmp8); @show typeof(tmp8)
+##
+
+##
 bc_loss_functions = [
-    NeuralPDE.get_loss_function(loss, set, eltypeθ, parameterless_type_θ, strategy) for
-    (loss, set) in zip(_bc_loss_functions, train_bound_set)
+    NeuralPDE.get_loss_function(loss, set, eltypeθ, parameterless_type_θ, strategy) for (loss, set) in zip(_bc_loss_functions, train_bound_set)
 ]
 bc_loss_function_sum = θ -> sum(map(l -> l(θ), bc_loss_functions))
 @show bc_loss_function_sum(initθ)
 
 function loss_function_(θ, p)
-    return pde_loss_function_custom(θ) + bc_loss_function_sum(θ)
+    return pde_term1_loss_function(θ) + bc_loss_function_sum(θ)
+    # return combined_pde_loss_function(θ) + bc_loss_function_sum(θ)
 end
 @show loss_function_(initθ, 0)
 
@@ -253,34 +305,37 @@ cb_ = function (p, l)
     println("[$nSteps] Current loss is: $l")
     println(
         "Individual losses are: PDE loss:",
-        pde_loss_function_custom(p),
-        "; term1 loss:",
-        term1_pde_loss_function(p),
-        "; term2 loss:",
-        term2_pde_loss_function(p),
+        pde_loss_function(p),
+        # "; term1 loss:",
+        # term1_pde_loss_function(p),
+        # "; term2 loss:",
+        # term2_pde_loss_function(p),
         "; BC loss:",
         bc_loss_function_sum(p),
     )
 
-    push!(PDE_losses, pde_loss_function_custom(p))
+    push!(PDE_losses, pde_loss_function(p))
     push!(BC_losses, bc_loss_function_sum(p))
-    push!(term1_losses, term1_pde_loss_function(p))
-    push!(term2_losses, term2_pde_loss_function(p))
+    # push!(term1_losses, term1_pde_loss_function(p))
+    # push!(term2_losses, term2_pde_loss_function(p))
 
-    open("out/log$(expNum).txt", "a+") do io
-        write(io, "[$nSteps] Current loss is: $l \n")
-    end;
-    
-    jldsave(saveFile; optParam = Array(p), PDE_losses, BC_losses, term1_losses, term2_losses); ## save for checking.
-
+    if runExp
+        open("out/log$(expNum).txt", "a+") do io
+            write(io, "[$nSteps] Current loss is: $l \n")
+        end;
+        
+        jldsave(saveFile; optParam=Array(p), PDE_losses, BC_losses);# , term1_losses, term2_losses); ## save for checking.
+    end 
     return false
 end
 
 println("Calling GalacticOptim()");
-res = GalacticOptim.solve(prob, opt, cb = cb_, maxiters = maxOptIters);
+res = GalacticOptim.solve(prob, opt, cb=cb_, maxiters=maxOptIters);
 println("Optimization done.");
 
 ## Save data
 cd(@__DIR__);
-jldsave(saveFile; optParam = Array(res.minimizer), PDE_losses, BC_losses, term1_losses, term2_losses);
+if runExp
+    jldsave(saveFile; optParam=Array(res.minimizer), PDE_losses, BC_losses, term1_losses, term2_losses);
+end
 
