@@ -6,8 +6,6 @@ println("Packages loaded.")
 
 import Random:seed!; seed!(1);
 
-using Quadrature, Cubature, Cuba
-
 ## parameters for neural network
 nn = 48; # number of neurons in the hidden layer
 activFunc = tanh; # activation function
@@ -118,7 +116,7 @@ using ForwardDiff, FiniteDifferences
 m = central_fdm(5,1);
 g1(z) = Array(phi(z,initθ));
 dg1_fD(z) = Zygote.jacobian(g1, [z])[1];
-dg1_finD(z) = FiniteDifferences.jacobian(m, g1, [z])[1]
+# dg1_finD(z) = FiniteDifferences.jacobian(m, g1, [z])[1]
 # @show dg1_fD(0.0);
 # @show dg1_finD(0.0);
 
@@ -135,55 +133,58 @@ u_ = (cord, θ, phi)->sum(phi(cord, θ));
 # @show dphi2 =derivative(phi, u_, tx0[:,2], [[0.0049215667], [0.0049215667]],2, initθ ); # same as d2t1Fn(tx0[:,2])
 
 ## symbolic loss function 
-# _depvars, _indvars, dict_indvars, dict_depvars, dict_depvar_input = NeuralPDE.get_vars(indvars, depvars);
-# expr_loss_function = NeuralPDE.build_symbolic_loss_function(pde,indvars,depvars,#,dict_indvars,dict_depvars,
-# dict_depvar_input,phi,derivative,integral,chain,initθ,strategy);
+_depvars, _indvars, dict_indvars, dict_depvars, dict_depvar_input = NeuralPDE.get_vars(indvars, depvars);
+expr_loss_function = NeuralPDE.build_symbolic_loss_function(pde,indvars,depvars,#,dict_indvars,dict_depvars,
+dict_depvar_input,phi,derivative,integral,chain,initθ,strategy);
 
 ##
 # loss_b = similar(train_domain_set[1]); # output of build loss function
 # loss_b_tmp = similar(loss_b[:,1]);
 function _custom_pde_loss_function(y, θ)
     # equivalent to _pde_loss_function (obtained from build_loss_function)
-    fd_dphi1(z) = derivative(phi, u_, z, [0.0049215667f0], 1, θ); # gradient of η wrt input using finite difference
-    fd_dphi2(z) = derivative(phi, u_, z, [[0.0049215667f0], [0.0049215667f0]],2, θ); # hessian of η wrt input using finite difference
+    fd_dphi1(z) = (derivative(phi, u_, z, [0.0049215667f0], 1, initθ)); # gradient of η wrt input using finite difference
+    fd_dphi2(z) = derivative(phi, u_, z, [[0.0049215667f0], [0.0049215667f0]],2, initθ); # hessian of η wrt input using finite difference
 
     function pdeErr(z)
-        # fd_t1 = fd_dphi1(z)#.*f(z) #.+ df(z); # drift term
-        # fd_t2 = Q_fpke/2*(fd_dphi1(z).^2 )#.+ fd_dphi2(z)); # diffusion term
-        # return sum(-fd_t1 .+ fd_t2)
+        out = 0f0;
+        # fd_t1 = fd_dphi1(z).*f(z) .+ df(z); # drift term
+        # fd_t2 = Q_fpke/2f0*(fd_dphi1(z).^2 .+ fd_dphi2(z)); # diffusion term
+        # return (sum(-fd_t1 .+ fd_t2))
 
-        out = sum(fd_dphi1(z)#.*f(z) #.+ df(z);
-            .+ Q_fpke/2*(fd_dphi1(z).^2));
-        return out
+        out -= fd_dphi1(z)*f(sum(z)) + df(z);
+        out += Q_fpke/2f0*(fd_dphi1(z).^2 .+ fd_dphi2(z));
+        # out = sum(fd_dphi1(z).*f(z) .+ df(z);
+        #     .+ Q_fpke/2*(fd_dphi1(z).^2));
+        # return out
     end
 
     # for i in 1:size(y,2)
     #     loss_b[:,i] = pdeErr(@view y[:,i]);
     # end
     # return [pdeErr(@view y[:,i]) for i in 1:size(y,2)]
-    out2 = Vector{Float32}(undef, size(y,2));
+    out2 = similar(y);#Vector{Float32}(undef, size(y,2));
     for i in 1:size(y,2)
-        out2[i] = pdeErr(@view y[:,i])
+        out2[:,i] = pdeErr(@view y[:,i]);
     end
     return out2
 end
 # txg = ForwardDiff.jacobian(x->_custom_pde_loss_function(train_domain_set[1][:,1:2], x), initθ);
 # @show txg
 
-function _custom_pde_loss_function_finD(y, θ)
-    # equivalent to _pde_loss_function (obtained from build_loss_function)
-    ηFn(z) = (Array(phi(z,θ)));
-    # ρFn(y) = exp(sum(Array(phi(y, θ))));
-    dηFn(z) = FiniteDifferences.jacobian(m,ηFn, z)[1];
+# function _custom_pde_loss_function_finD(y, θ)
+#     # equivalent to _pde_loss_function (obtained from build_loss_function)
+#     ηFn(z) = (Array(phi(z,θ)));
+#     # ρFn(y) = exp(sum(Array(phi(y, θ))));
+#     dηFn(z) = FiniteDifferences.jacobian(m,ηFn, z)[1];
 
-    function pdeErr(z)
-        t1 = FiniteDifferences.jacobian(m,f,[z])[1] + f(z)*FiniteDifferences.jacobian(m,ηFn,[z])[1];
-        t2 = Q_fpke/2*((FiniteDifferences.jacobian(m,ηFn,[z])[1]).^2 + FiniteDifferences.jacobian(m,dηFn,[z])[1]);
-        return (-t1 + t2)
-    end
+#     function pdeErr(z)
+#         t1 = FiniteDifferences.jacobian(m,f,[z])[1] + f(z)*FiniteDifferences.jacobian(m,ηFn,[z])[1];
+#         t2 = Q_fpke/2*((FiniteDifferences.jacobian(m,ηFn,[z])[1]).^2 + FiniteDifferences.jacobian(m,dηFn,[z])[1]);
+#         return (-t1 + t2)
+#     end
 
-    return pdeErr.(y)
-end
+#     return pdeErr.(y)
+# end
 @info "Testing custom loss function...";
 @show _pde_loss_function(train_domain_set[1][:,1:2], initθ)
 @show _custom_pde_loss_function(train_domain_set[1][:,1:2], initθ);
