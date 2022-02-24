@@ -18,10 +18,10 @@ maxOpt2Iters = 10000; # maximum number of training iterations for opt2
 Q_fpke = 0.25f0; # Q = σ^2
 
 dx = 0.01; # discretization size used for training
-nBasis = 50; # Number of basis functions in nnrbf
+nBasis = 20; # Number of basis functions in nnrbf
 
-expNum = 3;
-runExp = false;
+expNum = 2;
+runExp = true;
 useGPU = false;
 saveFile = "data_nnrbf/eta_exp$(expNum).jld2";
 runExp_fileName = "out_nnrbf/log$(expNum).txt";
@@ -163,7 +163,7 @@ bc_loss_function_sum = θ -> sum(map(l -> l(θ), bc_loss_functions))
 
 ## NORM LOSS FUNCTION
 function norm_loss_function(θ)
-    norm_loss = sum(abs2, [(phi(x, θ)) for x in train_domain_set[1]])  - 1f0
+    norm_loss = sum(abs2, [sum(phi(x, θ)) for x in train_domain_set[1]])  - 1f0
     return norm_loss
 end
 @show norm_loss_function(initθ)
