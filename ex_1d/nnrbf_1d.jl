@@ -18,16 +18,16 @@ maxOpt2Iters = 10000; # maximum number of training iterations for opt2
 Q_fpke = 0.25f0; # Q = σ^2
 
 dx = 0.01; # discretization size used for training
-nBasis = 50; # Number of basis functions in nnrbf
+nBasis = 20; # Number of basis functions in nnrbf
 
-expNum = 3;
-runExp = true;
+expNum = 2;
+runExp = false;
 useGPU = false;
 saveFile = "data_nnrbf/eta_exp$(expNum).jld2";
 runExp_fileName = "out_nnrbf/log$(expNum).txt";
 if runExp
     open(runExp_fileName, "a+") do io
-        write(io, "NNRBF: Steady State 1D with grid training. nBasis = $(nBasis). Q_fpke = $(Q_fpke). useGPU = $(useGPU). dx = $(dx). Equation written in η.
+        write(io, "NNRBF: Steady State 1D with grid training. nBasis = $(nBasis). Q_fpke = $(Q_fpke). useGPU = $(useGPU). dx = $(dx). Equation written in ρ.
         $(maxOpt1Iters) iterations with $(opt1) and then $(maxOpt2Iters) with $(opt2).
         Experiment number: $(expNum)\n")
     end
@@ -49,29 +49,29 @@ g(x) = 1.0f0;
 
 println("Defining PDE...");
 # # PDE written in ρ
-# ρ(x) = ρs(x...);
-# F = f(xSym)*ρ(xSym);
-# diffC = 0.5f0*(g(xSym)*Q_fpke*g(xSym)'); # diffusion term
-# G = diffC*ρs(xSym...);
-
-# T1 = sum([Differential(xSym[i])(F[i]) for i in 1:length(xSym)])
-# T2 = sum([(Differential(xSym[i]) * Differential(xSym[j]))(G[i, j]) for j in 1:length(xSym) for i = 1:length(xSym)])
-# Eqn = simplify(expand_derivatives(-T1 + T2))
-# pde = Eqn ~ 0.0f0;
-
-# #  PDE written directly in η
-ρ(x) = exp(η(x...));
+ρ(x) = ρs(x...);
 F = f(xSym)*ρ(xSym);
 diffC = 0.5f0*(g(xSym)*Q_fpke*g(xSym)'); # diffusion term
-G = diffC*η(xSym...);
+G = diffC*ρs(xSym...);
 
-T1 = sum([(Differential(xSym[i])(f(xSym)[i]) + (f(xSym)[i]* Differential(xSym[i])(η(xSym...)))) for i in 1:length(xSym)]); # drift term
-T2 = sum([(Differential(xSym[i])*Differential(xSym[j]))(G[i,j]) for i in 1:length(xSym), j=1:length(xSym)]);
-T2 += sum([(Differential(xSym[i])*Differential(xSym[j]))(diffC[i,j])  - (Differential(xSym[i])*Differential(xSym[j]))(diffC[i,j])*η(xSym...) + diffC[i,j]*abs2(Differential(xSym[i])(η(xSym...))) for i in 1:length(xSym), j=1:length(xSym)]); # complete diffusion term, modified for GPU
+T1 = sum([Differential(xSym[i])(F[i]) for i in 1:length(xSym)])
+T2 = sum([(Differential(xSym[i]) * Differential(xSym[j]))(G[i, j]) for j in 1:length(xSym) for i = 1:length(xSym)])
+Eqn = simplify(expand_derivatives(-T1 + T2))
+pde = Eqn ~ 0.0f0;
 
-Eqn = expand_derivatives(-T1+T2); 
-pdeOrig = simplify(Eqn, expand = true) ~ 0.0f0;
-pde = pdeOrig;
+# #  PDE written directly in η
+# ρ(x) = exp(η(x...));
+# F = f(xSym)*ρ(xSym);
+# diffC = 0.5f0*(g(xSym)*Q_fpke*g(xSym)'); # diffusion term
+# G = diffC*η(xSym...);
+
+# T1 = sum([(Differential(xSym[i])(f(xSym)[i]) + (f(xSym)[i]* Differential(xSym[i])(η(xSym...)))) for i in 1:length(xSym)]); # drift term
+# T2 = sum([(Differential(xSym[i])*Differential(xSym[j]))(G[i,j]) for i in 1:length(xSym), j=1:length(xSym)]);
+# T2 += sum([(Differential(xSym[i])*Differential(xSym[j]))(diffC[i,j])  - (Differential(xSym[i])*Differential(xSym[j]))(diffC[i,j])*η(xSym...) + diffC[i,j]*abs2(Differential(xSym[i])(η(xSym...))) for i in 1:length(xSym), j=1:length(xSym)]); # complete diffusion term, modified for GPU
+
+# Eqn = expand_derivatives(-T1+T2); 
+# pdeOrig = simplify(Eqn, expand = true) ~ 0.0f0;
+# pde = pdeOrig;
 # #
 println("PDE defined.");
 
@@ -105,7 +105,7 @@ phi = NeuralPDE.get_phi(chain, parameterless_type_θ);
 derivative = NeuralPDE.get_numeric_derivative();
 
 indvars = [x1]
-depvars = [η(x1)] #[ρs(x1)]
+depvars = [ρs(x1)]
 
 integral = NeuralPDE.get_numeric_integral(strategy, indvars, depvars, chain, derivative);
 
@@ -172,7 +172,7 @@ end
 
 nSteps = 0;
 function loss_function_(θ, p)
-    return pde_loss_function(θ) + bc_loss_function_sum(θ)# + norm_loss_function(θ)
+    return pde_loss_function(θ) + bc_loss_function_sum(θ) + norm_loss_function(θ)
 end
 @show loss_function_(initθ,0)
 
