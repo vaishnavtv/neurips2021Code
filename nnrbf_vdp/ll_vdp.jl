@@ -168,6 +168,14 @@ cb_ = function (p, l)
     push!(BC_losses, bc_loss_function_sum(p))
     push!(NORM_losses, norm_loss_function(p))
 
+    if runExp # if running job file
+        open(runExp_fileName, "a+") do io
+            write(io, "[$nSteps] Current loss is: $(l) \n")
+        end;
+        
+        jldsave(saveFile; optParam=Array(p), PDE_losses, BC_losses, NORM_losses, Q_fpke, XC);
+    end
+
     return false
 end
 
@@ -178,5 +186,5 @@ res = GalacticOptim.solve(prob, opt1, cb=cb_, maxiters=maxOpt1Iters);
 println("Optimization done.");
 
 if runExp
-    jldsave(saveFile;optParam = Array(res.minimizer), PDE_losses, BC_losses);
+    jldsave(saveFile;optParam = Array(res.minimizer), PDE_losses, BC_losses, NORM_losses, Q_fpke, XC);
 end
