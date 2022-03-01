@@ -113,3 +113,6 @@ mk4d/figs_*
 ex_1d/ts_grid.slurm
 mk4d/batch_ts_quasi.slurm
 ex_1d/batch_nnrbf.slurm
+nnrbf_vdp/vdp_nnrbf_batch.slurm
+nnrbf_vdp/out*
+nnrbf_vdp/figs*
