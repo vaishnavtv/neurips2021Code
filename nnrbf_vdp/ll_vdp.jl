@@ -23,7 +23,7 @@ dx = 0.4; # discretization size used for training
 nBasis = 20; # Number of basis functions in nnrbf
 
 expNum = 1;
-runExp = false;
+runExp = true;
 useGPU = false;
 saveFile = "data_nnrbf/vdp_exp$(expNum).jld2";
 runExp_fileName = "out_nnrbf/log$(expNum).txt";
