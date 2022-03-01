@@ -122,4 +122,16 @@ function propagateAdvection(f,x0,T)
     return sol.u[end]
 end
 
+# ================ Basis Functions and Derivatives ==================
+function ϕ(p,xc,x) # Common center xc. Weights can be different.
+    d = length(xc);
+    w1 = reshape(p[1:d^2],d,d);
+    w2 = reshape(p[(d^2+1):(2*d^2)],d,d);
+    α = p[(2*d^2+1)];
+    tanhScaled(x) = 0.5*(1.0+tanh(x));
+    return α^2*prod(tanhScaled.(w1*(x .- xc)) .* tanhScaled.(w2*(x .- xc)));
+end
 
+ϕ_x(p,xc,x) = ForwardDiff.gradient(x-> ϕ(p,xc,x),x); # AD gradient
+ϕ_xx(p,xc,x) = ForwardDiff.hessian(x-> ϕ(p,xc,x),x); # AD hessian
+init_params(w1,w2,α) = [w1[:];w2[:];α];
