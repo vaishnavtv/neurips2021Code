@@ -1,4 +1,4 @@
-using Symbolics, Flux
+using Symbolics, Flux, OrdinaryDiffEq
 
 # Generate PDE -- Most General Setting -- Works for any dynamics.
 function ForwardFPKE_Ito(d::Int;exponential=false)
@@ -32,9 +32,8 @@ function ForwardFPKE_Ito(d::Int;exponential=false)
     end
 
     # Make list of all operators
-    v0 = [η; F[:]; G[:]]
-    grad_ρ = Symbolics.gradient(η, x)
-    hess_ρ = Symbolics.jacobian(Symbolics.gradient(η, x), x) # Can't use hessian ... problem with Substitution due to symmetric hessian
+    grad_ρ = Symbolics.gradient(ρ, x)
+    hess_ρ = Symbolics.jacobian(Symbolics.gradient(ρ, x), x) # Can't use hessian ... problem with Substitution due to symmetric hessian
 
     JacF = Symbolics.jacobian(F, x)
     JacVecG = Symbolics.jacobian(G[:], x)
@@ -45,6 +44,7 @@ function ForwardFPKE_Ito(d::Int;exponential=false)
 
     ∇ρ = Symbolics.scalarize(∇ρ)
     ∇2ρ = Symbolics.scalarize(∇2ρ)
+
     f = Symbolics.scalarize(f)
     g = Symbolics.scalarize(g)
     jacf = Symbolics.scalarize(jacf)
@@ -56,14 +56,17 @@ function ForwardFPKE_Ito(d::Int;exponential=false)
     Vsub = [d2g[:]; jacvecg[:]; jacf[:]; ∇2ρ[:]; ∇ρ[:]; f[:]; g[:]; ρval]
 
     Eqn_sub = substitute(Eqn, V .=> Vsub)
+    ∇Eqn_sub = Symbolics.gradient(Eqn_sub,[ρval;∇ρ[:];∇2ρ[:]]); # Needed to compute error gradient w.r.t parameters.
+
 
     # Generate Function -- Has some @inbounds stuff.
     pde_error = build_function(Eqn_sub, ρval, ∇ρ, ∇2ρ, f, g, jacf, jacvecg, d2g, expression = Val{false}, target = Symbolics.JuliaTarget())
-    return pde_error, Eqn_sub
+    ∇pde_error = build_function(∇Eqn_sub, ρval, ∇ρ, ∇2ρ, f, g, jacf, jacvecg, d2g, expression = Val{false}, target = Symbolics.JuliaTarget())[1]
+    return pde_error, ∇pde_error, Eqn_sub, ∇Eqn_sub
 end
 
 # Symbolic Derivatives of NN functions
-function NNFunc_and_Derivatives(F, x_sym; hessian = false) # derivatives w.r.t x
+function NNFunc_and_Derivatives(F, x_sym) # derivatives w.r.t x
     p_num, fhat = Flux.destructure(F)
     uhat(p, x) = fhat(p)(x)[1];
 
@@ -72,24 +75,18 @@ function NNFunc_and_Derivatives(F, x_sym; hessian = false) # derivatives w.r.t x
     p_sym = Symbolics.scalarize(p_sym)
 
     uhat_sym = uhat(p_sym, x_sym)
-
-    # if length(F.layers[end].b) > 1
-    #     vecFunc = true
-    #     if hessian
-    #         println("Vector function detected ... Hessian option is ignored")
-    #     end
-    # else
-    #     vecFunc = false
-    # end
-
+    
     ∇uhat_sym = Symbolics.gradient(uhat_sym, x_sym)
     ∇uhat_func = build_function(∇uhat_sym, p_sym, x_sym, expression = Val{false}, target = Symbolics.JuliaTarget())[1]
 
     ∇2uhat_sym = Symbolics.hessian(uhat_sym[1], x_sym)
     ∇2uhat_func = build_function(∇2uhat_sym, p_sym, x_sym, expression = Val{false}, target = Symbolics.JuliaTarget())[1]
+
+    jacp_sym = Symbolics.jacobian([uhat_sym;∇uhat_sym[:]; ∇2uhat_sym[:]],p_sym);
+    jacp_func = build_function(jacp_sym, p_sym, x_sym, expression = Val{false}, target = Symbolics.JuliaTarget())[1];
     
-    return (uhat, ∇uhat_func, ∇2uhat_func, vcat(p_num...))
-    
+    return (uhat, ∇uhat_func, ∇2uhat_func, jacp_func, vcat(p_num...))
+
 end
 
 function SymbolicDerivativesOfDynamics(f,g,Q,d)
@@ -116,6 +113,13 @@ function AutoDerivativesOfDynamics(f,g,Q,d)
     # Need to code this up.
 end
 
-
+function propagateAdvection(f,x0,T)
+    function xdot!(xd,x,p,t)
+        xd .= f(x);
+    end
+    prob = ODEProblem(xdot!,x0,(0,T),[]);
+    sol = solve(prob, Tsit5());
+    return sol.u[end]
+end
 
 
