@@ -12,16 +12,16 @@ using Quadrature, Cubature, Cuba
 nn = 48; # number of neurons in the hidden layer
 activFunc = tanh; # activation function
 opt1 = ADAM(1e-3); # primary optimizer used for training
-maxOpt1Iters = 10000; # maximum number of training iterations for opt1
+maxOpt1Iters = 10; # maximum number of training iterations for opt1
 opt2 = Optim.LBFGS(); # second optimizer used for fine-tuning
-maxOpt2Iters = 10000; # maximum number of training iterations for opt2
+maxOpt2Iters = 10; # maximum number of training iterations for opt2
 Q_fpke = 0.25f0; # Q = σ^2
 
 dx = 0.01; # discretization size used for training
 nBasis = 50; # Number of basis functions in nnrbf
 
-expNum = 3;
-runExp = true;
+expNum = 4;
+runExp = false;
 useGPU = false;
 saveFile = "data_nnrbf/eta_exp$(expNum).jld2";
 runExp_fileName = "out_nnrbf/log$(expNum).txt";
@@ -41,7 +41,7 @@ xSym = x1;
 
 # 1D Dynamics
 α = 0.3f0; β = 0.5f0;
-f(x) = α*x - β*x^3
+f(x) = α*x - β*x.^3
 g(x) = 1.0f0;
 
 # PDE
@@ -82,16 +82,33 @@ domains = [x1 ∈ IntervalDomain(-maxval,maxval)];
 # Boundary conditions
 bcs = [ρ(-maxval) ~ 0.0f0, ρ(maxval) ~ 0.0f0]
 
-## Neural network
-dim = 1 # number of dimensions
-Id = collect(Float32.(I(dim)));
-xc = Float32.(0.1f0*randn(nBasis));
-chain = Chain(Parallel(vcat,[NNRBF([1.0f0;;],[xc[i]],[-1.0f0;;],[xc[i]]) for i = 1:nBasis]), Linear(ones(Float32,(1,nBasis))));
+## MODEL
+d = 1; nBasis = 5;
+nParams = 2*d^2+1;
+XC0 = 1 .* (-1 .+ 2*rand(d,nBasis));
+XC = similar(XC0);
+tf = 10.0;
+
+XC = [propagateAdvection(f,(XC0[:,i]),tf) for i in 1:nBasis];
+p2P(p,nBasis,nParams) = [p[((i-1)*nParams+1):i*nParams] for i = 1:nBasis];
+
+ρ(P,XC,x) = sum([ϕ(p,xc,x) for (p,xc) in zip(P,XC)]);
+
+phi = function (x,p)
+    P = p2P(p, nBasis, nParams);
+    return ρ(P, XC, x)
+end
+
+Id = [1.0];
+P0 = [init_params(Id,-Id,1) for i = 1:nBasis];
+p0 = vcat(P0...);
+initθ = p0;
+
 # chain = Chain(Parallel(vcat,[begin xc = 0.1f0*randn(dim); NNRBF(Id,xc,-Id,xc) end for i = 1:nBasis]), Linear(ones(Float32,1,nBasis))) # incorrect number of parameters
-# chain = Chain(Dense(dim,nn,activFunc), Dense(nn,nn,activFunc), Dense(nn,1));
+chain = Chain(Dense(dim,nn,activFunc), Dense(nn,nn,activFunc), Dense(nn,1));
 # chain = Chain(Dense(dim,nn,activFunc), Dense(nn,nn,activFunc), Dense(nn,nn,activFunc), Dense(nn,nn,activFunc), Dense(nn,1));
 
-initθ = DiffEqFlux.initial_params(chain);
+# initθ = DiffEqFlux.initial_params(chain);
 if useGPU
     initθ = initθ |> gpu;
 end
@@ -101,7 +118,7 @@ parameterless_type_θ = DiffEqBase.parameterless_type(flat_initθ);
 
 strategy = NeuralPDE.GridTraining(dx);
 
-phi = NeuralPDE.get_phi(chain, parameterless_type_θ);
+# phi = NeuralPDE.get_phi(chain, parameterless_type_θ);
 derivative = NeuralPDE.get_numeric_derivative();
 
 indvars = [x1]
