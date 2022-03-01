@@ -135,3 +135,7 @@ end
 ϕ_x(p,xc,x) = ForwardDiff.gradient(x-> ϕ(p,xc,x),x); # AD gradient
 ϕ_xx(p,xc,x) = ForwardDiff.hessian(x-> ϕ(p,xc,x),x); # AD hessian
 init_params(w1,w2,α) = [w1[:];w2[:];α];
+
+ρ(P,XC,x) = sum([ϕ(p,xc,x) for (p,xc) in zip(P,XC)]);
+ρ_x(P,XC,x) = sum([ϕ_x(p,xc,x) for (p,xc) in zip(P,XC)]);
+ρ_xx(P,XC,x) = sum([ϕ_xx(p,xc,x) for (p,xc) in zip(P,XC)]);
