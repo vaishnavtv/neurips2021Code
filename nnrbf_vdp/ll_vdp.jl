@@ -14,7 +14,7 @@ using Quadrature, Cubature, Cuba
 nn = 48; # number of neurons in the hidden layer
 activFunc = tanh; # activation function
 opt1 = Optim.BFGS(); # primary optimizer used for training
-maxOpt1Iters = 100; # maximum number of training iterations for opt1
+maxOpt1Iters = 50; # maximum number of training iterations for opt1
 # opt2 = Optim.BFGS(); # second optimizer used for fine-tuning
 # maxOpt2Iters = 10; # maximum number of training iterations for opt2
 Q_fpke = 0.5f0; # Q = σ^2
@@ -22,7 +22,7 @@ Q_fpke = 0.5f0; # Q = σ^2
 dx = 0.4; # discretization size used for training
 nBasis = 20; # Number of basis functions in nnrbf
 
-expNum = 1;
+expNum = 2;
 runExp = true;
 useGPU = false;
 saveFile = "data_nnrbf/vdp_exp$(expNum).jld2";
