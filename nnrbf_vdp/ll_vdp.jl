@@ -19,10 +19,10 @@ maxOpt1Iters = 500; # maximum number of training iterations for opt1
 # maxOpt2Iters = 10; # maximum number of training iterations for opt2
 Q_fpke = 0.1f0; # Q = σ^2
 
-dx = 0.4; # discretization size used for training
-nBasis = 50; # Number of basis functions in nnrbf
+dx = 0.421; # discretization size used for training
+nBasis = 20; # Number of basis functions in nnrbf
 
-expNum = 4;
+expNum = 5;
 runExp = true;
 useGPU = false;
 saveFile = "data_nnrbf/vdp_exp$(expNum).jld2";
@@ -86,11 +86,11 @@ end
 Id = [1 0;0 1.0];
 P0 = [init_params(Id,-Id,1) for i = 1:nBasis];
 p0 = vcat(P0...);
-initθ = p0;
+initθ = Float32.(p0);
 
 chain = Chain(Dense(d,nn,activFunc), Dense(nn,nn,activFunc), Dense(nn,1)); # not really being used
 
-# initθ = DiffEqFlux.initial_params(chain);
+# cinitθ = DiffEqFlux.initial_params(chain);
 if useGPU
     initθ = initθ |> gpu;
 end
@@ -100,9 +100,17 @@ parameterless_type_θ = DiffEqBase.parameterless_type(flat_initθ);
 
 strategy = NeuralPDE.GridTraining(dx);
 
-# phi = NeuralPDE.get_phi(chain, parameterless_type_θ);
+# cphi = NeuralPDE.get_phi(chain, parameterless_type_θ);
 derivative = NeuralPDE.get_numeric_derivative();
 
+println("Computing derivatives");
+# dphi = Zygote.gradient(x->phi(x, flat_initθ)[1],[1.,2.])[1]
+
+# u_ = (cord, θ, phi) -> sum(phi(cord, θ));
+# dphi1 = derivative(phi,u_,[1.,2.],[[ 0.0049215667, 0.0]],1,initθ)
+# dphi2 = derivative(phi,u_,[1.,2.],[[0.0,  0.0049215667]],1,initθ)
+# dphi != [dphi1, dphi2]. this is the reason we are not getting the same answer. Have to convert initθ to Float32 to get the same answer. HORRIBLE.
+##
 indvars = [x1, x2]
 depvars = [ρs(x1,x2)]
 
