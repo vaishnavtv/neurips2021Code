@@ -20,9 +20,9 @@ maxOpt1Iters = 500; # maximum number of training iterations for opt1
 Q_fpke = 0.1f0; # Q = σ^2
 
 dx = 0.421; # discretization size used for training
-nBasis = 50; # Number of basis functions in nnrbf
+nBasis = 20; # Number of basis functions in nnrbf
 
-expNum = 6;
+expNum = 5;
 runExp = true;
 useGPU = false;
 saveFile = "data_nnrbf/vdp_exp$(expNum).jld2";
@@ -103,7 +103,7 @@ strategy = NeuralPDE.GridTraining(dx);
 # cphi = NeuralPDE.get_phi(chain, parameterless_type_θ);
 derivative = NeuralPDE.get_numeric_derivative();
 
-println("Computing derivatives");
+# println("Computing derivatives");
 # dphi = Zygote.gradient(x->phi(x, flat_initθ)[1],[1.,2.])[1]
 
 # u_ = (cord, θ, phi) -> sum(phi(cord, θ));
@@ -137,7 +137,7 @@ bc_loss_function_sum = θ -> sum(map(l -> l(θ), bc_loss_functions))
 
 ## NORM LOSS FUNCTION
 function norm_loss_function(θ)
-    norm_loss = abs2(dx*d*sum(abs, phi(train_domain_set[1], θ))  - 1f0)
+    norm_loss = abs2(dx^d*sum(phi(train_domain_set[1], θ)) - 1f0)
     return norm_loss
 end
 @show norm_loss_function(initθ)
