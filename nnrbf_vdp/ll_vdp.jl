@@ -4,7 +4,7 @@ include("../rb_nnrbf/nnrbf.jl");
 include("../rb_nnrbf/libFPKE.jl");
 mkpath("data_nnrbf");
 mkpath("out_nnrbf");
-using NeuralPDE, Flux, ModelingToolkit, GalacticOptim, Optim, Symbolics, JLD2, DiffEqFlux, LinearAlgebra
+using NeuralPDE, Flux, ModelingToolkit, GalacticOptim, Optim, Symbolics, JLD2, DiffEqFlux, LinearAlgebra, ForwardDiff
 
 import Random:seed!; seed!(1);
 
