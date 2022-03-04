@@ -19,17 +19,17 @@ maxOpt1Iters = 500; # maximum number of training iterations for opt1
 # maxOpt2Iters = 10; # maximum number of training iterations for opt2
 Q_fpke = 0.1f0; # Q = σ^2
 
-dx = 0.421; # discretization size used for training
-nBasis = 50; # Number of basis functions in nnrbf
+dx = 0.4210526315789469; # discretization size used for training
+nBasis = 20; # Number of basis functions in nnrbf
 
-expNum = 6;
+expNum = 8;
 runExp = true;
 useGPU = false;
 saveFile = "data_nnrbf/vdp_exp$(expNum).jld2";
 runExp_fileName = "out_nnrbf/log$(expNum).txt";
 if runExp
     open(runExp_fileName, "a+") do io
-        write(io, "NNRBF: Steady State vdp with grid training. nBasis = $(nBasis). Q_fpke = $(Q_fpke). useGPU = $(useGPU). dx = $(dx). Equation written in ρ. $(maxOpt1Iters) iterations with $(opt1).
+        write(io, "NNRBF: Steady State vdp with grid training. nBasis = $(nBasis). Q_fpke = $(Q_fpke). useGPU = $(useGPU). dx = $(dx). Equation written in ρ. $(maxOpt1Iters) iterations with $(opt1). Using Optim instead of GalacticOptim.
         Experiment number: $(expNum)\n")
     end
 end
@@ -127,7 +127,7 @@ if useGPU
     train_bound_set = train_bound_set |> gpu;
 end
 
-pde_loss_function = θ -> sum(abs2, _pde_loss_function(train_domain_set[1],θ));
+pde_loss_function = θ -> sum(abs2, _pde_loss_function(train_domain_set[1],θ));# + sum([sum(abs2, _pde_loss_function(set, θ)) for set in train_bound_set]);
 @show pde_loss_function(initθ)
 
 bc_loss_functions = [θ->sum(abs2,loss(set, θ)) for (loss, set) in zip(_bc_loss_functions, train_bound_set)];
@@ -148,21 +148,22 @@ function loss_function_(θ, p)
 end
 @show loss_function_(initθ,0)
 
-## set up GalacticOptim optimization problem
-f_ = OptimizationFunction(loss_function_, GalacticOptim.AutoZygote())
-prob = GalacticOptim.OptimizationProblem(f_, initθ)
+## Set up Optim optimization problem
+loss = θ -> loss_function_(θ, 0)
+∇loss(w) = ForwardDiff.gradient(loss,w);
 
 nSteps = 0;
 PDE_losses = Float32[];
 BC_losses = Float32[];
 NORM_losses = Float32[];
-cb_ = function (p, l)
+cbo_ = function (tr)
+    p = tr.metadata["x"]; # parameter vector
     if any(isnan.(p))
         println("SOME PARAMETERS ARE NaN.")
     end
 
     global nSteps = nSteps + 1
-    println("[$nSteps] Current loss is: $l")
+    println("[$nSteps] Current loss is: $(loss(p))");
     println(
         "Individual losses are: PDE loss:",
         pde_loss_function(p),
@@ -178,21 +179,69 @@ cb_ = function (p, l)
 
     if runExp # if running job file
         open(runExp_fileName, "a+") do io
-            write(io, "[$nSteps] Current loss is: $(l) \n")
+            write(io, "[$nSteps] Current loss is: $(loss(p)) \n")
         end;
         
-        jldsave(saveFile; optParam=Array(p), PDE_losses, BC_losses, NORM_losses, Q_fpke, XC);
+        jldsave(saveFile; optParam=Array(p), PDE_losses, BC_losses, NORM_losses, XC, Q_fpke);
     end
-
     return false
 end
 
-println("Calling GalacticOptim()");
-res = GalacticOptim.solve(prob, opt1, cb=cb_, maxiters=maxOpt1Iters);
-# prob = remake(prob, u0=res.minimizer)
-# res = GalacticOptim.solve(prob, opt2, cb=cb_, maxiters=maxOpt2Iters);
-println("Optimization done.");
+println("Starting optimization with BFGS(...).")
+function g!(G, p)
+    return G .= ∇loss(p)
+end
+res = Optim.optimize(loss, g!, initθ, method = opt1, show_trace = false, iterations = maxOpt1Iters, callback = cbo_, extended_trace = true);
+po = Optim.minimizer(res);
+println("Optimization complete.")
 
 if runExp
     jldsave(saveFile;optParam = Array(res.minimizer), PDE_losses, BC_losses, NORM_losses, Q_fpke, XC);
 end
+
+# ## set up GalacticOptim optimization problem
+# f_ = OptimizationFunction(loss_function_, GalacticOptim.AutoZygote())
+# prob = GalacticOptim.OptimizationProblem(f_, initθ)
+
+# nSteps = 0;
+# PDE_losses = Float32[];
+# BC_losses = Float32[];
+# NORM_losses = Float32[];
+# cb_ = function (p, l)
+#     if any(isnan.(p))
+#         println("SOME PARAMETERS ARE NaN.")
+#     end
+
+#     global nSteps = nSteps + 1
+#     println("[$nSteps] Current loss is: $l")
+#     println(
+#         "Individual losses are: PDE loss:",
+#         pde_loss_function(p),
+#         ", BC loss:",
+#         bc_loss_function_sum(p),
+#         ", NORM loss:",
+#         norm_loss_function(p)
+#     )
+
+#     push!(PDE_losses, pde_loss_function(p))
+#     push!(BC_losses, bc_loss_function_sum(p))
+#     push!(NORM_losses, norm_loss_function(p))
+
+#     if runExp # if running job file
+#         open(runExp_fileName, "a+") do io
+#             write(io, "[$nSteps] Current loss is: $(l) \n")
+#         end;
+        
+#         jldsave(saveFile; optParam=Array(p), PDE_losses, BC_losses, NORM_losses, Q_fpke, XC);
+#     end
+
+#     return false
+# end
+
+# println("Calling GalacticOptim()");
+# res = GalacticOptim.solve(prob, opt1, cb=cb_, maxiters=maxOpt1Iters);
+# pg = res.minimizer;
+# # prob = remake(prob, u0=res.minimizer)
+# # res = GalacticOptim.solve(prob, opt2, cb=cb_, maxiters=maxOpt2Iters);
+# println("Optimization done.");
+
