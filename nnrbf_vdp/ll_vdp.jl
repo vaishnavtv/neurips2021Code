@@ -20,9 +20,9 @@ maxOpt1Iters = 500; # maximum number of training iterations for opt1
 Q_fpke = 0.1f0; # Q = σ^2
 
 dx = 0.4210526315789469; # discretization size used for training
-nBasis = 50; # Number of basis functions in nnrbf
+nBasis = 20; # Number of basis functions in nnrbf
 
-expNum = 9;
+expNum = 8;
 runExp = true;
 useGPU = false;
 saveFile = "data_nnrbf/vdp_exp$(expNum).jld2";
