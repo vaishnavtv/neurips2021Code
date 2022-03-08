@@ -2,14 +2,12 @@
 cd(@__DIR__);
 using NeuralPDE, Flux, ModelingToolkit, GalacticOptim, Optim, Symbolics, JLD2, DiffEqFlux, LinearAlgebra
 
-using CUDA
-CUDA.allowscalar(false)
 import Random:seed!; seed!(1);
 
 using Quadrature, Cubature, Cuba
 
 ## parameters for neural network
-nn = 100; # number of neurons in the hidden layer
+nn = 50; # number of neurons in the hidden layer
 activFunc = tanh; # activation function
 opt1 = ADAM(1e-3); # primary optimizer used for training
 maxOpt1Iters = 10000; # maximum number of training iterations for opt1
@@ -21,7 +19,7 @@ dx = 0.05; # discretization size used for training
 
 # file location to save data
 suff = string(activFunc);
-expNum = 30;
+expNum = 31;
 saveFile = "data_grid/ll_grid_vdp_exp$(expNum).jld2";
 useGPU = false;
 runExp = true;
@@ -93,6 +91,8 @@ chain = Chain(Dense(dim,nn,activFunc), Dense(nn,nn,activFunc), Dense(nn,nn,activ
 initθ = DiffEqFlux.initial_params(chain)
 
 if useGPU
+    using CUDA
+    CUDA.allowscalar(false)
     initθ = initθ |> gpu;
 end
 flat_initθ = initθ
