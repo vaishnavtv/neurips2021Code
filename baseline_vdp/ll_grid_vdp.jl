@@ -22,7 +22,7 @@ suff = string(activFunc);
 expNum = 41;
 saveFile = "data_grid/ll_grid_vdp_exp$(expNum).jld2";
 useGPU = true;
-runExp = false;
+runExp = true;
 runExp_fileName = "out_grid/log$(expNum).txt";
 if runExp
     open(runExp_fileName, "a+") do io
