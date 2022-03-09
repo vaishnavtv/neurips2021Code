@@ -7,7 +7,7 @@ import Random:seed!; seed!(1);
 using Quadrature, Cubature, Cuba
 
 ## parameters for neural network
-nn = 28; # number of neurons in the hidden layer
+nn = 20; # number of neurons in the hidden layer
 activFunc = tanh; # activation function
 opt1 = ADAM(1e-3); # primary optimizer used for training
 maxOpt1Iters = 10000; # maximum number of training iterations for opt1
@@ -19,7 +19,7 @@ dx = 0.05; # discretization size used for training
 
 # file location to save data
 suff = string(activFunc);
-expNum = 41;
+expNum = 40;
 saveFile = "data_grid/ll_grid_vdp_exp$(expNum).jld2";
 useGPU = true;
 runExp = true;
@@ -79,8 +79,8 @@ bcs = [ρ([-maxval,x2]) ~ 0.f0, ρ([maxval,x2]) ~ 0,
 
 ## Neural network
 dim = 2 # number of dimensions
-chain = Chain(Dense(dim,nn,activFunc), Dense(nn,nn,activFunc), Dense(nn,1)); # 2 hls
-# chain = Chain(Dense(dim,nn,activFunc), Dense(nn,nn,activFunc), Dense(nn,nn,activFunc), Dense(nn,1)); # 3 hls
+# chain = Chain(Dense(dim,nn,activFunc), Dense(nn,nn,activFunc), Dense(nn,1)); # 2 hls
+chain = Chain(Dense(dim,nn,activFunc), Dense(nn,nn,activFunc), Dense(nn,nn,activFunc), Dense(nn,1)); # 3 hls
 # chain = Chain(Dense(dim,nn,activFunc), Dense(nn,nn,activFunc), Dense(nn,nn,activFunc), Dense(nn,nn,activFunc), Dense(nn,1)); # 4 hls
 
 initθ = DiffEqFlux.initial_params(chain)
