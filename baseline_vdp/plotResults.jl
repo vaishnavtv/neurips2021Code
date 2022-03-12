@@ -1,5 +1,5 @@
 ## Plot the results of the baseline-PINNs implementation for the Van der Pol oscillator
-using JLD2,PyPlot,ModelingToolkit,LinearAlgebra,Flux,Trapz,Printf,LaTeXStrings,ForwardDiff, DiffEqBase, Adapt, NeuralPDE
+using JLD2,PyPlot,ModelingToolkit,LinearAlgebra,Flux,Trapz,Printf,LaTeXStrings,ForwardDiff, DiffEqBase, Adapt#, NeuralPDE
 pygui(true);
 @variables x1, x2
 xSym = [x1;x2];
@@ -8,9 +8,9 @@ xSym = [x1;x2];
 activFunc = tanh;
 dx = 0.05;
 suff = string(activFunc);
-nn = 100;
+nn = 28;
 optFlag = 1;
-expNum = 30;
+expNum = 41;
 Q_fpke = 0.1;
 strat = "grid";
 
@@ -22,7 +22,7 @@ file = jldopen(fileLoc, "r");
 optParam = read(file, "optParam");
 PDE_losses = read(file, "PDE_losses");
 BC_losses = read(file, "BC_losses");
-NORM_losses = read(file, "NORM_losses");
+# NORM_losses = read(file, "NORM_losses");
 
 close(file);
 println("Are any of the parameters NaN? $(any(isnan.(optParam)))")
@@ -32,7 +32,7 @@ nIters = length(PDE_losses);
 figure(1); clf();
 semilogy(1:nIters, PDE_losses, label =  "PDE");
 semilogy(1:nIters, BC_losses, label = "BC");
-semilogy(1:nIters, NORM_losses, label = "NORM");
+# semilogy(1:nIters, NORM_losses, label = "NORM");
 xlabel("Iterations");
 ylabel("ϵ");
 title("Loss Function exp$(expNum)");
@@ -41,9 +41,9 @@ legend();
 tight_layout();
 ##
 # Neural network
-chain = Chain(Dense(2,nn,activFunc), Dense(nn,nn,activFunc), Dense(nn,nn,activFunc), Dense(nn,nn,activFunc), Dense(nn,1)); # 4 HLs
+# chain = Chain(Dense(2,nn,activFunc), Dense(nn,nn,activFunc), Dense(nn,nn,activFunc), Dense(nn,nn,activFunc), Dense(nn,1)); # 4 HLs
 # chain = Chain(Dense(2,nn,activFunc), Dense(nn,nn,activFunc), Dense(nn,nn,activFunc), Dense(nn,1)); # 3 HLs
-# chain = Chain(Dense(2, nn, activFunc), Dense(nn, nn, activFunc), Dense(nn, 1)); # 2 HLs
+chain = Chain(Dense(2, nn, activFunc), Dense(nn, nn, activFunc), Dense(nn, 1)); # 2 HLs
 # parameterless_type_θ = DiffEqBase.parameterless_type(optParam);
 # phi = NeuralPDE.get_phi(chain, parameterless_type_θ);
 initθ,re  = Flux.destructure(chain)
@@ -66,45 +66,45 @@ nEvalFine = 100;
 # pde = driftTerm - diffTerm ~ 0.0f0 # full pde
 
 # PDE in ρ
-@parameters x1, x2
-@variables  η(..), ρs(..)
-xSym = [x1;x2];
+# @parameters x1, x2
+# @variables  η(..), ρs(..)
+# xSym = [x1;x2];
 
-ρ(x) = (ρs(x[1],x[2]));
-F = f(xSym)*ρ(xSym);
-G = 0.5f0*(g(xSym)*Q_fpke*g(xSym)')*ρ(xSym);
+# ρ(x) = (ρs(x[1],x[2]));
+# F = f(xSym)*ρ(xSym);
+# G = 0.5f0*(g(xSym)*Q_fpke*g(xSym)')*ρ(xSym);
 
-T1 = sum([Differential(xSym[i])(F[i]) for i in 1:length(xSym)]);
-T2 = sum([(Differential(xSym[i])*Differential(xSym[j]))(G[i,j]) for i in 1:length(xSym), j=1:length(xSym)]);
+# T1 = sum([Differential(xSym[i])(F[i]) for i in 1:length(xSym)]);
+# T2 = sum([(Differential(xSym[i])*Differential(xSym[j]))(G[i,j]) for i in 1:length(xSym), j=1:length(xSym)]);
 
-Eqn = expand_derivatives(-T1+T2); # + dx*u(x1,x2)-1 ~ 0;
-pdeOrig = simplify(Eqn) ~ 0.0f0;
-pde = pdeOrig;
+# Eqn = expand_derivatives(-T1+T2); # + dx*u(x1,x2)-1 ~ 0;
+# pdeOrig = simplify(Eqn) ~ 0.0f0;
+# pde = pdeOrig;
 
-# # # Setting up loss function using NeuralPDE API
-strategy = NeuralPDE.GridTraining(dx);
-derivative = NeuralPDE.get_numeric_derivative();
+# # # # Setting up loss function using NeuralPDE API
+# strategy = NeuralPDE.GridTraining(dx);
+# derivative = NeuralPDE.get_numeric_derivative();
 
-indvars = [x1, x2]
-depvars = [ρs(x1,x2)] #[η(x1,x2)]
+# indvars = [x1, x2]
+# depvars = [ρs(x1,x2)] #[η(x1,x2)]
 
-integral = NeuralPDE.get_numeric_integral(strategy, indvars, depvars, chain, derivative);
+# integral = NeuralPDE.get_numeric_integral(strategy, indvars, depvars, chain, derivative);
 
-_pde_loss_function = NeuralPDE.build_loss_function(pde,indvars,depvars,phi,derivative,integral,chain,initθ,strategy);
+# _pde_loss_function = NeuralPDE.build_loss_function(pde,indvars,depvars,phi,derivative,integral,chain,initθ,strategy);
 
 function ρ_pdeErr_fns(optParam)
-    ρNetS(x) = first(phi(x, optParam));
-    pdeErrFn(x) = first(_pde_loss_function(x, optParam))
+    # ρNetS(x) = first(phi(x, optParam));
+    # pdeErrFn(x) = first(_pde_loss_function(x, optParam))
 
-    # function ηNetS(x)
-    #     return first(phi(x, optParam))
-    # end
-    # ρNetS(x) = exp(ηNetS(x)) # solution after first iteration
-    # df(x) = ForwardDiff.jacobian(f, x)
-    # dη(x) = ForwardDiff.gradient(ηNetS, x)
-    # d2η(x) = ForwardDiff.jacobian(dη, x)
+    function ηNetS(x)
+        return first(phi(x, optParam))
+    end
+    ρNetS(x) = exp(ηNetS(x)) # solution after first iteration
+    df(x) = ForwardDiff.jacobian(f, x)
+    dη(x) = ForwardDiff.gradient(ηNetS, x)
+    d2η(x) = ForwardDiff.jacobian(dη, x)
 
-    # pdeErrFn(x) = tr(df(x)) + dot(f(x), dη(x)) - Q_fpke / 2 * (d2η(x)[end] + (dη(x)[end])^2)
+    pdeErrFn(x) = tr(df(x)) + dot(f(x), dη(x)) - Q_fpke / 2 * (d2η(x)[end] + (dη(x)[end])^2)
     return ρNetS, pdeErrFn
 end
 ρFn, pdeErrFn = ρ_pdeErr_fns(optParam);
