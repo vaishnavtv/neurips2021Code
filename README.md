@@ -25,3 +25,6 @@ Julia 1.6.0 was used to perform simulations. Package dependencies:
 
 Most of these packages are available open-source. 
 Mosek licenses are available to academic faculty, students, or staff for free for research or educational purposes. 
+
+This paper was submitted for consideration at Neurips 2021. Unfortunately, it did not get accepted for publication, but we believe the results are worthy and of interest to the PINNs community. 
+The full paper is on [Arxiv](https://arxiv.org/abs/2105.12307).
