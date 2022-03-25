@@ -5,8 +5,8 @@ include("../rb_nnrbf/libFPKE.jl");
 using JLD2, NeuralPDE, Flux, Trapz, PyPlot
 pygui(true);
 
-expNum = 2;
-nBasis = 5; # Number of basis functions in nnrbf
+expNum = 3;
+nBasis = 50; # Number of basis functions in nnrbf
 activFunc = tanh;
 Q_fpke = 0.25;
 α = 0.3f0; β = 0.5f0;
@@ -39,13 +39,13 @@ phi = NeuralPDE.get_phi(chain, parameterless_type_θ);
 maxval = 2.2; dx = 0.01;
 xs = -maxval:dx:maxval;
 u_predict  = [(first(phi([x],optParam))) for x in xs]
-norm_pred = trapz(xs, u_predict);
-u_predict /= norm_pred; # normalized
+# norm_pred = trapz(xs, u_predict);
+# u_predict /= norm_pred; # normalized
 
 ρ_true(x) = exp((1/(2*Q_fpke))*(2*α*x^2 - β*x^4)); # true analytical solution, before normalization
 u_real = [ρ_true(x) for x in xs];
-norm_real = trapz(xs, u_real);
-u_real /= norm_real;
+# norm_real = trapz(xs, u_real);
+# u_real /= norm_real;
 
 println("The maximum pointwise absolute error is $(maximum(abs.(u_predict - u_real)))");
 ##
@@ -60,5 +60,6 @@ subplot(1,2,2);
 plot(xs, abs.(u_predict - u_real)); 
 xlabel("x"); ylabel("ϵ");
 title("Absolute Error");
+suptitle("nBasis = $(nBasis)");
 tight_layout();
-# savefig("figs_nnrbf/exp$(expNum).png");
+savefig("figs_nnrbf/exp$(expNum).png");
