@@ -7,7 +7,7 @@ import Random:seed!; seed!(1);
 using Quadrature, Cubature, Cuba
 
 ## parameters for neural network
-nn = 17; # number of neurons in the hidden layer
+nn = 100; # number of neurons in the hidden layer
 activFunc = tanh; # activation function
 opt1 = ADAM(1e-3); # primary optimizer used for training
 maxOpt1Iters = 10000; # maximum number of training iterations for opt1
@@ -16,17 +16,18 @@ maxOpt2Iters = 10000; # maximum number of training iterations for opt2
 
 dx = 0.05; # discretization size used for training
 α_bc = 1.0f0 # weight on boundary conditions loss
+Q_fpke = 0.5f0; # Q = σ^2
 
 # file location to save data
 suff = string(activFunc);
-expNum = 39;
+expNum = 40;
 saveFile = "data_grid/ll_grid_vdp_exp$(expNum).jld2";
 useGPU = true;
 runExp = true;
 runExp_fileName = "out_grid/log$(expNum).txt";
 if runExp
     open(runExp_fileName, "a+") do io
-        write(io, "Steady State vdp with Grid training. 2 HL with $(nn) neurons in the hl and $(suff) activation. $(maxOpt1Iters) iterations with ADAM and then $(maxOpt2Iters) with LBFGS. using GPU? $(useGPU). dx = $(dx). α_bc = $(α_bc). Documenting in IEEE paper. 
+        write(io, "Steady State vdp with Grid training. 4 HL with $(nn) neurons in the hl and $(suff) activation. $(maxOpt1Iters) iterations with ADAM and then $(maxOpt2Iters) with LBFGS. using GPU? $(useGPU). dx = $(dx). α_bc = $(α_bc). Documenting in IEEE paper. Q_fpke = $(Q_fpke).
         Experiment number: $(expNum)\n")
     end
 end
@@ -44,7 +45,6 @@ function g(x::Vector)
 end
 
 # PDE
-Q_fpke = 0.1f0; # Q = σ^2
 ρ(x) = exp(η(x[1],x[2]));
 F = f(x)*ρ(x);
 G = 0.5f0*(g(x)*Q_fpke*g(x)')*ρ(x);
