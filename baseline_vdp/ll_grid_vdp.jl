@@ -7,7 +7,7 @@ import Random:seed!; seed!(1);
 using Quadrature, Cubature, Cuba
 
 ## parameters for neural network
-nn = 100; # number of neurons in the hidden layer
+nn = 50; # number of neurons in the hidden layer
 activFunc = tanh; # activation function
 opt1 = ADAM(1e-3); # primary optimizer used for training
 maxOpt1Iters = 10000; # maximum number of training iterations for opt1
@@ -20,7 +20,7 @@ Q_fpke = 0.5f0; # Q = σ^2
 
 # file location to save data
 suff = string(activFunc);
-expNum = 42;
+expNum = 43;
 saveFile = "data_grid/ll_grid_vdp_exp$(expNum).jld2";
 useGPU = true;
 runExp = true;
