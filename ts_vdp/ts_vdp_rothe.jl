@@ -13,7 +13,7 @@ activFunc = tanh; # activation function
 opt1 = ADAM(1e-3); # primary optimizer used for training
 maxOpt1Iters = 1000; # maximum number of training iterations for opt1
 opt2 = Optim.LBFGS(); # second optimizer used for fine-tuning
-maxOpt2Iters = 1000; # maximum number of training iterations for opt2
+maxOpt2Iters = 100; # maximum number of training iterations for opt2
 
 dx = 0.05; # discretization size used for training
 α_bc = 1.0f0 # weight on boundary conditions loss
@@ -22,7 +22,7 @@ dt = 0.01; tEnd = 5.0;
 
 # file location to save data
 suff = string(activFunc);
-expNum = 3;
+expNum = 4;
 saveFile = "data_rothe/vdp_exp$(expNum).jld2";
 useGPU = true; if useGPU using CUDA end;
 runExp = true;
@@ -175,7 +175,7 @@ for (tInt, tVal) in enumerate(tR)
     f_ = OptimizationFunction(loss_function_, GalacticOptim.AutoZygote())
     prob = GalacticOptim.OptimizationProblem(f_, cuθFull[tInt])
 
-    nSteps = 0;
+    global nSteps = 0;
     PDE_losses = Float32[];
     BC_losses = Float32[];
     cb_ = function (p, l)
