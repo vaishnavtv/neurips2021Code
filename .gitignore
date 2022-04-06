@@ -116,3 +116,6 @@ ex_1d/batch_nnrbf.slurm
 nnrbf_vdp/vdp_nnrbf_batch.slurm
 nnrbf_vdp/out*
 nnrbf_vdp/figs*
+ts_vdp/out*
+ts_vdp/rothe_batch.slurm
+ts_vdp/figs_rothe
