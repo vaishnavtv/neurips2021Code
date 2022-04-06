@@ -18,18 +18,18 @@ maxOpt2Iters = 1000; # maximum number of training iterations for opt2
 dx = 0.05; # discretization size used for training
 α_bc = 1.0f0 # weight on boundary conditions loss
 Q_fpke = 0.1f0; # Q = σ^2
-dt = 0.01; tEnd = 0.1;
+dt = 0.01; tEnd = 5.0;
 
 # file location to save data
 suff = string(activFunc);
-expNum = 2;
+expNum = 3;
 saveFile = "data_rothe/vdp_exp$(expNum).jld2";
 useGPU = true; if useGPU using CUDA end;
 runExp = true;
 runExp_fileName = "out_rothe/log$(expNum).txt";
 if runExp
     open(runExp_fileName, "a+") do io
-        write(io, "ts_vdp__PINN using Rothe's method with Grid training. 3 HL with $(nn) neurons in the hl and $(suff) activation. $(maxOpt1Iters) iterations with ADAM and then $(maxOpt2Iters) with LBFGS. using GPU? $(useGPU). dx = $(dx). α_bc = $(α_bc). Q_fpke = $(Q_fpke). Not using ADAM, just LBFGS for $(maxOpt2Iters) iterations.
+        write(io, "ts_vdp__PINN using Rothe's method with Grid training. 3 HL with $(nn) neurons in the hl and $(suff) activation. $(maxOpt1Iters) iterations with ADAM and then $(maxOpt2Iters) with LBFGS. using GPU? $(useGPU). dx = $(dx). α_bc = $(α_bc). Q_fpke = $(Q_fpke). dt = $(dt). tEnd = $(tEnd). Not using ADAM, just LBFGS for $(maxOpt2Iters) iterations.
         Experiment number: $(expNum)\n")
     end
 end
@@ -213,10 +213,14 @@ for (tInt, tVal) in enumerate(tR)
     push!(θFull, Array(res.minimizer));
     push!(cuθFull, (res.minimizer));
     println("Optimization done for t = $(tVal).");
+
+    if runExp
+        jldsave(saveFile;optParams = θFull, tR);
+    end
 end
 
 # ## Save data
 cd(@__DIR__);
 if runExp
-    jldsave(saveFile;optParams = θFull);
+    jldsave(saveFile;optParams = θFull, tR);
 end
