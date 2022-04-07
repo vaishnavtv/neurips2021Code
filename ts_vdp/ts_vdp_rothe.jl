@@ -13,16 +13,16 @@ activFunc = tanh; # activation function
 opt1 = ADAM(1e-3); # primary optimizer used for training
 maxOpt1Iters = 1000; # maximum number of training iterations for opt1
 opt2 = Optim.LBFGS(); # second optimizer used for fine-tuning
-maxOpt2Iters = 100; # maximum number of training iterations for opt2
+maxOpt2Iters = 500; # maximum number of training iterations for opt2
 
-dx = 0.1; # discretization size used for training
+dx = 0.05; # discretization size used for training
 α_bc = 1.0f0 # weight on boundary conditions loss
 Q_fpke = 0.1f0; # Q = σ^2
-dt = 0.01; tEnd = 0.1;
+dt = 0.01; tEnd = 5.0f0;
 
 # file location to save data
 suff = string(activFunc);
-expNum = 6;
+expNum = 7;
 saveFile = "data_rothe/vdp_exp$(expNum).jld2";
 useGPU = true; if useGPU using CUDA end;
 runExp = true;
@@ -173,7 +173,7 @@ bc_loss_function_sum = θ -> sum(map(l -> l(θ), bc_loss_functions));
 nT = Int(tEnd/dt) + 1
 tR = LinRange(0.0, tEnd,Int(tEnd/dt)+1)
 
-for (tInt, tVal) in enumerate(tR) 
+for (tInt, tVal) in enumerate(tR[1:end-1]) 
     pde_loss_function = (θ1) -> mean(abs2,_pde_loss_function(train_domain_set[1], θ1, cuθFull[tInt]));
     @show pde_loss_function(initθ)
 
