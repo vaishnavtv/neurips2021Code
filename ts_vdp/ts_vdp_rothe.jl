@@ -15,14 +15,14 @@ maxOpt1Iters = 1000; # maximum number of training iterations for opt1
 opt2 = Optim.LBFGS(); # second optimizer used for fine-tuning
 maxOpt2Iters = 500; # maximum number of training iterations for opt2
 
-dx = 0.05; # discretization size used for training
+dx = 0.1; # discretization size used for training
 α_bc = 1.0f0 # weight on boundary conditions loss
 Q_fpke = 0.0f0; # Q = σ^2
 dt = 0.1; tEnd = 5.0;
 
 # file location to save data
 suff = string(activFunc);
-expNum = 11;
+expNum = 12;
 saveFile = "data_rothe/vdp_exp$(expNum).jld2";
 useGPU = true; if useGPU using CUDA end;
 runExp = true;
@@ -132,7 +132,7 @@ cb0 = function (p, l)
     end
 
     global nSteps = nSteps + 1
-    println("[$nSteps] Current loss is: $l")
+    # println("[$nSteps] Current loss is: $l")
     
     if runExp # if running job file
         open(runExp_fileName, "a+") do io
@@ -187,24 +187,24 @@ for (tInt, tVal) in enumerate(tR[1:end-1])
     prob = GalacticOptim.OptimizationProblem(f_, cuθFull[tInt])
 
     global nSteps = 0;
-    PDE_losses = Float32[];
-    BC_losses = Float32[];
+    # PDE_losses = Float32[];
+    # BC_losses = Float32[];
     cb_ = function (p, l)
-        if any(isnan.(p))
-            println("SOME PARAMETERS ARE NaN.")
-        end
+        # if any(isnan.(p))
+        #     println("SOME PARAMETERS ARE NaN.")
+        # end
 
         global nSteps = nSteps + 1
-        println("[$nSteps] Current loss is: $l")
-        println(
-            "Individual losses are: PDE loss:",
-            pde_loss_function(p),
-            ", BC loss:",
-            bc_loss_function_sum(p),
-        )
+        # println("[$nSteps] Current loss is: $l")
+        # println(
+        #     "Individual losses are: PDE loss:",
+        #     pde_loss_function(p),
+        #     ", BC loss:",
+        #     bc_loss_function_sum(p),
+        # )
 
-        push!(PDE_losses, pde_loss_function(p))
-        push!(BC_losses, bc_loss_function_sum(p))
+        # push!(PDE_losses, pde_loss_function(p))
+        # push!(BC_losses, bc_loss_function_sum(p))
 
         if runExp # if running job file
             open(runExp_fileName, "a+") do io
