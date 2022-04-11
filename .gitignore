@@ -120,3 +120,4 @@ ts_vdp/out*
 ts_vdp/rothe_batch.slurm
 ts_vdp/figs_rothe
 ts_vdp/data_rothe/vdp_exp16.jld2
+ts_vdp/data_rothe/vdp_exp17.jld2
