@@ -13,23 +13,23 @@ activFunc = tanh; # activation function
 opt1 = ADAM(1e-3); # primary optimizer used for training
 maxOpt1Iters = 1000; # maximum number of training iterations for opt1
 opt2 = Optim.LBFGS(); # second optimizer used for fine-tuning
-maxOpt2Iters = 200; # maximum number of training iterations for opt2
+maxOpt2Iters = 500; # maximum number of training iterations for opt2
 
-dx = 0.05; # discretization size used for training
+dx = 0.01; # discretization size used for training
 α_bc = 1.0f0 # weight on boundary conditions loss
 Q_fpke = 0.0f0; # Q = σ^2
 dt = 0.01; tEnd = 5.0;
 
 # file location to save data
 suff = string(activFunc);
-expNum = 20;
+expNum = 21;
 saveFile = "data_rothe/vdp_exp$(expNum).jld2";
 useGPU = true; if useGPU using CUDA end;
 runExp = true;
 runExp_fileName = "out_rothe/log$(expNum).txt";
 if runExp
     open(runExp_fileName, "a+") do io
-        write(io, "ts_vdp__PINN using Rothe's method with Grid training. 3 HL with $(nn) neurons in the hl and $(suff) activation. $(maxOpt1Iters) iterations with ADAM and then $(maxOpt2Iters) with LBFGS. using GPU? $(useGPU). dx = $(dx). α_bc = $(α_bc). Q_fpke = $(Q_fpke). dt = $(dt). tEnd = $(tEnd). Not using ADAM, just LBFGS for $(maxOpt2Iters) iterations. Using η. 
+        write(io, "ts_vdp__PINN using Rothe's method with Grid training. 3 HL with $(nn) neurons in the hl and $(suff) activation. $(maxOpt1Iters) iterations with ADAM and then $(maxOpt2Iters) with LBFGS. using GPU? $(useGPU). dx = $(dx). α_bc = $(α_bc). Q_fpke = $(Q_fpke). dt = $(dt). tEnd = $(tEnd). Not using ADAM, just LBFGS for $(maxOpt2Iters) iterations. Using ρ. Positive value output using (abs) on output layer.
         Experiment number: $(expNum)\n")
     end
 end
@@ -48,8 +48,8 @@ function g(x::Vector)
 end
 
 # PDE
-ρ(x) = exp(η(x[1],x[2]));
-# ρ(x) = (u(x[1],x[2]));
+# ρ(x) = exp(η(x[1],x[2]));
+ρ(x) = (u(x[1],x[2]));
 
 F = f(xSym)*ρ(xSym);
 G = 0.5f0*(g(xSym)*Q_fpke*g(xSym)')*ρ(xSym);
@@ -58,8 +58,8 @@ T1 = sum([Differential(xSym[i])(F[i]) for i in 1:length(xSym)]);
 T2 = sum([(Differential(xSym[i])*Differential(xSym[j]))(G[i,j]) for i in 1:length(xSym), j=1:length(xSym)]);
 pdeOpt = -T1 + T2;
 
-# pde_lhs = (u(xSym...) - dt/2*pdeOpt) ~ 0.0f0; # THIS IS NOT THE ACTUAL PDE
-# pde_rhs = (u(xSym...) + dt/2*pdeOpt) ~ 0.0f0; # THIS IS NOT THE ACTUAL PDE
+pde_lhs = (u(xSym...) - dt/2*pdeOpt) ~ 0.0f0; # THIS IS NOT THE ACTUAL PDE
+pde_rhs = (u(xSym...) + dt/2*pdeOpt) ~ 0.0f0; # THIS IS NOT THE ACTUAL PDE
 
 # driftTerm = -(Differential(x1)(x2*exp(η(x1, x2))) + Differential(x2)(exp(η(x1, x2))*(x2*(1 - (x1^2)) - x1)))*(exp(η(x1, x2))^-1)
 # diffTerm1 = Differential(x2)(Differential(x2)(η(x1,x2))) 
@@ -67,8 +67,8 @@ pdeOpt = -T1 + T2;
 # diffTerm = Q_fpke/2*(diffTerm1 + diffTerm2); # diffusion term
 # pdeOpt = -driftTerm + diffTerm # full pde
 
-pde_lhs = (η(xSym...) - dt/2*pdeOpt) ~ 0.0f0; # THIS IS NOT THE ACTUAL PDE
-pde_rhs = (η(xSym...) + dt/2*pdeOpt) ~ 0.0f0; # THIS IS NOT THE ACTUAL PDE
+# pde_lhs = (η(xSym...) - dt/2*pdeOpt) ~ 0.0f0; # THIS IS NOT THE ACTUAL PDE
+# pde_rhs = (η(xSym...) + dt/2*pdeOpt) ~ 0.0f0; # THIS IS NOT THE ACTUAL PDE
 
 ## Domain
 maxval = 4.0f0;
@@ -82,7 +82,7 @@ bcs = [ρ([-maxval,x2]) ~ 0.f0, ρ([maxval,x2]) ~ 0,
 ## Neural network
 dim = 2 # number of dimensions
 # chain = Chain(Dense(dim,nn,activFunc), Dense(nn,nn,activFunc), Dense(nn,1)); # 2 hls
-chain = Chain(Dense(dim,nn,activFunc), Dense(nn,nn,activFunc), Dense(nn,nn,activFunc), Dense(nn,1)); # 3 hls
+chain = Chain(Dense(dim,nn,activFunc), Dense(nn,nn,activFunc), Dense(nn,nn,activFunc), Dense(nn,1,abs)); # 3 hls
 # chain = Chain(Dense(dim,nn,activFunc), Dense(nn,nn,activFunc), Dense(nn,nn,activFunc), Dense(nn,nn,activFunc), Dense(nn,1)); # 4 hls
 
 ## Get get_th0
@@ -106,7 +106,7 @@ phi = NeuralPDE.get_phi(chain, parameterless_type_θ);
 derivative = NeuralPDE.get_numeric_derivative();
 
 indvars = [x1, x2]
-depvars = [η(xSym...)] #[u(x1,x2)]
+depvars = [u(xSym...)] #[η(x1,x2)]
 
 integral = NeuralPDE.get_numeric_integral(strategy, indvars, depvars, chain, derivative);
 
