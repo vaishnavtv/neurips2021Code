@@ -14,7 +14,7 @@ activFunc = tanh; # activation function
 opt1 = ADAM(1e-3); # primary optimizer used for training
 maxOpt1Iters = 1000; # maximum number of training iterations for opt1
 opt2 = Optim.BFGS(); # second optimizer used for fine-tuning
-maxOpt2Iters = 500; # maximum number of training iterations for opt2
+maxOpt2Iters = 200; # maximum number of training iterations for opt2
 
 dx = 0.05; # discretization size used for training
 α_bc = 1.0f0 # weight on boundary conditions loss
@@ -23,7 +23,7 @@ dt = 0.01; tEnd = 5.0;
 
 # file location to save data
 suff = string(activFunc);
-expNum = 24;
+expNum = 25;
 saveFile = "data_rothe/vdp_exp$(expNum).jld2";
 useGPU = false; if useGPU using CUDA end;
 runExp = true;
