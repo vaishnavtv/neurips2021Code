@@ -4,6 +4,7 @@ cd(@__DIR__);
 mkpath("out_rothe");
 mkpath("data_rothe");
 using NeuralPDE, Flux, ModelingToolkit, GalacticOptim, Optim, Symbolics, JLD2, DiffEqFlux, LinearAlgebra, Distributions
+using Quadrature, Cubature, Cuba
 
 import Random:seed!; seed!(1);
 
@@ -12,7 +13,7 @@ nn = 100; # number of neurons in the hidden layer
 activFunc = tanh; # activation function
 opt1 = ADAM(1e-3); # primary optimizer used for training
 maxOpt1Iters = 1000; # maximum number of training iterations for opt1
-opt2 = Optim.LBFGS(); # second optimizer used for fine-tuning
+opt2 = Optim.BFGS(); # second optimizer used for fine-tuning
 maxOpt2Iters = 500; # maximum number of training iterations for opt2
 
 dx = 0.05; # discretization size used for training
@@ -22,14 +23,14 @@ dt = 0.01; tEnd = 5.0;
 
 # file location to save data
 suff = string(activFunc);
-expNum = 22;
+expNum = 23;
 saveFile = "data_rothe/vdp_exp$(expNum).jld2";
-useGPU = true; if useGPU using CUDA end;
+useGPU = false; if useGPU using CUDA end;
 runExp = true;
 runExp_fileName = "out_rothe/log$(expNum).txt";
 if runExp
     open(runExp_fileName, "a+") do io
-        write(io, "ts_vdp__PINN using Rothe's method with Grid training. 3 HL with $(nn) neurons in the hl and $(suff) activation. $(maxOpt1Iters) iterations with ADAM and then $(maxOpt2Iters) with LBFGS. using GPU? $(useGPU). dx = $(dx). α_bc = $(α_bc). Q_fpke = $(Q_fpke). dt = $(dt). tEnd = $(tEnd). Not using ADAM, just LBFGS for $(maxOpt2Iters) iterations. Using ρ. Positive value output using (abs2) on output layer.
+        write(io, "ts_vdp__PINN using Rothe's method with Grid training. 3 HL with $(nn) neurons in the hl and $(suff) activation. $(maxOpt1Iters) iterations with ADAM and then $(maxOpt2Iters) with LBFGS. using GPU? $(useGPU). dx = $(dx). α_bc = $(α_bc). Q_fpke = $(Q_fpke). dt = $(dt). tEnd = $(tEnd). Not using ADAM, just LBFGS for $(maxOpt2Iters) iterations. Using ρ. Positive value output using (abs2) on output layer. With norm loss function.
         Experiment number: $(expNum)\n")
     end
 end
@@ -168,6 +169,18 @@ bc_loss_functions = [NeuralPDE.get_loss_function(loss, set, eltypeθ, parameterl
 bc_loss_function_sum = θ -> sum(map(l -> l(θ), bc_loss_functions));
 @show bc_loss_function_sum(initθ);
 
+## NORM loss function
+lbs = [-maxval, -maxval]; ubs = [maxval, maxval];
+function norm_loss_function(θ)
+    function inner_f(x,θ)
+         return (sum((phi(x, θ)))) # density
+    end
+    prob = QuadratureProblem(inner_f, lbs, ubs, θ)
+    norm2 = solve(prob, HCubatureJL(), reltol = 1e-3, abstol = 1e-3);
+    return abs2(norm2[1] - 1)
+end
+@show norm_loss_function((initθ))
+
 ##
 nT = Int(tEnd/dt) + 1
 tR = LinRange(0.0, tEnd,Int(tEnd/dt)+1)
@@ -177,7 +190,7 @@ for (tInt, tVal) in enumerate(tR[1:end-1])
     @show pde_loss_function(initθ)
 
     function loss_function_(θ, p)
-        return pde_loss_function(θ) + α_bc*bc_loss_function_sum(θ) 
+        return pde_loss_function(θ) + α_bc*bc_loss_function_sum(θ) + norm_loss_function(θ)
     end
     @show loss_function_(initθ,0)
 
