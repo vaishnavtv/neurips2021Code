@@ -15,7 +15,7 @@ maxOpt1Iters = 1000; # maximum number of training iterations for opt1
 opt2 = Optim.LBFGS(); # second optimizer used for fine-tuning
 maxOpt2Iters = 500; # maximum number of training iterations for opt2
 
-dx = 0.01; # discretization size used for training
+dx = 0.05; # discretization size used for training
 α_bc = 1.0f0 # weight on boundary conditions loss
 Q_fpke = 0.0f0; # Q = σ^2
 dt = 0.01; tEnd = 5.0;
