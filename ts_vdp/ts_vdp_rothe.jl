@@ -23,14 +23,14 @@ dt = 0.01; tEnd = 5.0;
 
 # file location to save data
 suff = string(activFunc);
-expNum = 26;
+expNum = 27;
 saveFile = "data_rothe/vdp_exp$(expNum).jld2";
 useGPU = false; if useGPU using CUDA end;
 runExp = true;
 runExp_fileName = "out_rothe/log$(expNum).txt";
 if runExp
     open(runExp_fileName, "a+") do io
-        write(io, "ts_vdp__PINN using Rothe's method with Grid training. 3 HL with $(nn) neurons in the hl and $(suff) activation. $(maxOpt1Iters) iterations with ADAM and then $(maxOpt2Iters) with LBFGS. using GPU? $(useGPU). dx = $(dx). α_bc = $(α_bc). Q_fpke = $(Q_fpke). dt = $(dt). tEnd = $(tEnd). Not using ADAM, just LBFGS for $(maxOpt2Iters) iterations. Using ρ. NO Positive value output using (abs2) on output layer. With norm loss function.
+        write(io, "ts_vdp__PINN using Rothe's method with Grid training. 3 HL with $(nn) neurons in the hl and $(suff) activation. $(maxOpt1Iters) iterations with ADAM and then $(maxOpt2Iters) with LBFGS. using GPU? $(useGPU). dx = $(dx). α_bc = $(α_bc). Q_fpke = $(Q_fpke). dt = $(dt). tEnd = $(tEnd). Not using ADAM, just LBFGS for $(maxOpt2Iters) iterations. Using ρ. NO Positive value output using (abs2) on output layer. With norm loss function. Loading result from exp11 for t0.
         Experiment number: $(expNum)\n")
     end
 end
@@ -141,15 +141,23 @@ cb0 = function (p, l)
     end
     return false
 end
-println("Beginning optimization for initial condition...");
-f0 = OptimizationFunction(ic_loss_fn_, GalacticOptim.AutoZygote())
-prob0 = GalacticOptim.OptimizationProblem(f0, initθ)
-# res0 = GalacticOptim.solve(prob0, opt1, cb=cb0, maxiters=maxOpt1Iters);
-# prob0 = remake(prob0, u0=res0.minimizer)
-res0 = GalacticOptim.solve(prob0, opt2, cb=cb0, maxiters=maxOpt2Iters);
-println("Optimization for initial condition done.");
-th0 = res0.minimizer;
-
+# println("Beginning optimization for initial condition...");
+# f0 = OptimizationFunction(ic_loss_fn_, GalacticOptim.AutoZygote())
+# prob0 = GalacticOptim.OptimizationProblem(f0, initθ)
+# # res0 = GalacticOptim.solve(prob0, opt1, cb=cb0, maxiters=maxOpt1Iters);
+# # prob0 = remake(prob0, u0=res0.minimizer)
+# res0 = GalacticOptim.solve(prob0, opt2, cb=cb0, maxiters=maxOpt2Iters);
+# println("Optimization for initial condition done.");
+# th0 = res0.minimizer;
+fileLoc = "data_rothe/vdp_exp$(expNum).jld2";
+@info "Loading file from ts_rothe exp 11 for th0"
+file = jldopen(fileLoc, "r");
+optParams = read(file, "optParams");
+close(file);
+th0 = optParams[1];
+if useGPU 
+    th0 = th0 |> gpu;
+end
 
 θFull = []; # Initialize variable for storage
 cuθFull = []; # Stores cu Arrays
