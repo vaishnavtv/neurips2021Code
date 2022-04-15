@@ -149,7 +149,7 @@ end
 # res0 = GalacticOptim.solve(prob0, opt2, cb=cb0, maxiters=maxOpt2Iters);
 # println("Optimization for initial condition done.");
 # th0 = res0.minimizer;
-fileLoc = "data_rothe/vdp_exp$(expNum).jld2";
+fileLoc = "data_rothe/vdp_exp11.jld2";
 @info "Loading file from ts_rothe exp 11 for th0"
 file = jldopen(fileLoc, "r");
 optParams = read(file, "optParams");
