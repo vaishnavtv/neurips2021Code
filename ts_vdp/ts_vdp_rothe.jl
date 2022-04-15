@@ -23,14 +23,14 @@ dt = 0.01; tEnd = 5.0;
 
 # file location to save data
 suff = string(activFunc);
-expNum = 29;
+expNum = 30;
 saveFile = "data_rothe/vdp_exp$(expNum).jld2";
 useGPU = true; if useGPU using CUDA end;
 runExp = true;
 runExp_fileName = "out_rothe/log$(expNum).txt";
 if runExp
     open(runExp_fileName, "a+") do io
-        write(io, "ts_vdp__PINN using Rothe's method with Grid training. 3 HL with $(nn) neurons in the hl and $(suff) activation. $(maxOpt1Iters) iterations with ADAM and then $(maxOpt2Iters) with LBFGS. using GPU? $(useGPU). dx = $(dx). α_bc = $(α_bc). Q_fpke = $(Q_fpke). dt = $(dt). tEnd = $(tEnd). Not using ADAM, just LBFGS for $(maxOpt2Iters) iterations. Using ρ. NO Positive value output using (abs2) on output layer. With norm loss function. Loading result from exp11 for t0. CubatureJLp for norm loss.
+        write(io, "ts_vdp__PINN using Rothe's method with Grid training. 3 HL with $(nn) neurons in the hl and $(suff) activation. $(maxOpt1Iters) iterations with ADAM and then $(maxOpt2Iters) with LBFGS. using GPU? $(useGPU). dx = $(dx). α_bc = $(α_bc). Q_fpke = $(Q_fpke). dt = $(dt). tEnd = $(tEnd). Not using ADAM, just LBFGS for $(maxOpt2Iters) iterations. Using ρ. NO Positive value output using (abs2) on output layer. With norm loss function. Loading result from exp11 for t0. CubaDivonne for norm loss.
         Experiment number: $(expNum)\n")
     end
 end
@@ -187,7 +187,7 @@ function norm_loss_function(θ)
          return (sum((phi(x, θ)))) # density
     end
     prob = QuadratureProblem(inner_f, lbs, ubs, θ)
-    norm2 = solve(prob, CubatureJLp(), reltol = 1e-3, abstol = 1e-3);
+    norm2 = solve(prob, CubaDivonne(), reltol = 1e-3, abstol = 1e-3);
     return abs2(norm2[1] - 1f0)
 
 end
