@@ -205,7 +205,7 @@ for (tInt, tVal) in enumerate(tR[1:end-1])
     @show loss_function_(th0,0)
 
     ## set up GalacticOptim optimization problem
-    f_ = OptimizationFunction(loss_function_, GalacticOptim.AutoTracker())
+    f_ = OptimizationFunction(loss_function_, GalacticOptim.AutoZygote())
     prob = GalacticOptim.OptimizationProblem(f_, cuθFull[tInt])
 
     global nSteps = 0;
