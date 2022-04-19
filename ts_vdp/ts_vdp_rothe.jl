@@ -19,18 +19,18 @@ maxOpt2Iters = 200; # maximum number of training iterations for opt2
 dx = 0.05; # discretization size used for training
 α_bc = 1.0f0 # weight on boundary conditions loss
 Q_fpke = 0.0f0; # Q = σ^2
-dt = 0.01; tEnd = 5.0;
+dt = 0.1; tEnd = 5.0;
 
 # file location to save data
 suff = string(activFunc);
-expNum = 30;
+expNum = 31;
 saveFile = "data_rothe/vdp_exp$(expNum).jld2";
 useGPU = true; if useGPU using CUDA end;
 runExp = true;
 runExp_fileName = "out_rothe/log$(expNum).txt";
 if runExp
     open(runExp_fileName, "a+") do io
-        write(io, "ts_vdp__PINN using Rothe's method with Grid training. 3 HL with $(nn) neurons in the hl and $(suff) activation. $(maxOpt1Iters) iterations with ADAM and then $(maxOpt2Iters) with LBFGS. using GPU? $(useGPU). dx = $(dx). α_bc = $(α_bc). Q_fpke = $(Q_fpke). dt = $(dt). tEnd = $(tEnd). Not using ADAM, just LBFGS for $(maxOpt2Iters) iterations. Using ρ. NO Positive value output using (abs2) on output layer. With norm loss function. Loading result from exp11 for t0. CubaDivonne for norm loss.
+        write(io, "ts_vdp__PINN using Rothe's method with Grid training. 3 HL with $(nn) neurons in the hl and $(suff) activation. $(maxOpt1Iters) iterations with ADAM and then $(maxOpt2Iters) with LBFGS. using GPU? $(useGPU). dx = $(dx). α_bc = $(α_bc). Q_fpke = $(Q_fpke). dt = $(dt). tEnd = $(tEnd). Not using ADAM, just LBFGS for $(maxOpt2Iters) iterations. Using ρ. NO Positive value output using (abs2) on output layer. With norm loss function. Loading result from exp11 for t0. CubatureJLh for norm loss.
         Experiment number: $(expNum)\n")
     end
 end
@@ -178,17 +178,14 @@ bc_loss_function_sum = θ -> sum(map(l -> l(θ), bc_loss_functions));
 @show bc_loss_function_sum(initθ);
 
 ## NORM loss function
-lbs = [-maxval, -maxval]; ubs = [maxval, maxval];
-nxTrain = Int(sqrt(size(train_domain_set[1],2)))
-XX = reshape(train_domain_set[1][1,:], nxTrain, nxTrain)
-xx = XX[:,1];
+lbs = ([-maxval, -maxval]); ubs = ([maxval, maxval]);
 function norm_loss_function(θ)
     function inner_f(x,θ)
          return (sum((phi(x, θ)))) # density
     end
-    prob = QuadratureProblem(inner_f, lbs, ubs, θ)
-    norm2 = solve(prob, CubaDivonne(), reltol = 1e-3, abstol = 1e-3);
-    return abs2(norm2[1] - 1f0)
+    prob = QuadratureProblem(inner_f, (lbs), (ubs), θ)
+    norm2 = sum(solve(prob, CubatureJLh(), reltol = 1f-3, abstol = 1f-3));
+    return abs2(sum(norm2) - 1f0)
 
 end
 @show norm_loss_function((th0))
@@ -199,15 +196,16 @@ tR = LinRange(0.0, tEnd,Int(tEnd/dt)+1)
 
 for (tInt, tVal) in enumerate(tR[1:end-1]) 
     pde_loss_function = (θ1) -> mean(abs2,_pde_loss_function(train_domain_set[1], θ1, cuθFull[tInt]));
-    @show pde_loss_function(initθ)
+    @show pde_loss_function(th0)
 
     function loss_function_(θ, p)
+        # return norm_loss_function(θ)
         return pde_loss_function(θ) + α_bc*bc_loss_function_sum(θ) + norm_loss_function(θ)
     end
-    @show loss_function_(initθ,0)
+    @show loss_function_(th0,0)
 
     ## set up GalacticOptim optimization problem
-    f_ = OptimizationFunction(loss_function_, GalacticOptim.AutoZygote())
+    f_ = OptimizationFunction(loss_function_, GalacticOptim.AutoTracker())
     prob = GalacticOptim.OptimizationProblem(f_, cuθFull[tInt])
 
     global nSteps = 0;
