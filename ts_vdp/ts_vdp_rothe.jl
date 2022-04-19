@@ -25,7 +25,7 @@ dt = 0.1; tEnd = 5.0;
 suff = string(activFunc);
 expNum = 31;
 saveFile = "data_rothe/vdp_exp$(expNum).jld2";
-useGPU = true; if useGPU using CUDA end;
+useGPU = false; if useGPU using CUDA end;
 runExp = true;
 runExp_fileName = "out_rothe/log$(expNum).txt";
 if runExp
