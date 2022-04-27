@@ -23,14 +23,14 @@ dt = 0.1; tEnd = 5.0;
 
 # file location to save data
 suff = string(activFunc);
-expNum = 31;
+expNum = 32;
 saveFile = "data_rothe/vdp_exp$(expNum).jld2";
-useGPU = false; if useGPU using CUDA end;
+useGPU = true; if useGPU using CUDA end;
 runExp = true;
 runExp_fileName = "out_rothe/log$(expNum).txt";
 if runExp
     open(runExp_fileName, "a+") do io
-        write(io, "ts_vdp__PINN using Rothe's method with Grid training. 3 HL with $(nn) neurons in the hl and $(suff) activation. $(maxOpt1Iters) iterations with ADAM and then $(maxOpt2Iters) with LBFGS. using GPU? $(useGPU). dx = $(dx). α_bc = $(α_bc). Q_fpke = $(Q_fpke). dt = $(dt). tEnd = $(tEnd). Not using ADAM, just LBFGS for $(maxOpt2Iters) iterations. Using ρ. NO Positive value output using (abs2) on output layer. With norm loss function. Loading result from exp11 for t0. CubatureJLh for norm loss.
+        write(io, "ts_vdp__PINN using Rothe's method with Grid training. 3 HL with $(nn) neurons in the hl and $(suff) activation. $(maxOpt1Iters) iterations with ADAM and then $(maxOpt2Iters) with LBFGS. using GPU? $(useGPU). dx = $(dx). α_bc = $(α_bc). Q_fpke = $(Q_fpke). dt = $(dt). tEnd = $(tEnd). Not using ADAM, just LBFGS for $(maxOpt2Iters) iterations. Using ρ. NO Positive value output using (abs2) on output layer. With norm loss function. Loading result from exp11 for t0. Midpoint rule for norm loss. 
         Experiment number: $(expNum)\n")
     end
 end
@@ -61,7 +61,7 @@ pdeOpt = -T1 + T2;
 
 pde_lhs = (u(xSym...) - dt/2*pdeOpt) ~ 0.0f0; # THIS IS NOT THE ACTUAL PDE
 pde_rhs = (u(xSym...) + dt/2*pdeOpt) ~ 0.0f0; # THIS IS NOT THE ACTUAL PDE
-
+pde_rho = u(xSym...) ~ 0.0f0;
 # driftTerm = -(Differential(x1)(x2*exp(η(x1, x2))) + Differential(x2)(exp(η(x1, x2))*(x2*(1 - (x1^2)) - x1)))*(exp(η(x1, x2))^-1)
 # diffTerm1 = Differential(x2)(Differential(x2)(η(x1,x2))) 
 # diffTerm2 = abs2(Differential(x2)(η(x1,x2))) # works
@@ -178,17 +178,11 @@ bc_loss_function_sum = θ -> sum(map(l -> l(θ), bc_loss_functions));
 @show bc_loss_function_sum(initθ);
 
 ## NORM loss function
-lbs = ([-maxval, -maxval]); ubs = ([maxval, maxval]);
 function norm_loss_function(θ)
-    function inner_f(x,θ)
-         return (sum((phi(x, θ)))) # density
-    end
-    prob = QuadratureProblem(inner_f, (lbs), (ubs), θ)
-    norm2 = sum(solve(prob, CubatureJLh(), reltol = 1f-3, abstol = 1f-3));
-    return abs2(sum(norm2) - 1f0)
-
+    out = abs2(sum(phi(train_domain_set[1], θ)*dx^2) - 1f0)
+    return out
 end
-@show norm_loss_function((th0))
+@show norm_loss_function(th0)
 
 ##
 nT = Int(tEnd/dt) + 1
@@ -217,7 +211,7 @@ for (tInt, tVal) in enumerate(tR[1:end-1])
         # end
 
         global nSteps = nSteps + 1
-        # println("[$nSteps] Current loss is: $l")
+        println("[$nSteps] Current loss is: $l")
         # println(
         #     "Individual losses are: PDE loss:",
         #     pde_loss_function(p),
