@@ -19,18 +19,18 @@ maxOpt2Iters = 200; # maximum number of training iterations for opt2
 dx = 0.05; # discretization size used for training
 α_bc = 1.0f0 # weight on boundary conditions loss
 Q_fpke = 0.0f0; # Q = σ^2
-dt = 0.01; tEnd = 5.0;
+dt = 0.1; tEnd = 5.0;
 
 # file location to save data
 suff = string(activFunc);
-expNum = 33;
+expNum = 34;
 saveFile = "data_rothe/vdp_exp$(expNum).jld2";
 useGPU = true; if useGPU using CUDA end;
 runExp = true;
 runExp_fileName = "out_rothe/log$(expNum).txt";
 if runExp
     open(runExp_fileName, "a+") do io
-        write(io, "ts_vdp__PINN using Rothe's method with Grid training. 3 HL with $(nn) neurons in the hl and $(suff) activation. $(maxOpt1Iters) iterations with ADAM and then $(maxOpt2Iters) with LBFGS. using GPU? $(useGPU). dx = $(dx). α_bc = $(α_bc). Q_fpke = $(Q_fpke). dt = $(dt). tEnd = $(tEnd). Not using ADAM, just LBFGS for $(maxOpt2Iters) iterations. Using ρ. NO Positive value output using (abs2) on output layer. With norm loss function. Loading result from exp11 for t0. Midpoint rule for norm loss. 
+        write(io, "ts_vdp__PINN using Rothe's method with Grid training. 3 HL with $(nn) neurons in the hl and $(suff) activation. $(maxOpt1Iters) iterations with ADAM and then $(maxOpt2Iters) with LBFGS. using GPU? $(useGPU). dx = $(dx). α_bc = $(α_bc). Q_fpke = $(Q_fpke). dt = $(dt). tEnd = $(tEnd). Not using ADAM, just LBFGS for $(maxOpt2Iters) iterations. Using ρ. Positive value output using (abs2) on output layer. With norm loss function. Loading result from exp11 for t0. Midpoint rule for norm loss. 
         Experiment number: $(expNum)\n")
     end
 end
@@ -83,7 +83,7 @@ bcs = [ρ([-maxval,x2]) ~ 0.f0, ρ([maxval,x2]) ~ 0,
 ## Neural network
 dim = 2 # number of dimensions
 # chain = Chain(Dense(dim,nn,activFunc), Dense(nn,nn,activFunc), Dense(nn,1)); # 2 hls
-chain = Chain(Dense(dim,nn,activFunc), Dense(nn,nn,activFunc), Dense(nn,nn,activFunc), Dense(nn,1)); # 3 hls
+chain = Chain(Dense(dim,nn,activFunc), Dense(nn,nn,activFunc), Dense(nn,nn,activFunc), Dense(nn,1, abs2)); # 3 hls
 # chain = Chain(Dense(dim,nn,activFunc), Dense(nn,nn,activFunc), Dense(nn,nn,activFunc), Dense(nn,nn,activFunc), Dense(nn,1)); # 4 hls
 
 ## Get get_th0
@@ -149,8 +149,8 @@ end
 # res0 = GalacticOptim.solve(prob0, opt2, cb=cb0, maxiters=maxOpt2Iters);
 # println("Optimization for initial condition done.");
 # th0 = res0.minimizer;
-fileLoc = "data_rothe/vdp_exp11.jld2";
-@info "Loading file from ts_rothe exp 11 for th0"
+fileLoc = "data_rothe/vdp_exp22.jld2";
+@info "Loading file from ts_rothe exp 22 for th0"
 file = jldopen(fileLoc, "r");
 optParams = read(file, "optParams");
 close(file);
