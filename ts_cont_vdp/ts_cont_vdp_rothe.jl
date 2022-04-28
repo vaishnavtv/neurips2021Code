@@ -18,18 +18,20 @@ maxOpt2Iters = 200; # maximum number of training iterations for opt2
 dx = 0.1; # discretization size used for training
 α_bc = 1.0f0 # weight on boundary conditions loss
 Q_fpke = 0.0f0; # Q = σ^2
-dt = 0.1; tEnd = 5.0;
+dt = 0.2; tEnd = 1.0;
+μ0  = [1f0,2f0]; Σ0 = 0.5f0*1.0f0I(2); #gaussian 
+A = 0.5f0*1.0f0I(2); # stable linear system
 
 # file location to save data
 suff = string(activFunc);
-expNum = 2;
+expNum = 3;
 saveFile = "data_cont_rothe/vdp_exp$(expNum).jld2";
 useGPU = false;
 runExp = true;
 runExp_fileName = "out_cont_rothe/log$(expNum).txt";
 if runExp
     open(runExp_fileName, "a+") do io
-        write(io, "Designing a controller for ts_vdp__PINN using Rothe's method with Grid training. 1 HL with $(nn) neurons in the hl and $(suff) activation. using GPU? $(useGPU). dx = $(dx). α_bc = $(α_bc). Q_fpke = $(Q_fpke). dt = $(dt). tEnd = $(tEnd). Not using ADAM, just LBFGS for $(maxOpt2Iters) iterations. Model matching.
+        write(io, "Designing a controller for ts_vdp__PINN using Rothe's method with Grid training. 1 HL with $(nn) neurons in the hl and $(suff) activation. using GPU? $(useGPU). dx = $(dx). α_bc = $(α_bc). Q_fpke = $(Q_fpke). dt = $(dt). tEnd = $(tEnd). Not using ADAM, just LBFGS for $(maxOpt2Iters) iterations. Model matching. μ0 = $(μ0). Σ0 = $(Σ0). A = $(A).
         Experiment number: $(expNum)\n")
     end
 end
@@ -45,7 +47,6 @@ f(x) = [x[2]; -x[1] + (1-x[1]^2)*x[2] + Kc(x...)];
 g(x) = [0.0f0;1.0f0];
 
 # Initial Condition 
-μ0  = [0f0,0f0]; Σ0 = 0.1f0*1.0f0I(2); #gaussian 
 nT = Int(tEnd/dt) + 1
 tR = LinRange(0.0, tEnd,Int(tEnd/dt)+1)
 
@@ -53,7 +54,6 @@ tR = LinRange(0.0, tEnd,Int(tEnd/dt)+1)
 Σ = zeros(Float32,2,2,nT);  Σ[:,:,1] = Σ0;
 
 # Linear System description
-A = 0.5f0*1.0f0I(2); # stable linear system
 
 #
 pde_eqn_lhs = 0.0f0;
