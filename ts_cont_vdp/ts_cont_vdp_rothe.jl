@@ -24,7 +24,7 @@ A = 0.5f0*1.0f0I(2); # stable linear system
 
 # file location to save data
 suff = string(activFunc);
-expNum = 3;
+expNum = 4;
 saveFile = "data_cont_rothe/vdp_exp$(expNum).jld2";
 useGPU = false;
 runExp = true;
@@ -162,8 +162,8 @@ cb_ = function (p, l)
 end
 
 println("Calling GalacticOptim()");
-# res = GalacticOptim.solve(prob, opt1, cb=cb_, maxiters=maxOpt1Iters);
-# prob = remake(prob, u0=res.minimizer)
+res = GalacticOptim.solve(prob, opt1, cb=cb_, maxiters=maxOpt1Iters);
+prob = remake(prob, u0=res.minimizer)
 res = GalacticOptim.solve(prob, opt2, cb=cb_, maxiters=maxOpt2Iters);
 println("Optimization done.");
 
