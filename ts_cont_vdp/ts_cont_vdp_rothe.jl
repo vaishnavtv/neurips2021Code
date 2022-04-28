@@ -18,11 +18,11 @@ maxOpt2Iters = 200; # maximum number of training iterations for opt2
 dx = 0.1; # discretization size used for training
 α_bc = 1.0f0 # weight on boundary conditions loss
 Q_fpke = 0.0f0; # Q = σ^2
-dt = 0.2; tEnd = 1.0;
+dt = 0.1; tEnd = 5.0;
 
 # file location to save data
 suff = string(activFunc);
-expNum = 1;
+expNum = 2;
 saveFile = "data_cont_rothe/vdp_exp$(expNum).jld2";
 useGPU = false;
 runExp = true;
