@@ -1,14 +1,5 @@
 ## Plot the results of the bsaeline-PINNs implementation for the Van der Pol Rayleigh oscillator
-using JLD2,
-    PyPlot,
-    NeuralPDE,
-    ModelingToolkit,
-    LinearAlgebra,
-    Flux,
-    Trapz,
-    Printf,
-    DiffEqFlux,
-    ForwardDiff
+using JLD2,PyPlot,NeuralPDE,ModelingToolkit,LinearAlgebra,Flux,Trapz,Printf,DiffEqFlux,ForwardDiff
 @variables x1, x2
 # gr();
 # pygui(true);
@@ -140,7 +131,7 @@ function nlSim(x0)
     # function to simulate nonlinear controlled dynamics with initial condition x0 and controller K
     odeFn(x, p, t) = vdpDyn(x)
     prob = ODEProblem(odeFn, x0, (0.0, tEnd))
-    sol = solve(prob, Tsit5(), reltol = 1e-6, abstol = 1e-6)
+    sol = solve(prob, Tsit5(), saveat = 2.0,  reltol = 1e-6, abstol = 1e-6)
     return sol
 end
 #
@@ -201,6 +192,26 @@ title("Steady-state norm");
 colorbar();
 tight_layout();
 # savefig("figs_prelim/norm_contVdp.png");
+
+## plot over time
+# solSimGrid = [nlSim([x,y]) for x in xg, y in yg];
+# ##
+# figure(23); clf();
+
+# # for i in 1:length(solSimGrid)
+# for t in 1:50#size(solSimGrid[1,1],2)
+#     clf();
+#     x1TrajFull_t = [solSimGrid[i][1,t] for i in 1:length(solSimGrid)] 
+#     x2TrajFull_t = [solSimGrid[i][2,t] for i in 1:length(solSimGrid)] 
+#     pcolor(gridXG, gridYG, termNorm, shading = "auto", cmap = "inferno", vmin = 0, vmax = 1);
+#     scatter(x1TrajFull_t, x2TrajFull_t,  c = "w", s = 1.0);
+#     xlabel("x1"); ylabel("x2");
+#     # xlim([-5, 5]); ylim([-5, 5]);
+#     pause(0.001);
+# end
+# end
+
+
 
 ##
 function f(x)
