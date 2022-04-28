@@ -1,5 +1,5 @@
 # Get initial set of params
-using Distributions, LinearAlgebra, Flux, CUDA
+using Distributions, LinearAlgebra, Flux#, CUDA
 import Random:seed!; seed!(1);
 
 function sub2ind(i, N)
@@ -41,15 +41,15 @@ function GenerateNDGrid(lb, ub, N)
 end
 
 # Define domain and collocation points
-maxval = 4.0;
-xmin = maxval * [-1, -1];
-xmax = maxval * [1, 1];
-nGrid =100;
-C = GenerateNDGrid(xmin, xmax, nGrid*[1,1]);
+# maxval = 4.0;
+# xmin = maxval * [-1, -1];
+# xmax = maxval * [1, 1];
+# nGrid =100;
+# C = GenerateNDGrid(xmin, xmax, nGrid*[1,1]);
 
-# # # Initial condition
+# # # # Initial condition
 # μ0  = [0,0]; Σ0 = 0.1*1.0I(2); #gaussian 
-r0 = pdf(MvNormal(μ0, Σ0),C);
+# r0 = pdf(MvNormal(μ0, Σ0),C);
 # rho0 = reshape(r0, (1, nGrid^2));
 
 # dim = 2 # number of dimensions
@@ -76,14 +76,14 @@ r0 = pdf(MvNormal(μ0, Σ0),C);
 # XX = reshape(C[1, :], nGrid, nGrid);
 # YY = reshape(C[2, :], nGrid, nGrid);
 # using PyPlot; pygui(true);
-using Plots;
-p1 = heatmap(C[1,1:nGrid], C[1,1:nGrid], reshape(r0, (nGrid, nGrid)));
-# # p2 = heatmap(C[1,1:nGrid], C[1,1:nGrid], reshape(Array(exp.(chain((C)))), (nGrid, nGrid)));
-p2 = heatmap(C[1,1:nGrid], C[1,1:nGrid], reshape(Array((phi((C),th0))), (nGrid, nGrid)));
-p3 = heatmap(C[1,1:nGrid], C[1,1:nGrid], abs.(reshape(r0, (nGrid, nGrid)) - reshape(Array(phi((C),th0)), (nGrid, nGrid))));
-# p = plot(p1, p2, p3, aspect_ratio=:equal);
-p = plot(p2)
-display(p);
+# using Plots;
+# p1 = heatmap(C[1,1:nGrid], C[1,1:nGrid], reshape(r0, (nGrid, nGrid)));
+# # # p2 = heatmap(C[1,1:nGrid], C[1,1:nGrid], reshape(Array(exp.(chain((C)))), (nGrid, nGrid)));
+# p2 = heatmap(C[1,1:nGrid], C[1,1:nGrid], reshape(Array((phi((C),th0))), (nGrid, nGrid)));
+# p3 = heatmap(C[1,1:nGrid], C[1,1:nGrid], abs.(reshape(r0, (nGrid, nGrid)) - reshape(Array(phi((C),th0)), (nGrid, nGrid))));
+# # p = plot(p1, p2, p3, aspect_ratio=:equal);
+# p = plot(p2)
+# display(p);
 ##
 # figure(56, (12,4)); clf();
 # subplot(1,3,1);

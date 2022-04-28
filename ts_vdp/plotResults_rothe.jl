@@ -7,26 +7,25 @@ mkpath("figs_rothe");
 
 # Load data 
 activFunc = tanh;
-dx = 0.01;
 suff = string(activFunc);
 nn = 100;
-Q_fpke = 0.1f0#*1.0I(2); # σ^2
+Q_fpke = 0.0f0#*1.0I(2); # σ^2
 
-expNum = 16; 
+expNum = 35; 
 fileLoc = "data_rothe/vdp_exp$(expNum).jld2";
 @info "Loading file from ts_rothe exp $(expNum)"
 file = jldopen(fileLoc, "r");
 optParams = read(file, "optParams");
 tR = read(file, "tR");
 # dt_sim = 0.01;
-# tR = LinRange(0.0, 0.1, Int(0.1/dt_sim) + 1);
+# tR = LinRange(0.0,2, Int(0.1/dt_sim) + 1);
 close(file);
 println("Are any of the parameters NaN ever? $(sum([any(isnan.(optParams[i])) for i in 1:length(optParams)]))")
 
 mkpath("figs_rothe/exp$(expNum)")
 
 
-chain = Chain(Dense(2, nn, activFunc), Dense(nn, nn, activFunc), Dense(nn, nn, activFunc), Dense(nn, 1, abs));
+chain = Chain(Dense(2, nn, activFunc), Dense(nn, nn, activFunc), Dense(nn, nn, activFunc), Dense(nn, 1, abs2));
 # chain = Chain(Dense(2, nn, activFunc), Dense(nn, nn, activFunc), Dense(nn, 1));
 
 Q_fpke_str = string(Q_fpke);
