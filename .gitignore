@@ -121,3 +121,6 @@ ts_vdp/rothe_batch.slurm
 ts_vdp/figs_rothe
 ts_vdp/data_rothe/vdp_exp16.jld2
 ts_vdp/data_rothe/vdp_exp17.jld2
+ts_cont_vdp/cont_rothe.slurm
+ts_cont_vdp/out*
+ts_cont_vdp/figs*
