@@ -24,14 +24,14 @@ A = 0.5f0*1.0f0I(2); # stable linear system
 
 # file location to save data
 suff = string(activFunc);
-expNum = 4;
+expNum = 5;
 saveFile = "data_cont_rothe/vdp_exp$(expNum).jld2";
 useGPU = false;
 runExp = true;
 runExp_fileName = "out_cont_rothe/log$(expNum).txt";
 if runExp
     open(runExp_fileName, "a+") do io
-        write(io, "Designing a controller for ts_vdp__PINN using Rothe's method with Grid training. 1 HL with $(nn) neurons in the hl and $(suff) activation. using GPU? $(useGPU). dx = $(dx). α_bc = $(α_bc). Q_fpke = $(Q_fpke). dt = $(dt). tEnd = $(tEnd). Not using ADAM, just LBFGS for $(maxOpt2Iters) iterations. Model matching. μ0 = $(μ0). Σ0 = $(Σ0). A = $(A).
+        write(io, "Designing a controller for ts_vdp__PINN using Rothe's method with Grid training. 2 HL with $(nn) neurons in the hl and $(suff) activation. using GPU? $(useGPU). dx = $(dx). α_bc = $(α_bc). Q_fpke = $(Q_fpke). dt = $(dt). tEnd = $(tEnd). Not using ADAM, just LBFGS for $(maxOpt2Iters) iterations. Model matching. μ0 = $(μ0). Σ0 = $(Σ0). A = $(A).
         Experiment number: $(expNum)\n")
     end
 end
@@ -83,9 +83,9 @@ placeholder_eqn = Kc(x1,x2) ~ 0.0f0; # just for generating training data
 println("PDE defined.")
 
 ## Neural network
-chain = Chain(Dense(2, nn, activFunc), Dense(nn, 1)); # 1 layer network
+chain = Chain(Dense(2, nn, activFunc), Dense(nn, nn, activFunc), Dense(nn, 1)); # 1 layer network
 initθ,re  = Flux.destructure(chain)
-phi = (x,θ) -> re(θ)(Array(x))
+# phi = (x,θ) -> re(θ)(Array(x))
 
 ## Domain
 maxval = 4.0f0;
@@ -105,6 +105,7 @@ end
 flat_initθ = initθ; th0 = initθ;
 eltypeθ = eltype(flat_initθ);
 parameterless_type_θ = DiffEqBase.parameterless_type(flat_initθ);
+phi = NeuralPDE.get_phi(chain, parameterless_type_θ);
 
 strategy = NeuralPDE.GridTraining(dx);
 derivative = NeuralPDE.get_numeric_derivative();
