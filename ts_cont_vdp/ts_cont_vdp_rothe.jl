@@ -19,12 +19,12 @@ dx = 0.1; # discretization size used for training
 α_bc = 1.0f0 # weight on boundary conditions loss
 Q_fpke = 0.0f0; # Q = σ^2
 dt = 0.2; tEnd = 1.0;
-μ0  = [1f0,2f0]; Σ0 = 0.5f0*1.0f0I(2); #gaussian 
+μ0  = [0f0,0f0]; Σ0 = 1f0*1.0f0I(2); #gaussian 
 A = 0.5f0*1.0f0I(2); # stable linear system
 
 # file location to save data
 suff = string(activFunc);
-expNum = 6;
+expNum = 7;
 saveFile = "data_cont_rothe/vdp_exp$(expNum).jld2";
 useGPU = false;
 runExp = true;
