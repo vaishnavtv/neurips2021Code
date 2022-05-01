@@ -8,7 +8,7 @@ using NeuralPDE, Flux, ModelingToolkit, GalacticOptim, Optim, Symbolics, JLD2, D
 import Random:seed!; seed!(1);
 
 ## parameters for neural network
-nn = 50; # number of neurons in the hidden layer
+nn = 20; # number of neurons in the hidden layer
 activFunc = tanh; # activation function
 opt1 = ADAM(1e-3); # primary optimizer used for training
 maxOpt1Iters = 1000; # maximum number of training iterations for opt1
@@ -24,7 +24,7 @@ A = 0.5f0*1.0f0I(2); # stable linear system
 
 # file location to save data
 suff = string(activFunc);
-expNum = 7;
+expNum = 8;
 saveFile = "data_cont_rothe/vdp_exp$(expNum).jld2";
 useGPU = false;
 runExp = true;
@@ -83,7 +83,8 @@ placeholder_eqn = Kc(x1,x2) ~ 0.0f0; # just for generating training data
 println("PDE defined.")
 
 ## Neural network
-chain = Chain(Dense(2, nn, activFunc), Dense(nn, nn, activFunc), Dense(nn, 1)); # 1 layer network
+chain = Chain(Dense(2, nn, activFunc), Dense(nn, 1)); # 1 layer network
+# chain = Chain(Dense(2, nn, activFunc), Dense(nn, nn, activFunc), Dense(nn, 1)); # 2 layer network
 initθ,re  = Flux.destructure(chain)
 # phi = (x,θ) -> re(θ)(Array(x))
 
