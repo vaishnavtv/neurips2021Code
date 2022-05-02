@@ -8,30 +8,30 @@ using NeuralPDE, Flux, ModelingToolkit, GalacticOptim, Optim, Symbolics, JLD2, D
 import Random:seed!; seed!(1);
 
 ## parameters for neural network
-nn = 20; # number of neurons in the hidden layer
+nn = 50; # number of neurons in the hidden layer
 activFunc = tanh; # activation function
 opt1 = ADAM(1e-3); # primary optimizer used for training
 maxOpt1Iters = 1000; # maximum number of training iterations for opt1
 opt2 = Optim.LBFGS(); # second optimizer used for fine-tuning
-maxOpt2Iters = 10000; # maximum number of training iterations for opt2
+maxOpt2Iters = 200; # maximum number of training iterations for opt2
 
 dx = 0.1; # discretization size used for training
 α_bc = 1.0f0 # weight on boundary conditions loss
 Q_fpke = 0.0f0; # Q = σ^2
 dt = 0.2f0; tEnd = 1.0f0;
-μ0  = [1f0,2f0]; Σ0 = 0.1f0*1.0f0I(2); #gaussian 
+μ0  = [0f0,0f0]; Σ0 = 1f0*1.0f0I(2); #gaussian 
 A = 0.5f0*1.0f0I(2); # stable linear system
 
 # file location to save data
 suff = string(activFunc);
-expNum = 9;
+expNum = 10;
 saveFile = "data_cont_rothe/vdp_exp$(expNum).jld2";
 useGPU = false;
 runExp = true;
 runExp_fileName = "out_cont_rothe/log$(expNum).txt";
 if runExp
     open(runExp_fileName, "a+") do io
-        write(io, "Designing a controller for ts_vdp__PINN using Rothe's method with Grid training. 2 HL with $(nn) neurons in the hl and $(suff) activation. using GPU? $(useGPU). dx = $(dx). α_bc = $(α_bc). Q_fpke = $(Q_fpke). dt = $(dt). tEnd = $(tEnd). Not using ADAM, just LBFGS for $(maxOpt2Iters) iterations. Model matching. μ0 = $(μ0). Σ0 = $(Σ0). A = $(A).
+        write(io, "Designing a controller for ts_vdp__PINN using Rothe's method with Grid training. 2 HL with $(nn) neurons in the hl and $(suff) activation. using GPU? $(useGPU). dx = $(dx). α_bc = $(α_bc). Q_fpke = $(Q_fpke). dt = $(dt). tEnd = $(tEnd). Not using ADAM, just LBFGS for $(maxOpt2Iters) iterations. Model matching. μ0 = $(μ0). Σ0 = $(Σ0). A = $(A). Adding norm loss for control effort.
         Experiment number: $(expNum)\n")
     end
 end
@@ -83,8 +83,8 @@ placeholder_eqn = Kc(x1,x2) ~ 0.0f0; # just for generating training data
 println("PDE defined.")
 
 ## Neural network
-chain = Chain(Dense(2, nn, activFunc), Dense(nn, 1)); # 1 layer network
-# chain = Chain(Dense(2, nn, activFunc), Dense(nn, nn, activFunc), Dense(nn, 1)); # 2 layer network
+# chain = Chain(Dense(2, nn, activFunc), Dense(nn, 1)); # 1 layer network
+chain = Chain(Dense(2, nn, activFunc), Dense(nn, nn, activFunc), Dense(nn, 1)); # 2 layer network
 initθ,re  = Flux.destructure(chain)
 # phi = (x,θ) -> re(θ)(Array(x))
 
@@ -127,7 +127,11 @@ using Statistics
 pde_loss_function = (θ) -> mean(_pde_loss_function(train_domain_set[1], θ));
 @show pde_loss_function(initθ)
 
-loss_function_(θ, p) = pde_loss_function(θ);
+# Control effort
+cont_loss_function = (θ) -> (norm(phi(train_domain_set[1], θ)));
+@show cont_loss_function(initθ)
+
+loss_function_(θ, p) = pde_loss_function(θ) + cont_loss_function(θ) ;
 @show loss_function_(initθ, 0)
 
 ## set up GalacticOptim optimization problem
@@ -136,8 +140,6 @@ prob = GalacticOptim.OptimizationProblem(f_, initθ)
 
 nSteps = 0;
 PDE_losses = Float32[];
-BC_losses = Float32[];
-# IC_losses = Float32[];
 NORM_losses = Float32[];
 cb_ = function (p, l)
     if any(isnan.(p))
@@ -148,33 +150,32 @@ cb_ = function (p, l)
     println("[$nSteps] Current loss is: $l")
     println(
         "Individual losses are: PDE loss:",
-        pde_loss_function(p),        
+        pde_loss_function(p), 
+        " NORM loss:",
+        cont_loss_function(p)       
     )
 
     push!(PDE_losses, pde_loss_function(p))
+    push!(NORM_losses, cont_loss_function(p))
 
     if runExp # if running job file
         open(runExp_fileName, "a+") do io
             write(io, "[$nSteps] Current loss is: $l \n")
         end;
         
-        jldsave(saveFile; optParam=Array(p), PDE_losses, tR, μ, Σ, A)
+        jldsave(saveFile; optParam=Array(p), PDE_losses, tR, μ, Σ, A, NORM_losses);
     end
     return false
 end
 
 println("Calling GalacticOptim()");
-# res = GalacticOptim.solve(prob, opt1, cb=cb_, maxiters=maxOpt1Iters);
-# prob = remake(prob, u0=res.minimizer)
+res = GalacticOptim.solve(prob, opt1, cb=cb_, maxiters=maxOpt1Iters);
+prob = remake(prob, u0=res.minimizer)
 res = GalacticOptim.solve(prob, opt2, cb=cb_, maxiters=maxOpt2Iters);
 println("Optimization done.");
 
 # ## Save data
 cd(@__DIR__);
 if runExp
-    jldsave(saveFile;optParam = res.minimizer, PDE_losses, tR, μ, Σ, A);
+    jldsave(saveFile;optParam = res.minimizer, PDE_losses, tR, μ, Σ, A, NORM_losses);
 end
-
-##
-th0 = initθ;
-df(th) = Zygote.gradient(pde_loss_function, th)[1];
