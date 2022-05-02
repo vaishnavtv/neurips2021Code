@@ -47,7 +47,7 @@ suff = string(activFunc);
 nn = 20;
 Q_fpke = 0.0f0#*1.0I(2); # σ^2
 
-expNum = 4; 
+expNum = 8; 
 fileLoc = "data_cont_rothe/vdp_exp$(expNum).jld2";
 @info "Loading file from ts_cont_vdp exp $(expNum)"
 file = jldopen(fileLoc, "r");
@@ -65,6 +65,7 @@ mkpath("figs_cont/exp$(expNum)")
 
 ## Neural network
 chain = Chain(Dense(2, nn, activFunc), Dense(nn, 1)); # 1 layer network
+# chain = Chain(Dense(2, nn, activFunc), Dense(nn, nn, activFunc), Dense(nn, 1)); # 2 layer network
 initθ,re  = Flux.destructure(chain)
 phi = (x,θ) -> re(θ)(Array(x))
 
@@ -80,7 +81,7 @@ function vdpDyn(x)
     return (dx)
 end
 #
-tEnd = 10.0;
+tEnd = 20.0;
 function nlSim(x0)
     # function to simulate nonlinear controlled dynamics with initial condition x0 and controller K
     odeFn(x, p, t) = vdpDyn(x)
@@ -162,8 +163,8 @@ for tInd in 1:size(solSimGrid[1,1],2)
     title("VDP with Controller: t = $(tVal)")
     tight_layout();
     if (tVal*100%100 == 0)
-    # savefig("figs_cont_rothe/exp$(expNum)/scat_t$(Int(tVal)).png")
-    savefig("figs_cont/exp6/scat_t$(Int(tVal)).png")
+    savefig("figs_cont/exp$(expNum)/scat_t$(Int(tVal)).png")
+    # savefig("figs_cont/expTmp/scat_t$(Int(tVal)).png")
     end
     pause(0.001);
 end
