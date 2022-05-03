@@ -20,11 +20,11 @@ Q_fpke = 0.0f0; # Q = σ^2
 dt = 0.2f0; tEnd = 1.0f0;
 μ0  = [0f0,0f0]; Σ0 = 1f0*1.0f0I(2); #gaussian 
 A = 0.5f0*1.0f0I(2); # stable linear system
-α_c = 1f-1 # weight on control effort loss
+α_c = 1f-2 # weight on control effort loss
 
 # file location to save data
 suff = string(activFunc);
-expNum = 12;
+expNum = 13;
 saveFile = "data_cont_rothe/vdp_exp$(expNum).jld2";
 useGPU = false;
 runExp = true;
