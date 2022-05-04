@@ -3,7 +3,7 @@
 cd(@__DIR__);
 mkpath("out_cont_rothe");
 mkpath("data_cont_rothe");
-using NeuralPDE, Flux, ModelingToolkit, GalacticOptim, Optim, Symbolics, JLD2, DiffEqFlux, LinearAlgebra, Distributions
+using NeuralPDE, Flux, ModelingToolkit, GalacticOptim, Optim, Symbolics, JLD2, DiffEqFlux, LinearAlgebra, Distributions, Statistics
 
 import Random:seed!; seed!(1);
 
@@ -24,9 +24,9 @@ A = -0.5f0*1.0f0I(2); # stable linear system
 
 # file location to save data
 suff = string(activFunc);
-expNum = 15;
+expNum = 16;
 saveFile = "data_cont_rothe/vdp_exp$(expNum).jld2";
-useGPU = false;
+useGPU = true;
 runExp = true;
 runExp_fileName = "out_cont_rothe/log$(expNum).txt";
 if runExp
@@ -57,6 +57,7 @@ tR = LinRange(0.0, tEnd,Int(tEnd/dt)+1)
 
 #
 pde_eqn_lhs = 0.0f0;
+eqns_lhs = []; eqns = [];
 for (tInt, tVal) in enumerate(tR[1:end-1]) 
     μ[:,tInt+1] = A*μ[:,tInt];
     Σ[:,:,tInt+1] = A*Σ[:,:,tInt]*A';
@@ -75,6 +76,8 @@ for (tInt, tVal) in enumerate(tR[1:end-1])
     diff0 = sum([(Differential(xSym[i])*Differential(xSym[j]))(G0[i,j]) for i in 1:length(xSym), j=1:length(xSym)]);
     pdeOpt0 = -drift0 #+ diff0;
 
+    push!(eqns_lhs, abs2((ρ_sym1 - dt/2*pdeOpt1) - (ρ_sym0 + dt/2*pdeOpt0)))
+    push!(eqns, eqns_lhs[tInt] ~ 0.0f0)
     global pde_eqn_lhs += abs2((ρ_sym1 - dt/2*pdeOpt1) - (ρ_sym0 + dt/2*pdeOpt0)) # error at time k squared here itself
 end
 
@@ -116,16 +119,25 @@ depvars = [Kc(xSym...)]
 
 integral = NeuralPDE.get_numeric_integral(strategy, indvars, depvars, chain, derivative);
 
-_pde_loss_function = NeuralPDE.build_loss_function(pde_eqn,indvars,depvars,phi,derivative,integral,chain,initθ,strategy);
-
 train_domain_set, train_bound_set = NeuralPDE.generate_training_sets(domains, dx, [placeholder_eqn], bcs, eltypeθ, indvars, depvars) ;
 if useGPU
     train_domain_set = train_domain_set |> gpu;
 end
 
-using Statistics
-pde_loss_function = (θ) -> mean(_pde_loss_function(train_domain_set[1], θ));
-@show pde_loss_function(initθ)
+# _pde_loss_function = NeuralPDE.build_loss_function(eqns[2],indvars,depvars,phi,derivative,integral,chain,initθ,strategy);
+# @show _pde_loss_function(tx, th0)
+
+# pde_loss_function = (θ) -> mean(_pde_loss_function(train_domain_set[1], θ));
+# @show pde_loss_function(initθ)
+
+_pde_loss_functions = [NeuralPDE.build_loss_function(eq,indvars,depvars,phi,derivative,integral,chain,initθ,strategy) for eq in eqns];
+# @show [fn(train_domain_set[1], th0) for fn in _pde_loss_functions]
+
+pde_loss_functions = [(θ) -> mean(fn(train_domain_set[1], θ)) for fn in _pde_loss_functions];
+# @show [fn(th0) for fn in pde_loss_functions]
+
+pde_loss_function = θ -> sum(map(l -> l(θ), pde_loss_functions)); # sum of all losses
+@show pde_loss_function(th0)
 
 # Control effort
 cont_loss_function = (θ) -> (norm(phi(train_domain_set[1], θ)));
