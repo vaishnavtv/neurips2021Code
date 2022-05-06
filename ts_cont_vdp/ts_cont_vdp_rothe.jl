@@ -11,20 +11,20 @@ import Random:seed!; seed!(1);
 nn = 50; # number of neurons in the hidden layer
 activFunc = tanh; # activation function
 opt1 = ADAM(1e-3); # primary optimizer used for training
-maxOpt1Iters = 1; # maximum number of training iterations for opt1
+maxOpt1Iters = 1000; # maximum number of training iterations for opt1
 opt2 = Optim.LBFGS(); # second optimizer used for fine-tuning
-maxOpt2Iters = 10000; # maximum number of training iterations for opt2
+maxOpt2Iters = 200; # maximum number of training iterations for opt2
 
 dx = 0.1; # discretization size used for training
-Q_fpke = 0.0f0; # Q = σ^2
+Q_fpke = 0.1f0; # Q = σ^2
 dt = 0.2f0; tEnd = 1.0f0;
 μ0  = [0f0,0f0]; Σ0 = 1f0*1.0f0I(2); #gaussian 
 A = -0.5f0*1.0f0I(2); # stable linear system
-α_c = 1f-1; # weight on control effort loss
+α_c = 0f0; # weight on control effort loss
 
 # file location to save data
 suff = string(activFunc);
-expNum = 18;
+expNum = 14;
 saveFile = "data_cont_rothe/vdp_exp$(expNum).jld2";
 useGPU = true;
 runExp = true;
@@ -70,11 +70,11 @@ for (tInt, tVal) in enumerate(tR[1:end-1])
 
     drift1 = sum([Differential(xSym[i])(F1[i]) for i in 1:length(xSym)]);
     diff1 = sum([(Differential(xSym[i])*Differential(xSym[j]))(G1[i,j]) for i in 1:length(xSym), j=1:length(xSym)]);
-    pdeOpt1 = -drift1 #+ diff1;
+    pdeOpt1 = -drift1 + diff1;
 
     drift0 = sum([Differential(xSym[i])(F0[i]) for i in 1:length(xSym)]);
     diff0 = sum([(Differential(xSym[i])*Differential(xSym[j]))(G0[i,j]) for i in 1:length(xSym), j=1:length(xSym)]);
-    pdeOpt0 = -drift0 #+ diff0;
+    pdeOpt0 = -drift0 + diff0;
 
     push!(eqns_lhs, abs2((ρ_sym1 - dt/2*pdeOpt1) - (ρ_sym0 + dt/2*pdeOpt0)))
     push!(eqns, eqns_lhs[tInt] ~ 0.0f0)
