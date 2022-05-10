@@ -19,20 +19,20 @@ maxOpt2Iters = 10000; # maximum number of training iterations for opt2
 
 # parameters for rhoSS_desired
 μ_ss = [0f0,0f0];
-Σ_ss = 0.001f0*1.0f0I(2);
+Σ_ss = 0.1f0*1.0f0I(2);
 
 dx = 0.05f0; # discretization size used for training
-Q_fpke = 0.1f0; # Q = σ^2
+Q_fpke = 0.0f0; # Q = σ^2
 
 # file location to save data
-expNum = 6;
+expNum = 7;
 useGPU = true;
 runExp = true;
 saveFile = "data_rhoConst/exp$(expNum).jld2";
 runExp_fileName = "out_rhoConst/log$(expNum).txt";
 if runExp
     open(runExp_fileName, "a+") do io
-        write(io, "Generating a controller for vdp with desired ss distribution. 2 HL with $(nn) neurons in the hl and $(activFunc) activation. $(maxOpt1Iters) iterations with ADAM and then $(maxOpt2Iters) with LBFGS. using GPU? $(useGPU). dx = $(dx). Q_fpke = $(Q_fpke). μ_ss = $(μ_ss). Σ_ss = $(Σ_ss).
+        write(io, "Generating a controller for vdp with desired ss distribution. 2 HL with $(nn) neurons in the hl and $(activFunc) activation. $(maxOpt1Iters) iterations with ADAM and then $(maxOpt2Iters) with LBFGS. using GPU? $(useGPU). dx = $(dx). Q_fpke = $(Q_fpke). μ_ss = $(μ_ss). Σ_ss = $(Σ_ss). Not dividing equation by ρ.
         Experiment number: $(expNum)\n")
     end
 end
@@ -57,7 +57,7 @@ T1 = sum([Differential(xSym[i])(F[i]) for i = 1:length(xSym)]);
 T2 = sum([(Differential(xSym[i]) * Differential(xSym[j]))(G[i, j]) for i = 1:length(xSym),j = 1:length(xSym)]);
 
 Eqn = expand_derivatives(-T1 + T2); # + dx*u(x1,x2)-1 ~ 0;
-pde = simplify(Eqn / ρSS_sym, expand = true) ~ 0.0f0;
+pde = simplify(Eqn, expand = true) ~ 0.0f0;
 
 println("PDE defined.")
 # sleep(1000)
