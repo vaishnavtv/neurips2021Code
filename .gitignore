@@ -13,9 +13,10 @@ ot_vdp/batch.slurm
 # ot_vdpr/data
 ot_vdpr/out
 ot_vdpr/batch.slurm
-cont_vdp/out
+cont_vdp/out*
 cont_vdp/batch.slurm
-cont_vdp/figs
+cont_vdp/rhoConst.slurm
+cont_vdp/figs*
 cont_vdp/batch.slurm
 otSampler_RB/batch.slurm
 otSampler_RB/out
@@ -37,9 +38,7 @@ linear_f16/figs
 f16/f16_controller_2.jl
 f16/batch_copy.slurm
 f16/test.jl
-cont_vdp/batch.slurm
 cont_vdp/cont_ll_vdp_2.jl
-cont_vdp/batch.slurm
 f16/baseline_f16_2.jl
 f16/quad_batch.slurm
 f16/outQuad
@@ -90,7 +89,6 @@ ts_vdpr/ts_vdpr_grid_batch.slurm
 ts_vdpr/out_grid
 # baseline_vdp/figs_prelim
 baseline_vdpr/figs_prelim
-cont_vdp/figs_prelim
 ot_vdp/figs_prelim
 ot_vdpr/figs_prelim
 # baseline_vdp/figs_quasi
