@@ -22,10 +22,10 @@ maxOpt2Iters = 10000; # maximum number of training iterations for opt2
 Σ_ss = 1f0*1.0f0I(2);
 
 dx = 0.05f0; # discretization size used for training
-Q_fpke = 0.0f0; # Q = σ^2
+Q_fpke = 0.1f0; # Q = σ^2
 
 # file location to save data
-expNum = 11;
+expNum = 12;
 useGPU = true;
 runExp = true;
 saveFile = "data_rhoConst/exp$(expNum).jld2";
