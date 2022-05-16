@@ -49,7 +49,7 @@ quad_f16_self
 f16/ll_quad_batch.slurm
 f16/data
 f16/dataQuad
-f16/out_ll_quad
+f16/out*
 f16/ll_quasi_batch.slurm
 rho_f16/f16_controller.jl
 rho_f16/ll_quad_rho_f16.jl
@@ -122,3 +122,4 @@ ts_vdp/data_rothe/vdp_exp17.jld2
 ts_cont_vdp/cont_rothe.slurm
 ts_cont_vdp/out*
 ts_cont_vdp/figs*
+f16/symBatch.slurm
