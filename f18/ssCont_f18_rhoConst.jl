@@ -59,15 +59,29 @@ for i in 1:length(indX)
     end
 end
 
+if useGPU
+    f18_xTrim = f18_xTrim |> gpu;
+    f18_uTrim = f18_uTrim |> gpu;
+    maskIndx = maskIndx |> gpu;
+    maskIndu = maskIndu |> gpu;
+else
+    f18_xTrim = f18_xTrim |> cpu;
+    f18_uTrim = f18_uTrim |> cpu;
+    maskIndx = maskIndx |> cpu;
+    maskIndu = maskIndu |> cpu;
+end
+
 # F18 Dynamics
 function f(xd)
 
-    ud = [Kc1(xd...); Kc2(xd...)];
-
-    xFull = f18_xTrim + maskIndx*xd;
+    ud = [Kc1(xd[1],xd[2],xd[3],xd[4]); Kc2(xd[1],xd[2],xd[3],xd[4])];
+    
+    # perturbation about trim point
+    xFull = f18_xTrim + maskIndx*xd; 
     uFull = f18_uTrim + maskIndu*ud;
 
     xdotFull = f18Dyn(xFull, uFull)
+    # xdotFull = xFull;
 
     return (xdotFull[indX]) # return the 4 state dynamics
 
@@ -84,8 +98,9 @@ G = 0.5f0 * (g(xSym) * Q_fpke * g(xSym)') * ρSS_sym;
 T1 = sum([Differential(xSym[i])(F[i]) for i = 1:length(xSym)]);
 T2 = sum([(Differential(xSym[i]) * Differential(xSym[j]))(G[i, j]) for i = 1:length(xSym),j = 1:length(xSym)]);
 
-Eqn = expand_derivatives(-T1 + T2); # + dx*u(x1,x2)-1 ~ 0;
-pde = simplify(Eqn) ~ 0.0f0;
+# Eqn = expand_derivatives(-T1 + T2); # + dx*u(x1,x2)-1 ~ 0;
+# pde = simplify(Eqn) ~ 0.0f0;
+pde = T1 ~ 0.f0
 
 println("PDE defined.")
 
@@ -109,15 +124,15 @@ chain2 = Chain(Dense(dim, nn, activFunc), Dense(nn, nn, activFunc), Dense(nn, 1)
 chain = [chain1, chain2];
 
 initθ = DiffEqFlux.initial_params.(chain);
-th0 = initθ;
-th10= initθ[1];
-th20= initθ[2];
 if useGPU
     using CUDA
     CUDA.allowscalar(false)
     initθ = initθ |> gpu;
-end
-flat_initθ = reduce(vcat, initθ);
+    th10= initθ[1];
+    th20= initθ[2];
+end 
+flat_initθ = reduce(vcat, initθ); 
+th0 = flat_initθ;
 eltypeθ = eltype(flat_initθ);
 parameterless_type_θ = DiffEqBase.parameterless_type(flat_initθ);
 
