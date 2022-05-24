@@ -22,7 +22,7 @@ maxOpt2Iters = 10000; # maximum number of training iterations for opt2
 
 # parameters for rhoSS_desired
 μ_ss = [0f0,0f0,0f0,0f0];
-Σ_ss = 0.01f0*1.0f0I(4);
+Σ_ss = 0.1f0*1.0f0I(4);
 
 Q_fpke = 0.0f0; # Q = σ^2
 
@@ -31,7 +31,7 @@ nMB = 500; # number of minibatches
 
 
 # file location to save data
-expNum = 2;
+expNum = 3;
 useGPU = false;
 runExp = true;
 saveFile = "data_rhoConst/exp$(expNum).jld2";
