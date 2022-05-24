@@ -44,14 +44,16 @@ YY = reshape(CEval[2, :], NN, NN);
 ## Load data 
 activFunc = tanh;
 suff = string(activFunc);
-nn = 20;
+nn = 50;
 Q_fpke = 0.0f0#*1.0I(2); # σ^2
 
-expNum = 8; 
+expNum = 20; 
 fileLoc = "data_cont_rothe/vdp_exp$(expNum).jld2";
 @info "Loading file from ts_cont_vdp exp $(expNum)"
 file = jldopen(fileLoc, "r");
-optParam = read(file, "optParam");
+optParam = Array(read(file, "optParam"));
+PDE_losses = read(file, "PDE_losses");
+NORM_losses = read(file, "NORM_losses");
 A = read(file, "A");
 μ = read(file, "μ");
 Σ = read(file, "Σ");
@@ -62,29 +64,41 @@ println("Are any of the parameters NaN ever? $(any(isnan.(optParam)))")
 
 mkpath("figs_cont/exp$(expNum)")
 
+## Plot Losses
+nIters = length(PDE_losses);
+figure(1); clf();
+semilogy(1:nIters, PDE_losses, label =  "PDE");
+semilogy(1:nIters, NORM_losses, label = "NORM");
+xlabel("Iterations");
+ylabel("ϵ");
+title("Loss Function exp$(expNum)");
+title(string(" Exp $(expNum)"));
+legend(); tight_layout();
+savefig("figs_cont/exp$(expNum)/loss.png")
 
 ## Neural network
-chain = Chain(Dense(2, nn, activFunc), Dense(nn, 1)); # 1 layer network
-# chain = Chain(Dense(2, nn, activFunc), Dense(nn, nn, activFunc), Dense(nn, 1)); # 2 layer network
+# chain = Chain(Dense(2, nn, activFunc), Dense(nn, 1)); # 1 layer network
+chain = Chain(Dense(2, nn, activFunc), Dense(nn, nn, activFunc), Dense(nn, 1)); # 2 layer network
 initθ,re  = Flux.destructure(chain)
 phi = (x,θ) -> re(θ)(Array(x))
 
 
 ## controlled Dynamics do not stabilize x1
+τ = 1; # for low pass filter
 using DifferentialEquations
 # Dynamics with controller Kc
-function vdpDyn(x)
+function vdpDyn(x,t)
     dx = similar(x)
     u = first(phi(x, optParam))
     dx[1] = x[2]
-    dx[2] = -x[1] + (1 - x[1]^2) * x[2] + u
+    dx[2] = -x[1] + (1 - x[1]^2) * x[2] + u# (1-exp(-τ*t))*u
     return (dx)
 end
 #
 tEnd = 20.0;
 function nlSim(x0)
     # function to simulate nonlinear controlled dynamics with initial condition x0 and controller K
-    odeFn(x, p, t) = vdpDyn(x)
+    odeFn(x, p, t) = vdpDyn(x, t)
     prob = ODEProblem(odeFn, x0, (0.0, tEnd))
     sol = solve(prob, Tsit5(), saveat = 0.2, reltol = 1e-6, abstol = 1e-6)
     return sol
@@ -94,6 +108,7 @@ function plotTraj(sol, figNum)
     tSim = sol.t
     x1Sol = sol[1, :]
     x2Sol = sol[2, :]
+    # u = [(1-exp(-τ*tSim[i]))*first(phi(sol.u[i], optParam)) for i = 1:length(tSim)]
     u = [first(phi(sol.u[i], optParam)) for i = 1:length(tSim)]
 
     figure(figNum);clf()
@@ -125,7 +140,8 @@ println("x1 initial value: $(solSim[1,1]);  x1 terminal value: $(solSim[1,end])"
 println("Terminal value state norm: $(norm(solSim[:,end]))");
 figure(3);
 clf();
-plotTraj(solSim, 3)
+plotTraj(solSim, 3);
+savefig("figs_cont/exp$(expNum)/traj.png");
 
 ##
 nEvalTerm = 10;
@@ -137,20 +153,21 @@ gridYG = ones(nEvalTerm)' .* yg;
 
 # plot over time
 solSimGrid = [nlSim([x,y]) for x in xg, y in yg];
-#
-# figure(23,(8,4)); clf();
-figure(24); clf();
 
-# for i in 1:length(solSimGrid)
+##
+μ0 = μ[:,1]; Σ0 = Σ[:,:,1];
 for tInd in 1:size(solSimGrid[1,1],2)
-    clf();
     tVal = solSimGrid[1,1].t[tInd];
+
+    figure(24); clf();
+    # figure(23,(8,4)); clf();
     # subplot(1,2,1);
-    # μ[:,tInt+1] = A*μ[:,tInt];
-#     Σ[:,:,tInt+1] = A*Σ[:,:,tInt]*A';
-    # r = reshape(pdf(MvNormal(μ[:,t],Σ[:,:,t]), CEval), NN, NN);
+    # r = reshape(pdf(MvNormal(μ0,Σ0), CEval), NN, NN);
     # pcolormesh(XX, YY, r , cmap = "inferno", shading="auto"); colorbar();
+    # title("PDF")
     # tight_layout();
+    # μ0 = A*μ0;
+    # Σ0 = A*Σ0*A';
 
     # subplot(1,2,2);
     x1TrajFull_t = [solSimGrid[i][1,tInd] for i in 1:length(solSimGrid)] 
@@ -169,35 +186,11 @@ for tInd in 1:size(solSimGrid[1,1],2)
     pause(0.001);
 end
 
-# Q_fpke_str = string(Q_fpke);
 
-
-# ## Domain
-# maxval = 4.0;
-# xmin = maxval * [-1, -1];
-# xmax = maxval * [1, 1];
-# NN = 100;#Int(sqrt(size(C,2)));
-# CEval = GenerateNDGrid(xmin, xmax, [1, 1] * NN);
-# XX = reshape(CEval[1, :], NN, NN);
-# YY = reshape(CEval[2, :], NN, NN);
-
-# dt = 0.5; tEnd = 5.0; 
-# tR_plot = LinRange(0.0, tEnd, Int(tEnd/dt)+1);
-# # dt_sim = 0.001;
-# # tR = LinRange(0.0, tEnd, Int(tEnd/dt_sim) + 1);
-# indC = findall(in(tR_plot*100), tR*100)
-# for (tInt, tVal) in enumerate(indC)
-#     println("Computing ρ on fine grid for t = $(tR[tVal])");
-#     # RHO = reshape(exp.(phi(CEval, optParams[tVal])),NN, NN); # approximating η
-#     RHO = reshape((phi(CEval, optParams[tVal])),NN, NN); # approximating ρ directly 
-#     RHO = RHO/trapz((XX[:,1], XX[:,1]), RHO);
-
-#     figure(48); clf();
-#     pcolormesh(XX, YY, RHO , cmap = "inferno", shading="auto"); colorbar();
-#     xlabel("x1"); ylabel("x2");
-#     title("ρ at t = $(tR[tVal]); Q = $(Q_fpke)")
-#     tight_layout();
-#     savefig("figs_rothe/exp$(expNum)/rho_t$(tInt).png")
-#     pause(0.001);
-# end
-
+## HOW TO USE PYPLOT AXES
+# f10, (ax1,ax2) = subplots(1,2, num = 10, clear = true, figsize = (8,4));
+# ax1.semilogy(1:nIters, PDE_losses, label= "pde");
+# ax1.legend();
+# ax2.set_facecolor("black")
+# ax2.scatter(1:nIters, 10.0.*PDE_losses);
+# tight_layout()
