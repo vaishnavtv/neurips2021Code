@@ -7,6 +7,8 @@ mkpath("data_rhoConst")
 
 using NeuralPDE, Flux, ModelingToolkit, GalacticOptim, Optim, Symbolics, JLD2, DiffEqFlux, LinearAlgebra, Distributions
 
+using QuasiMonteCarlo
+
 import Random: seed!;
 seed!(1);
 
@@ -24,15 +26,19 @@ maxOpt2Iters = 10000; # maximum number of training iterations for opt2
 
 Q_fpke = 0.0f0; # Q = σ^2
 
+nPtsPerMB = 2000; # number of points per minibatch
+nMB = 500; # number of minibatches
+
+
 # file location to save data
-expNum = 1;
+expNum = 2;
 useGPU = false;
 runExp = true;
 saveFile = "data_rhoConst/exp$(expNum).jld2";
 runExp_fileName = "out_rhoConst/log$(expNum).txt";
 if runExp
     open(runExp_fileName, "a+") do io
-        write(io, "Generating a controller for f18 with desired ss distribution. 2 HL with $(nn) neurons in the hl and $(activFunc) activation. $(maxOpt1Iters) iterations with ADAM and then $(maxOpt2Iters) with LBFGS. using GPU? $(useGPU). Q_fpke = $(Q_fpke). μ_ss = $(μ_ss). Σ_ss = $(Σ_ss). Not dividing equation by ρ.
+        write(io, "Generating a controller for f18 with desired ss distribution. 2 HL with $(nn) neurons in the hl and $(activFunc) activation. $(maxOpt1Iters) iterations with ADAM and then $(maxOpt2Iters) with LBFGS. using GPU? $(useGPU). Q_fpke = $(Q_fpke). μ_ss = $(μ_ss). Σ_ss = $(Σ_ss). Not dividing equation by ρ. Using Quasi sampling strategy for training. nPtsPerMB = $(nPtsPerMB). nMB = $(nMB).
         Experiment number: $(expNum)\n")
     end
 end
@@ -136,8 +142,8 @@ th0 = flat_initθ;
 eltypeθ = eltype(flat_initθ);
 parameterless_type_θ = DiffEqBase.parameterless_type(flat_initθ);
 
-
-strategy = NeuralPDE.GridTraining(dx);
+strategy = NeuralPDE.QuasiRandomTraining(nPtsPerMB;sampling_alg=UniformSample(), resampling=false,minibatch=nMB)
+# strategy = NeuralPDE.GridTraining(dx);
 
 indvars = xSym
 depvars = [Kc1(xSym...), Kc2(xSym...)]
@@ -149,15 +155,19 @@ integral = NeuralPDE.get_numeric_integral(strategy, indvars, depvars, chain, der
 
 _pde_loss_function = NeuralPDE.build_loss_function(pde, indvars, depvars, phi, derivative, integral, chain, initθ, strategy);
 
-train_domain_set, train_bound_set =
-    NeuralPDE.generate_training_sets(domains, dx, [pde], bcs, eltypeθ, indvars, depvars);
-if useGPU
-    train_domain_set = train_domain_set |> gpu;
-    train_bound_set = train_bound_set |> gpu;
-end
+# train_domain_set, train_bound_set =
+#     NeuralPDE.generate_training_sets(domains, dx, [pde], bcs, eltypeθ, indvars, depvars);
+# if useGPU
+#     train_domain_set = train_domain_set |> gpu;
+#     train_bound_set = train_bound_set |> gpu;
+# end
+
+pde_bounds, bcs_bounds = NeuralPDE.get_bounds(domains, [pde], bcs, eltypeθ, indvars, depvars, strategy)
+
 
 using Statistics
-pde_loss_function = (θ) -> mean(abs2,_pde_loss_function(train_domain_set[1], θ));
+pde_loss_function = NeuralPDE.get_loss_function(_pde_loss_function, pde_bounds[1],  eltypeθ, parameterless_type_θ, strategy); # quasi
+# pde_loss_function = (θ) -> mean(abs2,_pde_loss_function(train_domain_set[1], θ));  # grid
 @show pde_loss_function(flat_initθ)
 
 loss_function_(θ, p) =  pde_loss_function(θ)
