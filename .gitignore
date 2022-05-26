@@ -123,3 +123,10 @@ ts_cont_vdp/cont_rothe.slurm
 ts_cont_vdp/out*
 ts_cont_vdp/figs*
 f16/symBatch.slurm
+f16/quasi_symBatch.slurm
+f18/rhoConst_batch.slurm
+f18/out*
+f18/figs*
+f16/f16_sym_gpu.jl
+# f18/gpu_ssCont_f18_rhoConst.jl
+f18/gpu_rhoConst_batch.slurm
