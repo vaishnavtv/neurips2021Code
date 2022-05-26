@@ -54,10 +54,10 @@ for i in 1:length(indX)
 end
 
 if useGPU
-    f18_xTrim = f18_xTrim |> gpu;
-    f18_uTrim = f18_uTrim |> gpu;
-    maskIndx = maskIndx |> gpu;
-    maskIndu = maskIndu |> gpu;
+    # f18_xTrim = f18_xTrim |> gpu;
+    # f18_uTrim = f18_uTrim |> gpu;
+    # maskIndx = maskIndx |> gpu;
+    # maskIndu = maskIndu |> gpu;
 else
     f18_xTrim = f18_xTrim |> cpu;
     f18_uTrim = f18_uTrim |> cpu;
