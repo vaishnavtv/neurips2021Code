@@ -22,8 +22,8 @@ maxOpt2Iters = 10000; # maximum number of training iterations for opt2
 
 # parameters for rhoSS_desired
 μ_ss = [0f0,0f0,0f0,0f0]# .+ Array(f18_xTrim[indX])
-Σ_ss = 0.1f0*Array(f18_xTrim[indX]).*1.0f0I(4)
-maxMult = 9f0; # multiplier for maximum (upper bound)
+Σ_ss = 0.01f0*Array(f18_xTrim[indX]).*1.0f0I(4)
+maxMult = 1f0; # multiplier for maximum (upper bound)
 
 Q_fpke = 0.0f0; # Q = σ^2
 
