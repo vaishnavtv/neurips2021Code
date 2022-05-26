@@ -21,8 +21,8 @@ opt2 = Optim.LBFGS(); # second optimizer used for fine-tuning
 maxOpt2Iters = 10000; # maximum number of training iterations for opt2
 
 # parameters for rhoSS_desired
-μ_ss = [0f0,0f0,0f0,0f0];
-Σ_ss = 0.1f0*1.0f0I(4);
+μ_ss = [0f0,0f0,0f0,0f0] .+ Array(f18_xTrim[indX])
+Σ_ss = 0.1f0*μ_ss.*1.0f0I(4);
 
 Q_fpke = 0.0f0; # Q = σ^2
 
@@ -31,7 +31,7 @@ nMB = 500; # number of minibatches
 
 
 # file location to save data
-expNum = 4;
+expNum = 5;
 useGPU = false;
 runExp = true;
 saveFile = "data_rhoConst/exp$(expNum).jld2";
@@ -39,7 +39,7 @@ runExp_fileName = "out_rhoConst/log$(expNum).txt";
 if runExp
     open(runExp_fileName, "a+") do io
         write(io, "Generating a controller for f18 with desired ss distribution. 2 HL with $(nn) neurons in the hl and $(activFunc) activation. $(maxOpt1Iters) iterations with ADAM and then $(maxOpt2Iters) with LBFGS. using GPU? $(useGPU). Q_fpke = $(Q_fpke). μ_ss = $(μ_ss). Σ_ss = $(Σ_ss). Not dividing equation by ρ. Using Quasi sampling strategy for training. nPtsPerMB = $(nPtsPerMB). nMB = $(nMB).
-        Perturbed dynamics distribution of interest, not full dynamics.
+        Final Distribution Gaussian about trim point.
         Experiment number: $(expNum)\n")
     end
 end
@@ -51,11 +51,7 @@ end
 xSym = [x1; x2; x3; x4]
 
 ##
-f18_xTrim = Float32.(1.0e+02*[3.500000000000000;-0.000000000000000;0.003540971009312;-0.000189987747098;0.000322083113778;0.000459982356948;0.006108652381980;0.003262466855376;0;]);
-indX = [1;3;3;5];
 
-f18_uTrim = Float32.(1.0e+04 *[-0.000000767698465;-0.000002371697733;-0.000007859275313;1.449999997030301;]);
-indU = [3;4];
 
 maskIndx = zeros(Float32,(length(f18_xTrim),length(indX)));
 maskIndu = zeros(Float32,(length(f18_uTrim),length(indU)));
@@ -87,7 +83,7 @@ function f(xd)
     xFull = f18_xTrim + maskIndx*xd; 
     uFull = f18_uTrim + maskIndu*ud;
 
-    xdotFull = f18Dyn(xFull, uFull) - f18Dyn(f18_xTrim, f18_uTrim)
+    xdotFull = f18Dyn(xFull, uFull)
     # xdotFull = xFull;
 
     return (xdotFull[indX]) # return the 4 state dynamics
