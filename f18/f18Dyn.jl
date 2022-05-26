@@ -1,99 +1,105 @@
+f18_xTrim = Float32.(1.0e+02*[3.500000000000000;-0.000000000000000;0.003540971009312;-0.000189987747098;0.000322083113778;0.000459982356948;0.006108652381980;0.003262466855376;0;]);
+indX = [1;3;3;5];
+
+f18_uTrim = Float32.(1.0e+04 *[-0.000000767698465;-0.000002371697733;-0.000007859275313;1.449999997030301;]);
+indU = [3;4];
+
 function f18Dyn(x,u)
     
-        S = 400;                # Reference Area, ft^2
-        b =  37.42;             # Wing Span, ft
-        c =  11.52;             # Aerodynamic Mean Chord, ft
-        rho = 1.0660e-003;      # Air Density, slugs/ft^3  --- 25C / 25000 ft
-        Ixx = 23000;            # Principle Moment of Intertia around X-axis, slugs*ft^2
-        Iyy = 151293;           # Principle Moment of Intertia around Y-axis,slugs*ft^2
-        Izz = 169945;           # Principle Moment of Intertia around Z-axis,slugs*ft^2
-        Ixz = -2971;            # Principle Moment of Intertia around XZ-axis,slugs*ft^2
-        m = 1034.5;             # mass, slugs
-        g = 32.2;               # gravitational constant,ft/s^2
+        S = 400f0;                # Reference Area, ft^2
+        b =  37.42f0;             # Wing Span, ft
+        c =  11.52f0;             # Aerodynamic Mean Chord, ft
+        rho = 1.0660f-003;      # Air Density, slugs/ft^3  --- 25C / 25000 ft
+        Ixx = 23000f0;            # Principle Moment of Intertia around X-axis, slugs*ft^2
+        Iyy = 151293f0;           # Principle Moment of Intertia around Y-axis,slugs*ft^2
+        Izz = 169945f0;           # Principle Moment of Intertia around Z-axis,slugs*ft^2
+        Ixz = -2971f0;            # Principle Moment of Intertia around XZ-axis,slugs*ft^2
+        m = 1034.5f0;             # mass, slugs
+        g = 32.2f0;               # gravitational constant,ft/s^2
     
-        d2r = pi/180;
-        r2d = 1/d2r;
+        d2r = Float32(pi/180);
+        r2d = Float32(1/d2r);
     
-        Clb_0 = -0.0556;
-        Clb_1 = -0.4153;
-        Clb_2 = -0.3620;
-        Clb_3 = 2.3843;
-        Clb_4 = -1.6196;
+        Clb_0 = -0.0556f0;
+        Clb_1 = -0.4153f0;
+        Clb_2 = -0.3620f0;
+        Clb_3 = 2.3843f0;
+        Clb_4 = -1.6196f0;
     
-        Cldr_0= 0.0129;
-        Cldr_1= 0.0014;
-        Cldr_2= 0.0083;
-        Cldr_3= -0.0274;
+        Cldr_0= 0.0129f0;
+        Cldr_1= 0.0014f0;
+        Cldr_2= 0.0083f0;
+        Cldr_3= -0.0274f0;
     
-        Clda_0= 0.1424;
-        Clda_1= -0.0516;
-        Clda_2= -0.2646;
-        Clda_3= 0.1989;
+        Clda_0= 0.1424f0;
+        Clda_1= -0.0516f0;
+        Clda_2= -0.2646f0;
+        Clda_3= 0.1989f0;
     
-        Clp_0= -0.3540;
-        Clp_1= 0.2377;
+        Clp_0= -0.3540f0;
+        Clp_1= 0.2377f0;
     
-        Clr_0= 0.1983;
-        Clr_1= 0.7804;
-        Clr_2= -1.0871;
+        Clr_0= 0.1983f0;
+        Clr_1= 0.7804f0;
+        Clr_2= -1.0871f0;
     
-        Cnb_0= 0.0885;
-        Cnb_1= 0.0329;
-        Cnb_2= -0.3816;
+        Cnb_0= 0.0885f0;
+        Cnb_1= 0.0329f0;
+        Cnb_2= -0.3816f0;
     
-        Cndr_0= -0.0780;
-        Cndr_1= -0.0176;
-        Cndr_2= 0.5564;
-        Cndr_3= -0.8980;
-        Cndr_4= 0.3899;
+        Cndr_0= -0.0780f0;
+        Cndr_1= -0.0176f0;
+        Cndr_2= 0.5564f0;
+        Cndr_3= -0.8980f0;
+        Cndr_4= 0.3899f0;
     
-        Cnda_0= 0.0104;
-        Cnda_1= 0.0584;
-        Cnda_2= -0.3413;
-        Cnda_3= 0.2694;
+        Cnda_0= 0.0104f0;
+        Cnda_1= 0.0584f0;
+        Cnda_2= -0.3413f0;
+        Cnda_3= 0.2694f0;
     
-        Cnr_0= -0.4326;
-        Cnr_1= -0.1307;
+        Cnr_0= -0.4326f0;
+        Cnr_1= -0.1307f0;
     
-        Cnp_0= 0.0792;
-        Cnp_1= -0.0881;
+        Cnp_0= 0.0792f0;
+        Cnp_1= -0.0881f0;
     
-        Cyb_0= -0.7344;
-        Cyb_1= 0.2654;
-        Cyb_2= -0.1926;
+        Cyb_0= -0.7344f0;
+        Cyb_1= 0.2654f0;
+        Cyb_2= -0.1926f0;
     
-        Cyda_0= -0.1656;
-        Cyda_1= -0.2403;
-        Cyda_2= 1.5317;
-        Cyda_3= -0.8500;
+        Cyda_0= -0.1656f0;
+        Cyda_1= -0.2403f0;
+        Cyda_2= 1.5317f0;
+        Cyda_3= -0.8500f0;
     
-        Cydr_0= 0.2054;
-        Cydr_1= 0.4082;
-        Cydr_2= -1.6921;
-        Cydr_3= 0.9351;
+        Cydr_0= 0.2054f0;
+        Cydr_1= 0.4082f0;
+        Cydr_2= -1.6921f0;
+        Cydr_3= 0.9351f0;
     
-        Cma_0= -0.0866;
-        Cma_1= 0.5110;
-        Cma_2= -1.2897;
+        Cma_0= -0.0866f0;
+        Cma_1= 0.5110f0;
+        Cma_2= -1.2897f0;
     
-        Cmds_0= -0.9051;
-        Cmds_1= -0.3245;
-        Cmds_2= 0.9338;
+        Cmds_0= -0.9051f0;
+        Cmds_1= -0.3245f0;
+        Cmds_2= 0.9338f0;
     
-        Cmq_0= -4.1186;
-        Cmq_1= 10.9921;
-        Cmq_2= -68.5641;
-        Cmq_3= 64.7190;
+        Cmq_0= -4.1186f0;
+        Cmq_1= 10.9921f0;
+        Cmq_2= -68.5641f0;
+        Cmq_3= 64.7190f0;
     
-        CLds_0= 0.5725;
-        CLds_1= 0.4055;
-        CLds_2= -2.6975;
-        CLds_3= 2.1852;
+        CLds_0= 0.5725f0;
+        CLds_1= 0.4055f0;
+        CLds_2= -2.6975f0;
+        CLds_3= 2.1852f0;
     
-        Cdds_0= 0.0366;
-        Cdds_1= -0.2739;
-        Cdds_2= 4.2360;
-        Cdds_3= -3.8578;
+        Cdds_0= 0.0366f0;
+        Cdds_1= -0.2739f0;
+        Cdds_2= 4.2360f0;
+        Cdds_3= -3.8578f0;
     
     
         # ==========================================================================
@@ -191,19 +197,19 @@ function f18Dyn(x,u)
         # Lift Coefficient
         CLds = CLds_0 + CLds_1*alpha+ CLds_2*alpha^2 + CLds_3*alpha^3;
     
-        C_lift = (-0.0204 + 5.677*alpha - 5.4246*alpha^2 + 1.1645*alpha^3)*cos2beta3 +  CLds*d_STAB;
+        C_lift = (-0.0204f0 + 5.677f0*alpha - 5.4246f0*alpha^2 + 1.1645f0*alpha^3)*cos2beta3 +  CLds*d_STAB;
     
     
         # -------------------------------------------------
         # Drag Coefficient
         Cdds = Cdds_0 + Cdds_1*alpha+ Cdds_2*alpha^2 + Cdds_3*alpha^3;
     
-        C_drag =  (-1.4994 - 0.1995*alpha + 6.3971*alpha^2 - 5.7341*alpha^3 + 1.4610*alpha^4) *cosbeta + 1.5036 + Cdds*d_STAB ;
+        C_drag =  (-1.4994f0 - 0.1995f0*alpha + 6.3971f0*alpha^2 - 5.7341f0*alpha^3 + 1.4610f0*alpha^4) *cosbeta + 1.5036f0 + Cdds*d_STAB ;
     
         # -------------------------------------------------
         # Form Aerodynamic forces and moments
     
-        qbar = 1/2*rho*V^2;  # Dynamic pressure
+        qbar = 1f0/2f0*rho*V^2;  # Dynamic pressure
         L =  C_l*qbar*S*b ;
         M =  C_m*qbar*S*c;
         N =  C_n*qbar*S*b;
