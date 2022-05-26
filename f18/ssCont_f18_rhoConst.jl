@@ -21,8 +21,9 @@ opt2 = Optim.LBFGS(); # second optimizer used for fine-tuning
 maxOpt2Iters = 10000; # maximum number of training iterations for opt2
 
 # parameters for rhoSS_desired
-μ_ss = [0f0,0f0,0f0,0f0] .+ Array(f18_xTrim[indX])
-Σ_ss = 0.1f0*μ_ss.*1.0f0I(4);
+μ_ss = [0f0,0f0,0f0,0f0]# .+ Array(f18_xTrim[indX])
+Σ_ss = 0.1f0*Array(f18_xTrim[indX]).*1.0f0I(4)
+maxMult = 1f0; # multiplier for maximum (upper bound)
 
 Q_fpke = 0.0f0; # Q = σ^2
 
@@ -31,7 +32,7 @@ nMB = 500; # number of minibatches
 
 
 # file location to save data
-expNum = 5;
+expNum = 6;
 useGPU = false;
 runExp = true;
 saveFile = "data_rhoConst/exp$(expNum).jld2";
@@ -39,7 +40,7 @@ runExp_fileName = "out_rhoConst/log$(expNum).txt";
 if runExp
     open(runExp_fileName, "a+") do io
         write(io, "Generating a controller for f18 with desired ss distribution. 2 HL with $(nn) neurons in the hl and $(activFunc) activation. $(maxOpt1Iters) iterations with ADAM and then $(maxOpt2Iters) with LBFGS. using GPU? $(useGPU). Q_fpke = $(Q_fpke). μ_ss = $(μ_ss). Σ_ss = $(Σ_ss). Not dividing equation by ρ. Using Quasi sampling strategy for training. nPtsPerMB = $(nPtsPerMB). nMB = $(nMB).
-        Final Distribution Gaussian about trim point.
+        Final Distribution Gaussian about trim point. maxMult = $(maxMult). not using uTrim.
         Experiment number: $(expNum)\n")
     end
 end
@@ -81,7 +82,22 @@ function f(xd)
     
     # perturbation about trim point
     xFull = f18_xTrim + maskIndx*xd; 
-    uFull = f18_uTrim + maskIndu*ud;
+    uFull = [1f0;1f0;0f0;0f0].*f18_uTrim + maskIndu*ud;
+
+    xdotFull = f18Dyn(xFull, uFull)
+    # xdotFull = xFull;
+
+    return (xdotFull[indX]) # return the 4 state dynamics
+
+end
+
+function fs(xd, phi, th10, th20)
+
+    ud = [phi[1](xd,th10);phi[2](xd, th20)];
+
+    # perturbation about trim point
+    xFull = f18_xTrim + maskIndx*xd; 
+    uFull = [1f0;1f0;0f0;0f0].*f18_uTrim + maskIndu*ud;
 
     xdotFull = f18Dyn(xFull, uFull)
     # xdotFull = xFull;
@@ -108,10 +124,10 @@ pde = T1 ~ 0.f0
 println("PDE defined.")
 
 ## Domain
-x1_min = -100f0; x1_max = 100f0;
-x2_min = deg2rad(-10f0); x2_max = deg2rad(10f0);
+x1_min = -100f0; x1_max = maxMult*100f0;
+x2_min = deg2rad(-10f0); x2_max = maxMult*deg2rad(10f0);
 x3_min = x2_min; x3_max = x2_max;
-x4_min = deg2rad(-5f0); x4_max = deg2rad(5f0);
+x4_min = deg2rad(-5f0); x4_max = maxMult*deg2rad(5f0);
 domains = [x1 ∈ IntervalDomain(x1_min, x1_max), x2 ∈ IntervalDomain(x2_min, x2_max), x3 ∈ IntervalDomain(x3_min, x3_max), x4 ∈ IntervalDomain(x4_min, x4_max),];
 
 dx = [10f0; deg2rad(1f0); deg2rad(1f0); deg2rad(1f0);]; # discretization size used for training
@@ -127,6 +143,7 @@ chain2 = Chain(Dense(dim, nn, activFunc), Dense(nn, nn, activFunc), Dense(nn, 1)
 chain = [chain1, chain2];
 
 initθ = DiffEqFlux.initial_params.(chain);
+th10= initθ[1]; th20= initθ[2];
 if useGPU
     using CUDA
     CUDA.allowscalar(false)
@@ -159,8 +176,11 @@ _pde_loss_function = NeuralPDE.build_loss_function(pde, indvars, depvars, phi, d
 #     train_bound_set = train_bound_set |> gpu;
 # end
 
-pde_bounds, bcs_bounds = NeuralPDE.get_bounds(domains, [pde], bcs, eltypeθ, indvars, depvars, strategy)
-
+pde_bounds, bcs_bounds = NeuralPDE.get_bounds(domains, [pde], bcs, eltypeθ, indvars, depvars, strategy);
+txl = [pde_bounds[1][i][1] for i in 1:4];
+txu = [pde_bounds[1][i][2] for i in 1:4];
+@show _pde_loss_function(txl, th0)
+@show _pde_loss_function(txu, th0)
 
 using Statistics
 pde_loss_function = NeuralPDE.get_loss_function(_pde_loss_function, pde_bounds[1],  eltypeθ, parameterless_type_θ, strategy); # quasi
