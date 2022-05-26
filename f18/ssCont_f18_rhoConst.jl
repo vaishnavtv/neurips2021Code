@@ -31,7 +31,7 @@ nMB = 500; # number of minibatches
 
 
 # file location to save data
-expNum = 3;
+expNum = 4;
 useGPU = false;
 runExp = true;
 saveFile = "data_rhoConst/exp$(expNum).jld2";
@@ -39,6 +39,7 @@ runExp_fileName = "out_rhoConst/log$(expNum).txt";
 if runExp
     open(runExp_fileName, "a+") do io
         write(io, "Generating a controller for f18 with desired ss distribution. 2 HL with $(nn) neurons in the hl and $(activFunc) activation. $(maxOpt1Iters) iterations with ADAM and then $(maxOpt2Iters) with LBFGS. using GPU? $(useGPU). Q_fpke = $(Q_fpke). μ_ss = $(μ_ss). Σ_ss = $(Σ_ss). Not dividing equation by ρ. Using Quasi sampling strategy for training. nPtsPerMB = $(nPtsPerMB). nMB = $(nMB).
+        Perturbed dynamics distribution of interest, not full dynamics.
         Experiment number: $(expNum)\n")
     end
 end
@@ -86,7 +87,7 @@ function f(xd)
     xFull = f18_xTrim + maskIndx*xd; 
     uFull = f18_uTrim + maskIndu*ud;
 
-    xdotFull = f18Dyn(xFull, uFull)
+    xdotFull = f18Dyn(xFull, uFull) - f18Dyn(f18_xTrim, f18_uTrim)
     # xdotFull = xFull;
 
     return (xdotFull[indX]) # return the 4 state dynamics
