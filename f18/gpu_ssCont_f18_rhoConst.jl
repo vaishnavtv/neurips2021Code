@@ -249,12 +249,11 @@ end
 #             cord2 = vcat(x1, x2, x3, x4)
 #             cord1 = vcat(x1, x2, x3, x4)
 #         end
-        
 #     end
 # end
 # end)
 
-# #
+# # #
 # tx = cu(μ_ss);
 # uPhi = NeuralPDE.get_u();
 # _loss_function = symLoss1;
@@ -262,4 +261,9 @@ end
 #     _loss_function(cord, θ, phi, derivative, integral, uPhi, nothing)
 # end
 
-# _pde_loss_function((tx), th0)
+# @show _pde_loss_function((tx), th0)
+# @show _pde_loss_function((tx1), th0)
+##
+# symb_eq1 = NeuralPDE.parse_equation(pde[1],indvars,depvars,dict_indvars,dict_depvars,dict_depvar_input,chain,eltypeθ,strategy,phi,derivative,integral,initθ);
+eq1_lhs = isequal(expand_derivatives(pde[1].lhs), 0) ? pde[1].lhs : expand_derivatives(pde[1].lhs);
+eq1_rhs = isequal(expand_derivatives(pde[1].rhs), 0) ? pde[1].rhs : expand_derivatives(eq.rhs);
