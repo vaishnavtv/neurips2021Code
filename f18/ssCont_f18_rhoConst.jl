@@ -32,7 +32,7 @@ nMB = 500; # number of minibatches
 
 
 # file location to save data
-expNum = 8;
+expNum = 9;
 useGPU = false;
 runExp = true;
 saveFile = "data_rhoConst/exp$(expNum).jld2";
@@ -40,7 +40,7 @@ runExp_fileName = "out_rhoConst/log$(expNum).txt";
 if runExp
     open(runExp_fileName, "a+") do io
         write(io, "Generating a controller for f18 with desired ss distribution. 2 HL with $(nn) neurons in the hl and $(activFunc) activation. $(maxOpt1Iters) iterations with ADAM and then $(maxOpt2Iters) with LBFGS. using GPU? $(useGPU). Q_fpke = $(Q_fpke). μ_ss = $(μ_ss). Σ_ss = $(Σ_ss). Not dividing equation by ρ. Using Quasi sampling strategy for training. nPtsPerMB = $(nPtsPerMB). nMB = $(nMB).
-        Final Distribution Gaussian about trim point. maxMult = $(maxMult). uTrim present.
+        Final Distribution Gaussian about trim point. maxMult = $(maxMult). uTrim present, but not in δ_stab(u[3]).
         Experiment number: $(expNum)\n")
     end
 end
@@ -82,8 +82,8 @@ function f(xd)
     
     # perturbation about trim point
     xFull = f18_xTrim + maskIndx*xd; 
-    # uFull = [1f0;1f0;0f0;0f0].*f18_uTrim + maskIndu*ud;
-    uFull = f18_uTrim + maskIndu*ud;
+    uFull = [1f0;1f0;0f0;1f0].*f18_uTrim + maskIndu*ud;
+    # uFull = f18_uTrim + maskIndu*ud;
 
     xdotFull = f18Dyn(xFull, uFull)
     # xdotFull = xFull;
