@@ -32,15 +32,15 @@ nMB = 500; # number of minibatches
 
 
 # file location to save data
-expNum = 11;
+expNum = 12;
 useGPU = false;
-runExp = true;
+runExp = false;
 saveFile = "data_rhoConst/exp$(expNum).jld2";
 runExp_fileName = "out_rhoConst/log$(expNum).txt";
 if runExp
     open(runExp_fileName, "a+") do io
         write(io, "Generating a controller for f18 with desired ss distribution. 2 HL with $(nn) neurons in the hl and $(activFunc) activation. $(maxOpt1Iters) iterations with ADAM and then $(maxOpt2Iters) with LBFGS. using GPU? $(useGPU). Q_fpke = $(Q_fpke). μ_ss = $(μ_ss). Σ_ss = $(Σ_ss). Not dividing equation by ρ. Using Quasi sampling strategy for training. nPtsPerMB = $(nPtsPerMB). nMB = $(nMB).
-        Final Distribution Gaussian about trim point. maxMult = $(maxMult). uTrim present, but not in δ_stab(u[3]). nPtsPerMB changed to $(nPtsPerMB). 
+        Final Distribution Gaussian about trim point. maxMult = $(maxMult). uTrim present, but not in δ_stab(u[3]). nPtsPerMB changed to $(nPtsPerMB). Only o
         Experiment number: $(expNum)\n")
     end
 end
@@ -78,7 +78,7 @@ end
 # F18 Dynamics
 function f(xd)
 
-    ud = [Kc1(xd[1],xd[2],xd[3],xd[4]); Kc2(xd[1],xd[2],xd[3],xd[4])];
+    ud = [Kc1(xd[1],xd[2],xd[3],xd[4]); 0f0]#*Kc2(xd[1],xd[2],xd[3],xd[4])];
     
     # perturbation about trim point
     xFull = f18_xTrim + maskIndx*xd; 
@@ -141,16 +141,18 @@ bcs = [Kc1(-100f0,x2,x3,x4) ~ 0.f0, Kc2(100f0,x2,x3,x4) ~ 0.f0]; # place holder,
 dim = 4 # number of dimensions
 chain1 = Chain(Dense(dim, nn, activFunc), Dense(nn, nn, activFunc), Dense(nn, 1));
 chain2 = Chain(Dense(dim, nn, activFunc), Dense(nn, nn, activFunc), Dense(nn, 1));
-chain = [chain1, chain2];
+# chain = [chain1, chain2];
+chain = chain1;
 
-initθ = DiffEqFlux.initial_params.(chain);
-th10= initθ[1]; th20= initθ[2];
+# initθ = DiffEqFlux.initial_params.(chain);
+# th10= initθ[1]; th20= initθ[2];
+initθ = DiffEqFlux.initial_params(chain);
 if useGPU
     using CUDA
     CUDA.allowscalar(false)
     initθ = initθ |> gpu;
-    th10= initθ[1];
-    th20= initθ[2];
+    # th10= initθ[1];
+    # th20= initθ[2];
 end 
 flat_initθ = reduce(vcat, initθ); 
 th0 = flat_initθ;
@@ -161,9 +163,9 @@ strategy = NeuralPDE.QuasiRandomTraining(nPtsPerMB;sampling_alg=UniformSample(),
 # strategy = NeuralPDE.GridTraining(dx);
 
 indvars = xSym
-depvars = [Kc1(xSym...), Kc2(xSym...)]
+depvars = [Kc1(xSym...)]#, Kc2(xSym...)]
 
-phi = NeuralPDE.get_phi.(chain, parameterless_type_θ);
+phi = NeuralPDE.get_phi(chain, parameterless_type_θ);
 derivative = NeuralPDE.get_numeric_derivative();
 integral = NeuralPDE.get_numeric_integral(strategy, indvars, depvars, chain, derivative);
 ## Loss function
