@@ -21,7 +21,7 @@ opt2 = Optim.LBFGS(); # second optimizer used for fine-tuning
 maxOpt2Iters = 10000; # maximum number of training iterations for opt2
 
 # parameters for rhoSS_desired
-μ_ss = [0f0,0f0,0f0,0f0]# .+ Array(f18_xTrim[indX])
+μ_ss = [0f0,0f0,0f0,0f0] .+ Array(f18_xTrim[indX])
 Σ_ss = 0.1f0*Array(f18_xTrim[indX]).*1.0f0I(4)
 maxMult = 1f0; # multiplier for maximum (upper bound)
 
@@ -32,7 +32,7 @@ nMB = 500; # number of minibatches
 
 
 # file location to save data
-expNum = 13;
+expNum = 14;
 useGPU = false;
 runExp = true;
 saveFile = "data_rhoConst/exp$(expNum).jld2";
@@ -40,7 +40,7 @@ runExp_fileName = "out_rhoConst/log$(expNum).txt";
 if runExp
     open(runExp_fileName, "a+") do io
         write(io, "Generating a controller for f18 with desired ss distribution. 2 HL with $(nn) neurons in the hl and $(activFunc) activation. $(maxOpt1Iters) iterations with ADAM and then $(maxOpt2Iters) with LBFGS. using GPU? $(useGPU). Q_fpke = $(Q_fpke). μ_ss = $(μ_ss). Σ_ss = $(Σ_ss). Not dividing equation by ρ. Using Quasi sampling strategy for training. nPtsPerMB = $(nPtsPerMB). nMB = $(nMB).
-        Final Distribution Gaussian about trim point. maxMult = $(maxMult). uTrim present, but not in δ_stab(u[3]). nPtsPerMB changed to $(nPtsPerMB). Only one variable (δ_stab).
+        Final Distribution Gaussian about trim point. maxMult = $(maxMult). uTrim present, but not in δ_stab(u[3]). nPtsPerMB changed to $(nPtsPerMB). Only one variable (δ_stab). With trim point as mean of Gaussian.
         Experiment number: $(expNum)\n")
     end
 end
