@@ -21,9 +21,10 @@ opt2 = Optim.LBFGS(); # second optimizer used for fine-tuning
 maxOpt2Iters = 10000; # maximum number of training iterations for opt2
 
 # parameters for rhoSS_desired
-μ_ss = [0f0,0f0,0f0,0f0] .+ Array(f18_xTrim[indX])
+μ_ss = [0f0,0f0,0f0,0f0] #.+ Array(f18_xTrim[indX])
 Σ_ss = 0.1f0*Array(f18_xTrim[indX]).*1.0f0I(4)
-maxMult = 1f0; # multiplier for maximum (upper bound)
+minMult = 1f0; # multiplier for lower bound
+maxMult = 2f0; # multiplier for maximum (upper bound)
 
 Q_fpke = 0.0f0; # Q = σ^2
 
@@ -32,15 +33,15 @@ nMB = 500; # number of minibatches
 
 
 # file location to save data
-expNum = 14;
+expNum = 16;
 useGPU = false;
 runExp = true;
 saveFile = "data_rhoConst/exp$(expNum).jld2";
 runExp_fileName = "out_rhoConst/log$(expNum).txt";
 if runExp
     open(runExp_fileName, "a+") do io
-        write(io, "Generating a controller for f18 with desired ss distribution. 2 HL with $(nn) neurons in the hl and $(activFunc) activation. $(maxOpt1Iters) iterations with ADAM and then $(maxOpt2Iters) with LBFGS. using GPU? $(useGPU). Q_fpke = $(Q_fpke). μ_ss = $(μ_ss). Σ_ss = $(Σ_ss). Not dividing equation by ρ. Using Quasi sampling strategy for training. nPtsPerMB = $(nPtsPerMB). nMB = $(nMB).
-        Final Distribution Gaussian about trim point. maxMult = $(maxMult). uTrim present, but not in δ_stab(u[3]). nPtsPerMB changed to $(nPtsPerMB). Only one variable (δ_stab). With trim point as mean of Gaussian.
+        write(io, "Generating a controller for f18 with desired ss distribution. 3 HL with $(nn) neurons in the hl and $(activFunc) activation. $(maxOpt1Iters) iterations with ADAM and then $(maxOpt2Iters) with LBFGS. using GPU? $(useGPU). Q_fpke = $(Q_fpke). μ_ss = $(μ_ss). Σ_ss = $(Σ_ss). Not dividing equation by ρ. Using Quasi sampling strategy for training. nPtsPerMB = $(nPtsPerMB). nMB = $(nMB).
+        Final Distribution Gaussian about trim point. maxMult = $(maxMult). uTrim present, but not in δ_stab(u[3]). nPtsPerMB changed to $(nPtsPerMB). Keeping utrim. minMult = $(minMult). 3 hidden layers, same as exp8 but with more approximation power.
         Experiment number: $(expNum)\n")
     end
 end
@@ -78,12 +79,12 @@ end
 # F18 Dynamics
 function f(xd)
 
-    ud = [Kc1(xd[1],xd[2],xd[3],xd[4]); 0f0]#*Kc2(xd[1],xd[2],xd[3],xd[4])];
+    ud = [Kc1(xd[1],xd[2],xd[3],xd[4]); Kc2(xd[1],xd[2],xd[3],xd[4])];
     
     # perturbation about trim point
     xFull = f18_xTrim + maskIndx*xd; 
-    uFull = [1f0;1f0;0f0;1f0].*f18_uTrim + maskIndu*ud;
-    # uFull = f18_uTrim + maskIndu*ud;
+    # uFull = [1f0;1f0;0f0;1f0].*f18_uTrim + maskIndu*ud;
+    uFull = f18_uTrim + maskIndu*ud;
 
     xdotFull = f18Dyn(xFull, uFull)
     # xdotFull = xFull;
@@ -98,7 +99,8 @@ function fs(xd, phi, th10, th20)
 
     # perturbation about trim point
     xFull = f18_xTrim + maskIndx*xd; 
-    uFull = [1f0;1f0;0f0;0f0].*f18_uTrim + maskIndu*ud;
+    # uFull = [1f0;1f0;0f0;0f0].*f18_uTrim + maskIndu*ud;
+    uFull = f18_uTrim + maskIndu*ud;
 
     xdotFull = f18Dyn(xFull, uFull)
     # xdotFull = xFull;
@@ -125,10 +127,10 @@ pde = T1 ~ 0.f0
 println("PDE defined.")
 
 ## Domain
-x1_min = -100f0; x1_max = maxMult*100f0;
-x2_min = deg2rad(-10f0); x2_max = maxMult*deg2rad(10f0);
+x1_min = minMult*(-100f0); x1_max = maxMult*100f0;
+x2_min = minMult*deg2rad(-10f0); x2_max = maxMult*deg2rad(10f0);
 x3_min = x2_min; x3_max = x2_max;
-x4_min = deg2rad(-5f0); x4_max = maxMult*deg2rad(5f0);
+x4_min = minMult*deg2rad(-5f0); x4_max = maxMult*deg2rad(5f0);
 domains = [x1 ∈ IntervalDomain(x1_min, x1_max), x2 ∈ IntervalDomain(x2_min, x2_max), x3 ∈ IntervalDomain(x3_min, x3_max), x4 ∈ IntervalDomain(x4_min, x4_max),];
 
 dx = [10f0; deg2rad(1f0); deg2rad(1f0); deg2rad(1f0);]; # discretization size used for training
@@ -139,20 +141,20 @@ bcs = [Kc1(-100f0,x2,x3,x4) ~ 0.f0, Kc2(100f0,x2,x3,x4) ~ 0.f0]; # place holder,
 
 ## Neural network set up
 dim = 4 # number of dimensions
-chain1 = Chain(Dense(dim, nn, activFunc), Dense(nn, nn, activFunc), Dense(nn, 1));
-chain2 = Chain(Dense(dim, nn, activFunc), Dense(nn, nn, activFunc), Dense(nn, 1));
-# chain = [chain1, chain2];
-chain = chain1;
+chain1 = Chain(Dense(dim, nn, activFunc), Dense(nn, nn, activFunc), Dense(nn, nn, activFunc), Dense(nn, 1));
+chain2 = Chain(Dense(dim, nn, activFunc), Dense(nn, nn, activFunc), Dense(nn, nn, activFunc), Dense(nn, 1));
+chain = [chain1, chain2];
+# chain = chain1;
 
-# initθ = DiffEqFlux.initial_params.(chain);
-# th10= initθ[1]; th20= initθ[2];
-initθ = DiffEqFlux.initial_params(chain);
+initθ = DiffEqFlux.initial_params.(chain);
+th10= initθ[1]; th20= initθ[2];
+# initθ = DiffEqFlux.initial_params(chain);
 if useGPU
     using CUDA
     CUDA.allowscalar(false)
     initθ = initθ |> gpu;
-    # th10= initθ[1];
-    # th20= initθ[2];
+    th10= initθ[1];
+    th20= initθ[2];
 end 
 flat_initθ = reduce(vcat, initθ); 
 th0 = flat_initθ;
@@ -163,9 +165,9 @@ strategy = NeuralPDE.QuasiRandomTraining(nPtsPerMB;sampling_alg=UniformSample(),
 # strategy = NeuralPDE.GridTraining(dx);
 
 indvars = xSym
-depvars = [Kc1(xSym...)]#, Kc2(xSym...)]
+depvars = [Kc1(xSym...), Kc2(xSym...)]
 
-phi = NeuralPDE.get_phi(chain, parameterless_type_θ);
+phi = NeuralPDE.get_phi.(chain, parameterless_type_θ);
 derivative = NeuralPDE.get_numeric_derivative();
 integral = NeuralPDE.get_numeric_integral(strategy, indvars, depvars, chain, derivative);
 ## Loss function
@@ -228,3 +230,19 @@ println("Optimization done.");
 if runExp
     jldsave(saveFile;optParam = Array(res.minimizer),PDE_losses);
 end
+
+## for checking, ignore
+# using ForwardDiff
+# function tl(th0, y, phi)
+#     dfs(x) = diag(ForwardDiff.jacobian(z->fs(z, phi, th0, th0), x));
+#     rho(x) =  pdf(MvNormal(μ_ss, Σ_ss),x);
+#     drho(x) = ForwardDiff.gradient(rho, x);
+#     # dphi(x) = ForwardDiff.gradient(z->first(phi(z, th0)), x);
+#     @show dfs(y)
+#     @show drho(y)
+#     l = rho(y)*sum(dfs(y)) +  dot(fs(y, phi, th0, th0), drho(y));
+#     # @show dphi(y)
+#     # l = first(phi(y, th0))*sum(dfs(y)) + dot(fs(y, phi, th0, th0), dphi(y));
+#     return l
+# end
+# tl(th0, txl, phi)
