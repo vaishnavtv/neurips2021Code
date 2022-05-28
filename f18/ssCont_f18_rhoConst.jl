@@ -34,13 +34,13 @@ nMB = 500; # number of minibatches
 # file location to save data
 expNum = 12;
 useGPU = false;
-runExp = false;
+runExp = true;
 saveFile = "data_rhoConst/exp$(expNum).jld2";
 runExp_fileName = "out_rhoConst/log$(expNum).txt";
 if runExp
     open(runExp_fileName, "a+") do io
         write(io, "Generating a controller for f18 with desired ss distribution. 2 HL with $(nn) neurons in the hl and $(activFunc) activation. $(maxOpt1Iters) iterations with ADAM and then $(maxOpt2Iters) with LBFGS. using GPU? $(useGPU). Q_fpke = $(Q_fpke). μ_ss = $(μ_ss). Σ_ss = $(Σ_ss). Not dividing equation by ρ. Using Quasi sampling strategy for training. nPtsPerMB = $(nPtsPerMB). nMB = $(nMB).
-        Final Distribution Gaussian about trim point. maxMult = $(maxMult). uTrim present, but not in δ_stab(u[3]). nPtsPerMB changed to $(nPtsPerMB). Only o
+        Final Distribution Gaussian about trim point. maxMult = $(maxMult). uTrim present, but not in δ_stab(u[3]). nPtsPerMB changed to $(nPtsPerMB). Only one variable (δ_stab).
         Experiment number: $(expNum)\n")
     end
 end
