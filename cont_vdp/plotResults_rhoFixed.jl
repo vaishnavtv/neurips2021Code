@@ -17,8 +17,8 @@ YY = reshape(CEval[2, :], NN, NN);
 activFunc = tanh;
 suff = string(activFunc);
 nn = 48;
-Q_fpke = 0.0f0#*1.0I(2); # σ^2
-tEnd = 20.0; dt = 0.5;
+Q_fpke = 0.1f0#*1.0I(2); # σ^2
+tEnd = 20.0; dt = 2.0;
 
 expNum = 10; 
 fileLoc = "data_rhoConst/exp$(expNum).jld2";
@@ -129,7 +129,7 @@ for tInd in 1:size(solSimGrid[1,1],2)
     scatter(x1TrajFull_t, x2TrajFull_t,  c = "w", s = 10.0,);
     xlabel("x1"); ylabel("x2");
     xlim([-maxval, maxval]); ylim([-maxval, maxval]);
-    title("VDP with Controller: t = $(tVal)")
+    title("Steady-state ρ Control: Q = $(Q_fpke), t = $(tVal)")
     tight_layout();
     if (tVal*100%100 == 0)
         savefig("figs_rhoFixed/exp$(expNum)/scat_t$(Int(tVal)).png")
