@@ -22,7 +22,7 @@ maxOpt2Iters = 10000; # maximum number of training iterations for opt2
 
 # parameters for rhoSS_desired
 μ_ss = [0f0,0f0,0f0,0f0] #.+ Array(f18_xTrim[indX])
-Σ_ss = 0.1f0*Array(f18_xTrim[indX]).*1.0f0I(4)
+Σ_ss = 0.01f0*Array(f18_xTrim[indX]).*1.0f0I(4)
 minMult = 1f0; # multiplier for lower bound
 maxMult = 2f0; # multiplier for maximum (upper bound)
 
@@ -33,7 +33,7 @@ nMB = 500; # number of minibatches
 
 
 # file location to save data
-expNum = 16;
+expNum = 17;
 useGPU = false;
 runExp = true;
 saveFile = "data_rhoConst/exp$(expNum).jld2";
