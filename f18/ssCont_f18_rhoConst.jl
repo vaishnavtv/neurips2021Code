@@ -22,9 +22,10 @@ maxOpt2Iters = 10000; # maximum number of training iterations for opt2
 
 # parameters for rhoSS_desired
 μ_ss = [0f0,0f0,0f0,0f0] #.+ Array(f18_xTrim[indX])
-Σ_ss = 0.01f0*Array(f18_xTrim[indX]).*1.0f0I(4)
+Σ_ss = 0.1f0*Array(f18_xTrim[indX]).*1.0f0I(4)
 minMult = 1f0; # multiplier for lower bound
 maxMult = 2f0; # multiplier for maximum (upper bound)
+α_c = 0.1f0;
 
 Q_fpke = 0.0f0; # Q = σ^2
 
@@ -33,7 +34,7 @@ nMB = 500; # number of minibatches
 
 
 # file location to save data
-expNum = 17;
+expNum = 18;
 useGPU = false;
 runExp = true;
 saveFile = "data_rhoConst/exp$(expNum).jld2";
@@ -41,7 +42,7 @@ runExp_fileName = "out_rhoConst/log$(expNum).txt";
 if runExp
     open(runExp_fileName, "a+") do io
         write(io, "Generating a controller for f18 with desired ss distribution. 3 HL with $(nn) neurons in the hl and $(activFunc) activation. $(maxOpt1Iters) iterations with ADAM and then $(maxOpt2Iters) with LBFGS. using GPU? $(useGPU). Q_fpke = $(Q_fpke). μ_ss = $(μ_ss). Σ_ss = $(Σ_ss). Not dividing equation by ρ. Using Quasi sampling strategy for training. nPtsPerMB = $(nPtsPerMB). nMB = $(nMB).
-        Final Distribution Gaussian about trim point. maxMult = $(maxMult). uTrim present, but not in δ_stab(u[3]). nPtsPerMB changed to $(nPtsPerMB). Keeping utrim. minMult = $(minMult). 3 hidden layers, same as exp8 but with more approximation power.
+        maxMult = $(maxMult). nPtsPerMB changed to $(nPtsPerMB). Keeping utrim. minMult = $(minMult). 3 hidden layers, same as exp8 but with more approximation power. α_c = $(α_c): weight on nn control.
         Experiment number: $(expNum)\n")
     end
 end
@@ -84,7 +85,7 @@ function f(xd)
     # perturbation about trim point
     xFull = f18_xTrim + maskIndx*xd; 
     # uFull = [1f0;1f0;0f0;1f0].*f18_uTrim + maskIndu*ud;
-    uFull = f18_uTrim + maskIndu*ud;
+    uFull = f18_uTrim + α_c*maskIndu*ud;
 
     xdotFull = f18Dyn(xFull, uFull)
     # xdotFull = xFull;
