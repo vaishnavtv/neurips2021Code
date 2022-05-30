@@ -11,7 +11,7 @@ import Random: seed!;
 seed!(1);
 
 ## parameters for neural network
-nn = 20; # number of neurons in the hidden layer
+nn = 100; # number of neurons in the hidden layer
 activFunc = tanh; # activation function
 opt1 = ADAM(1e-3); # primary optimizer used for training
 maxOpt1Iters = 10000; # maximum number of training iterations for opt1
@@ -25,14 +25,14 @@ maxOpt2Iters = 10000; # maximum number of training iterations for opt2
 Q_fpke = 0.0f0; # Q = σ^2
 
 # file location to save data
-expNum = 2;
+expNum = 3;
 useGPU = true;
 runExp = true;
 saveFile = "data_rhoConst_gpu/exp$(expNum).jld2";
 runExp_fileName = "out_rhoConst_gpu/log$(expNum).txt";
 if runExp
     open(runExp_fileName, "a+") do io
-        write(io, "Generating a controller for f18 with desired ss distribution. 2 HL with $(nn) neurons in the hl and $(activFunc) activation. $(maxOpt1Iters) iterations with ADAM and then $(maxOpt2Iters) with LBFGS. using GPU? $(useGPU). Q_fpke = $(Q_fpke). μ_ss = $(μ_ss). Σ_ss = $(Σ_ss). Not dividing equation by ρ. Manually wrote loss function. Reduced nn. 
+        write(io, "Generating a controller for f18 with desired ss distribution. 2 HL with $(nn) neurons in the hl and $(activFunc) activation. $(maxOpt1Iters) iterations with ADAM and then $(maxOpt2Iters) with LBFGS. using GPU? $(useGPU). Q_fpke = $(Q_fpke). μ_ss = $(μ_ss). Σ_ss = $(Σ_ss). Not dividing equation by ρ. Manually wrote loss function. Finding utrim.
         Experiment number: $(expNum)\n")
     end
 end
@@ -71,17 +71,17 @@ function f(xd)
     ud = [Kc1(xd[1],xd[2],xd[3],xd[4]); Kc2(xd[1],xd[2],xd[3],xd[4])];
 
     tx = ((maskIndx)*xd); tu = ((maskIndu)*ud);
-    xFull = Vector{Real}(undef, 9);
-    uFull = Vector{Real}(undef, 4);
-    for i in 1:9
-        xFull[i] = f18_xTrim[i] + tx[i];
-    end 
-    for i in 1:4
-        uFull[i] = f18_uTrim[i] + tu[i];
-    end 
+    # xFull = Vector{Real}(undef, 9);
+    # uFull = Vector{Real}(undef, 4);
+    # for i in 1:9
+    #     xFull[i] = f18_xTrim[i] + tx[i];
+    # end 
+    # for i in 1:4
+    #     uFull[i] = f18_uTrim[i] + tu[i];
+    # end 
     # perturbation about trim point
-    # xFull = f18_xTrim + maskIndx*xd; 
-    # uFull = f18_uTrim + maskIndu*ud;
+    xFull = f18_xTrim + maskIndx*xd; 
+    uFull = [1f0;1f0;0f0;0f0].*f18_uTrim + maskIndu*ud;
 
     xdotFull = f18Dyn(xFull, uFull)
     # xdotFull = xFull;
