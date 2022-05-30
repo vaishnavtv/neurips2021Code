@@ -98,7 +98,7 @@ g(x::Vector) = [1.0f0; 1.0f0;1.0f0; 1.0f0] # diffusion vector needs to be modifi
 F = f(xSym) * ρSS_sym;
 G = 0.5f0 * (g(xSym) * Q_fpke * g(xSym)') * ρSS_sym;
 
-# T1 = sum([Differential(xSym[i])(F[i]) for i = 1:length(xSym)]);
+# driftTerm = sum([Differential(xSym[i])(F[i]) for i = 1:length(xSym)]);
 T1 = Differential(xSym[1])(F[1]) #length(xSym)]);
 T2 = Differential(xSym[2])(F[2]) #length(xSym)]);
 T3 = Differential(xSym[3])(F[3]) #length(xSym)]);
@@ -107,8 +107,8 @@ T4 = Differential(xSym[4])(F[4]) #length(xSym)]);
 
 # Eqn = expand_derivatives(-T1 + T2); # + dx*u(x1,x2)-1 ~ 0;
 # pde = simplify(Eqn) ~ 0.0f0;
-pde = [T1 ~ 0.f0, T2 ~ 0.0f0, T3 ~ 0.0f0, T4 ~ 0.0f0];
-
+pde = [T1 ~ 0.f0, T2 ~ 0.0f0, T4 ~ 0.0f0]; # T3 not dependent on Kc, will sum these terms later
+# pde = driftTerm ~ 0.0f0
 println("PDE defined.")
 
 ## Domain
@@ -153,45 +153,23 @@ phi = NeuralPDE.get_phi.(chain, parameterless_type_θ);
 derivative = NeuralPDE.get_numeric_derivative();
 integral = NeuralPDE.get_numeric_integral(strategy, indvars, depvars, chain, derivative);
 ## Loss function
-println("Defining loss function.")
-sleep(10000);
+println("Defining loss function for each term.")
+_pde_loss_functions = [NeuralPDE.build_loss_function(pde_i, indvars, depvars, phi, derivative, integral, chain, initθ, strategy) for pde_i in pde];
 # _pde_loss_function = NeuralPDE.build_loss_function(pde, indvars, depvars, phi, derivative, integral, chain, initθ, strategy);
-# tx = cu(μ_ss);
-# _pde_loss_function(tx, th0)
+# _pde_loss_function(tx, th0) # ptxas code issue
+tx = cu(μ_ss);
+@show [_pde_loss_functions[i](tx, th0) for i in 1:3]
+_pde_loss_function2(cord, θ) = sum([fn(cord, θ) for fn in _pde_loss_functions]);
 
-symLoss1 = ((cord, var"##θ#292", phi, derivative, integral, u, p)->begin
-begin
-    (var"##θ#2921", var"##θ#2922") = (var"##θ#292"[1:10701], var"##θ#292"[10702:21402])
-    (phi1, phi2) = (phi[1], phi[2])
-    let (x1, x2, x3, x4) = (cord[[1], :], cord[[2], :], cord[[3], :], cord[[4], :])
-        begin
-            cord2 = vcat(x1, x2, x3, x4)
-            cord1 = vcat(x1, x2, x3, x4)
-        end
-        (+)((*).((+).((+).((*).((+).(700.0f0, (*).(2, x1)), (+).((+).((+).((+).((+).(1.36931f-5, (*).(4.111493f-5, x2)), (*).(-0.0013183776f0, (^).((+).(0.3540971f0, x2), 2))), (*).(-0.00030109732f0, (^).((+).(0.3540971f0, x2), 4))), (*).(0.00118174f0, (^).((+).(0.3540971f0, x2), 3))), (*).((*).(-0.00020608988f0, (+).(-0.078592755f0, u(cord1, var"##θ#2921", phi1))), (+).((+).((+).(-0.060387194f0, (*).(-0.2739f0, x2)), (*).(4.236f0, (^).((+).(0.3540971f0, x2), 2))), (*).(-3.8578f0, (^).((+).(0.3540971f0, x2), 3)))))), (*).((*).(0.00096665055f0, (cos).((+).(0.3540971f0, x2))), derivative(phi2, u, cord2, Vector{Float32}[[0.0049215667, 0.0, 0.0, 0.0]], 1, var"##θ#2922"))), (*).((*).((*).(-0.00020608988f0, (+).((+).((+).(-0.060387194f0, (*).(-0.2739f0, x2)), (*).(4.236f0, (^).((+).(0.3540971f0, x2), 2))), (*).(-3.8578f0, (^).((+).(0.3540971f0, x2), 3)))), (^).((+).(350.0f0, x1), 2)), derivative(phi1, u, cord1, Vector{Float32}[[0.0049215667, 0.0, 0.0, 0.0]], 1, var"##θ#2921"))), (exp).((+).((+).((+).((+).(0.79735756f0, (*).(-1//2, (abs2).((*).(0.16903085f0, x1)))), (*).(-1//2, (abs2).((*).(5.3142114f0, x2)))), (*).(-1//2, (abs2).((*).(5.536393f0, x3)))), (*).(-1//2, (abs2).((*).(17.620409f0, x4)))))), (*).((*).((*).(-0.028571427f0, x1), (+).((+).((+).((*).((+).(14.016433f0, (*).(0.00096665055f0, u(cord2, var"##θ#2922", phi2))), (cos).((+).(0.3540971f0, x2))), (*).((*).(-0.00020608988f0, (+).((+).((+).((+).((+).(-0.06644237f0, (*).(-0.1995f0, x2)), (*).((+).(-0.078592755f0, u(cord1, var"##θ#2921", phi1)), (+).((+).((+).(-0.060387194f0, (*).(-0.2739f0, x2)), (*).(4.236f0, (^).((+).(0.3540971f0, x2), 2))), (*).(-3.8578f0, (^).((+).(0.3540971f0, x2), 3))))), (*).(6.3971f0, (^).((+).(0.3540971f0, x2), 2))), (*).(1.461f0, (^).((+).(0.3540971f0, x2), 4))), (*).(-5.7341f0, (^).((+).(0.3540971f0, x2), 3)))), (^).((+).(350.0f0, x1), 2))), (*).((*).(26.376698f0, (sin).((+).(0.3540971f0, x2))), (cos).((+).(0.32624668f0, x3)))), (*).((*).(-32.2f0, (cos).((+).(0.3540971f0, x2))), (sin).((+).(0.32624668f0, x3))))), (exp).((+).((+).((+).((+).(0.79735756f0, (*).(-1//2, (abs2).((*).(0.16903085f0, x1)))), (*).(-1//2, (abs2).((*).(5.3142114f0, x2)))), (*).(-1//2, (abs2).((*).(5.536393f0, x3)))), (*).(-1//2, (abs2).((*).(17.620409f0, x4))))))) #.- 0.0f0
-        (+)((*).((+).((+).((*).((+).(-0.07213146f0, (*).(-0.00020608988f0, x1)), (+).((+).((+).((+).(1.8353298f0, (*).(-10.8492f0, x2)), (*).(3.4935f0, (^).((+).(0.3540971f0, x2), 2))), (*).((+).(-0.078592755f0, u(cord1, var"##θ#2921", phi1)), (+).((+).(-1.5048537f0, (*).(-5.395f0, x2)), (*).(6.5556f0, (^).((+).(0.3540971f0, x2), 2))))), (*).((+).((+).((+).(0.7160864f0, (*).(0.4055f0, x2)), (*).(-2.6975f0, (^).((+).(0.3540971f0, x2), 2))), (*).(2.1852f0, (^).((+).(0.3540971f0, x2), 3))), derivative(phi1, u, cord1, Vector{Float32}[[0.0, 0.0049215667, 0.0, 0.0]], 1, var"##θ#2921")))), (/).((+).((*).((*).(-26.376698f0, (sin).((+).(0.3540971f0, x2))), (cos).((+).(0.32624668f0, x3))), (*).((*).(32.2f0, (cos).((+).(0.3540971f0, x2))), (sin).((+).(0.32624668f0, x3)))), (+).(350.0f0, x1))), (/).((+).((*).((+).(-14.016433f0, (*).(-0.00096665055f0, u(cord2, var"##θ#2922", phi2))), (cos).((+).(0.3540971f0, x2))), (*).((*).(-0.00096665055f0, (sin).((+).(0.3540971f0, x2))), derivative(phi2, u, cord2, Vector{Float32}[[0.0, 0.0049215667, 0.0, 0.0]], 1, var"##θ#2922"))), (+).(350.0f0, x1))), (exp).((+).((+).((+).((+).(0.79735756f0, (*).(-1//2, (abs2).((*).(0.16903085f0, x1)))), (*).(-1//2, (abs2).((*).(5.3142114f0, x2)))), (*).(-1//2, (abs2).((*).(5.536393f0, x3)))), (*).(-1//2, (abs2).((*).(17.620409f0, x4)))))), (*).((*).((*).(-28.240843f0, x2), (+).((+).((+).((+).(0.032208312f0, x4), (/).((+).((*).((*).(32.2f0, (sin).((+).(0.3540971f0, x2))), (sin).((+).(0.32624668f0, x3))), (*).((*).(26.376698f0, (cos).((+).(0.32624668f0, x3))), (cos).((+).(0.3540971f0, x2)))), (+).(350.0f0, x1))), (/).((*).((*).(-1, (+).(14.016433f0, (*).(0.00096665055f0, u(cord2, var"##θ#2922", phi2)))), (sin).((+).(0.3540971f0, x2))), (+).(350.0f0, x1))), (*).((*).(-0.00020608988f0, (+).(350.0f0, x1)), (+).((+).((+).((+).(1.9898093f0, (*).(5.677f0, x2)), (*).((+).(-0.078592755f0, u(cord1, var"##θ#2921", phi1)), (+).((+).((+).(0.7160864f0, (*).(0.4055f0, x2)), (*).(-2.6975f0, (^).((+).(0.3540971f0, x2), 2))), (*).(2.1852f0, (^).((+).(0.3540971f0, x2), 3))))), (*).(-5.4246f0, (^).((+).(0.3540971f0, x2), 2))), (*).(1.1645f0, (^).((+).(0.3540971f0, x2), 3)))))), (exp).((+).((+).((+).((+).(0.79735756f0, (*).(-1//2, (abs2).((*).(0.16903085f0, x1)))), (*).(-1//2, (abs2).((*).(5.3142114f0, x2)))), (*).(-1//2, (abs2).((*).(5.536393f0, x3)))), (*).(-1//2, (abs2).((*).(17.620409f0, x4))))))) #.- 0.0f0
-        (+)((*).((*).((*).(-30.65165f0, x3), (+).(1.8626451f-9, (*).(0.81915206f0, x4))), (exp).((+).((+).((+).((+).(0.79735756f0, (*).(-1//2, (abs2).((*).(0.16903085f0, x1)))), (*).(-1//2, (abs2).((*).(5.3142114f0, x2)))), (*).(-1//2, (abs2).((*).(5.536393f0, x3)))), (*).(-1//2, (abs2).((*).(17.620409f0, x4))))))) #.- 0.0f0
-        (+)((*).((*).((*).(1.6233826f-5, (^).((+).(350.0f0, x1), 2)), (+).((*).((+).((+).(-1.0200045f0, (*).(-0.3245f0, x2)), (*).(0.9338f0, (^).((+).(0.3540971f0, x2), 2))), derivative(phi1, u, cord1, Vector{Float32}[[0.0, 0.0, 0.0, 0.0049215667]], 1, var"##θ#2921")), (/).((+).((+).((+).(-1.3036569f0, (*).(63.3145f0, x2)), (*).(-394.92923f0, (^).((+).(0.3540971f0, x2), 2))), (*).(372.78146f0, (^).((+).(0.3540971f0, x2), 3))), (+).(350.0f0, x1)))), (exp).((+).((+).((+).((+).(0.79735756f0, (*).(-1//2, (abs2).((*).(0.16903085f0, x1)))), (*).(-1//2, (abs2).((*).(5.3142114f0, x2)))), (*).(-1//2, (abs2).((*).(5.536393f0, x3)))), (*).(-1//2, (abs2).((*).(17.620409f0, x4)))))), (*).((*).((*).(-310.47882f0, x4), (+).(-0.0008832563f0, (*).((*).(1.6233826f-5, (+).((+).((+).((+).(0.09434361f0, (*).(0.511f0, x2)), (*).(-1.2897f0, (^).((+).(0.3540971f0, x2), 2))), (*).((+).(-0.078592755f0, u(cord1, var"##θ#2921", phi1)), (+).((+).(-1.0200045f0, (*).(-0.3245f0, x2)), (*).(0.9338f0, (^).((+).(0.3540971f0, x2), 2))))), (/).((*).((*).(1//2, (+).(0.032208312f0, x4)), (+).((+).((+).(-2.6073139f0, (*).(126.629f0, x2)), (*).(-789.85846f0, (^).((+).(0.3540971f0, x2), 2))), (*).(745.5629f0, (^).((+).(0.3540971f0, x2), 3)))), (+).(350.0f0, x1)))), (^).((+).(350.0f0, x1), 2)))), (exp).((+).((+).((+).((+).(0.79735756f0, (*).(-1//2, (abs2).((*).(0.16903085f0, x1)))), (*).(-1//2, (abs2).((*).(5.3142114f0, x2)))), (*).(-1//2, (abs2).((*).(5.536393f0, x3)))), (*).(-1//2, (abs2).((*).(17.620409f0, x4))))))) .- 0.0f0
-    end
-end
-end)
-
-uPhi = NeuralPDE.get_u();
-_loss_function = symLoss1; 
-_pde_loss_function = (cord, θ) -> begin
-    _loss_function(cord, θ, phi, derivative, integral, uPhi, nothing)
-end
-
-##
 train_domain_set, train_bound_set =
     NeuralPDE.generate_training_sets(domains, dx, pde, bcs, eltypeθ, indvars, depvars);
 if useGPU
-    train_domain_set = train_domain_set |> gpu;
+    train_domain_set[1] = train_domain_set[1] |> gpu;
     train_bound_set = train_bound_set |> gpu;
 end
 
 using Statistics
-pde_loss_function = (θ) -> mean(abs2,_pde_loss_function(train_domain_set[1], θ));
+pde_loss_function = (θ) -> mean(abs2,_pde_loss_function2(cu(train_domain_set[1]), θ));
 @show pde_loss_function(flat_initθ)
 
 loss_function_(θ, p) =  pde_loss_function(θ)
@@ -237,8 +215,7 @@ end
 # bc_indvars = NeuralPDE.get_argument(bcs, indvars, depvars);
 # depvars,indvars,dict_indvars,dict_depvars, dict_depvar_input = NeuralPDE.get_vars(indvars, depvars);
 # symLoss = [NeuralPDE.build_symbolic_loss_function(pde[i],indvars,depvars,
-# dict_indvars,dict_depvars,dict_depvar_input,
-# phi,derivative,integral,chain,initθ,strategy, param_estim = false, bc_indvars = bc_indvars, eq_params = SciMLBase.NullParameters(), default_p = nothing) for i in 1:4];
+# dict_indvars,dict_depvars,dict_depvar_input, phi,derivative,integral,chain,initθ,strategy, param_estim = false, bc_indvars = bc_indvars, eq_params = SciMLBase.NullParameters(), default_p = nothing) for i in 1:4];
 # #
 # symLoss1 = ((cord, var"##θ#292", phi, derivative, integral, u, p)->begin
 # begin
@@ -265,5 +242,34 @@ end
 # @show _pde_loss_function((tx1), th0)
 ##
 # symb_eq1 = NeuralPDE.parse_equation(pde[1],indvars,depvars,dict_indvars,dict_depvars,dict_depvar_input,chain,eltypeθ,strategy,phi,derivative,integral,initθ);
-eq1_lhs = isequal(expand_derivatives(pde[1].lhs), 0) ? pde[1].lhs : expand_derivatives(pde[1].lhs);
-eq1_rhs = isequal(expand_derivatives(pde[1].rhs), 0) ? pde[1].rhs : expand_derivatives(eq.rhs);
+# eq1_lhs = isequal(expand_derivatives(pde[1].lhs), 0) ? pde[1].lhs : expand_derivatives(pde[1].lhs);
+# eq1_rhs = isequal(expand_derivatives(pde[1].rhs), 0) ? pde[1].rhs : expand_derivatives(eq.rhs);
+# eq1_lexpr = NeuralPDE.transform_expression(toexpr(eq1_lhs),indvars,depvars,dict_indvars,dict_depvars,dict_depvar_input,chain,eltypeθ,strategy,phi,derivative,integral,initθ);
+# eq1_lexpr_d = NeuralPDE._dot_(eq1_lexpr)
+
+# # eq1_l2 = :(eq1_lexpr - 0f0);
+
+# lTmp = ((cord, var"##θ#292", phi, derivative, integral, u, p)->begin
+# begin
+#     (var"##θ#2921", var"##θ#2922") = (var"##θ#292"[1:10701], var"##θ#292"[10702:21402])
+#     (phi1, phi2) = (phi[1], phi[2])
+#     let (x1, x2, x3, x4) = (cord[[1], :], cord[[2], :], cord[[3], :], cord[[4], :])
+#         begin
+#             cord2 = vcat(x1, x2, x3, x4)
+#             cord1 = vcat(x1, x2, x3, x4)
+#         end
+#
+#     end
+# end
+# end)
+
+# uPhi = NeuralPDE.get_u();
+# _pde_loss_function = (cord, θ) -> begin
+#     lTmp(cord, θ, phi, derivative, integral, uPhi, nothing)
+# end
+
+# tx = cu(μ_ss);
+# tx1 = train_domain_set[1][:,100:105]
+
+# @show _pde_loss_function((tx), th0)
+# @show _pde_loss_function((tx1), th0)
