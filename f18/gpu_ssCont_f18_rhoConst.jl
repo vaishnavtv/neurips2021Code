@@ -11,7 +11,7 @@ import Random: seed!;
 seed!(1);
 
 ## parameters for neural network
-nn = 100; # number of neurons in the hidden layer
+nn = 20; # number of neurons in the hidden layer
 activFunc = tanh; # activation function
 opt1 = ADAM(1e-3); # primary optimizer used for training
 maxOpt1Iters = 10000; # maximum number of training iterations for opt1
@@ -19,20 +19,20 @@ opt2 = Optim.LBFGS(); # second optimizer used for fine-tuning
 maxOpt2Iters = 10000; # maximum number of training iterations for opt2
 
 # parameters for rhoSS_desired
-μ_ss = [0f0,0f0,0f0,0f0];
+μ_ss = [0f0,0f0,0f0,0f0] #.+ Array(f18_xTrim[indX]);
 Σ_ss = 0.1f0*Array(f18_xTrim[indX]).*1.0f0I(4);
 
 Q_fpke = 0.0f0; # Q = σ^2
 
 # file location to save data
-expNum = 1;
+expNum = 2;
 useGPU = true;
 runExp = true;
 saveFile = "data_rhoConst_gpu/exp$(expNum).jld2";
 runExp_fileName = "out_rhoConst_gpu/log$(expNum).txt";
 if runExp
     open(runExp_fileName, "a+") do io
-        write(io, "Generating a controller for f18 with desired ss distribution. 2 HL with $(nn) neurons in the hl and $(activFunc) activation. $(maxOpt1Iters) iterations with ADAM and then $(maxOpt2Iters) with LBFGS. using GPU? $(useGPU). Q_fpke = $(Q_fpke). μ_ss = $(μ_ss). Σ_ss = $(Σ_ss). Not dividing equation by ρ. Manually wrote loss function.
+        write(io, "Generating a controller for f18 with desired ss distribution. 2 HL with $(nn) neurons in the hl and $(activFunc) activation. $(maxOpt1Iters) iterations with ADAM and then $(maxOpt2Iters) with LBFGS. using GPU? $(useGPU). Q_fpke = $(Q_fpke). μ_ss = $(μ_ss). Σ_ss = $(Σ_ss). Not dividing equation by ρ. Manually wrote loss function. Reduced nn. 
         Experiment number: $(expNum)\n")
     end
 end
@@ -158,7 +158,7 @@ _pde_loss_functions = [NeuralPDE.build_loss_function(pde_i, indvars, depvars, ph
 # _pde_loss_function = NeuralPDE.build_loss_function(pde, indvars, depvars, phi, derivative, integral, chain, initθ, strategy);
 # _pde_loss_function(tx, th0) # ptxas code issue
 tx = cu(μ_ss);
-@show [_pde_loss_functions[i](tx, th0) for i in 1:3]
+@show [fn(tx, th0) for fn in _pde_loss_functions]
 _pde_loss_function2(cord, θ) = sum([fn(cord, θ) for fn in _pde_loss_functions]);
 
 train_domain_set, train_bound_set =
