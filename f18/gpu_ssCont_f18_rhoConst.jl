@@ -19,20 +19,20 @@ opt2 = Optim.LBFGS(); # second optimizer used for fine-tuning
 maxOpt2Iters = 10000; # maximum number of training iterations for opt2
 
 # parameters for rhoSS_desired
-μ_ss = [0f0,0f0,0f0,0f0] #.+ Array(f18_xTrim[indX]);
+μ_ss = [0f0,0f0,0f0,0f0] .+ Array(f18_xTrim[indX]);
 Σ_ss = 0.1f0*Array(f18_xTrim[indX]).*1.0f0I(4);
 
 Q_fpke = 0.0f0; # Q = σ^2
 
 # file location to save data
-expNum = 3;
+expNum = 4;
 useGPU = true;
 runExp = true;
 saveFile = "data_rhoConst_gpu/exp$(expNum).jld2";
 runExp_fileName = "out_rhoConst_gpu/log$(expNum).txt";
 if runExp
     open(runExp_fileName, "a+") do io
-        write(io, "Generating a controller for f18 with desired ss distribution. 2 HL with $(nn) neurons in the hl and $(activFunc) activation. $(maxOpt1Iters) iterations with ADAM and then $(maxOpt2Iters) with LBFGS. using GPU? $(useGPU). Q_fpke = $(Q_fpke). μ_ss = $(μ_ss). Σ_ss = $(Σ_ss). Not dividing equation by ρ. Manually wrote loss function. Finding utrim.
+        write(io, "Generating a controller for f18 with desired ss distribution. 2 HL with $(nn) neurons in the hl and $(activFunc) activation. $(maxOpt1Iters) iterations with ADAM and then $(maxOpt2Iters) with LBFGS. using GPU? $(useGPU). Q_fpke = $(Q_fpke). μ_ss = $(μ_ss). Σ_ss = $(Σ_ss). Not dividing equation by ρ. Finding utrim. Using (x̄ + x̃) as input.
         Experiment number: $(expNum)\n")
     end
 end
@@ -70,7 +70,7 @@ function f(xd)
 
     ud = [Kc1(xd[1],xd[2],xd[3],xd[4]); Kc2(xd[1],xd[2],xd[3],xd[4])];
 
-    tx = ((maskIndx)*xd); tu = ((maskIndu)*ud);
+    # tx = ((maskIndx)*xd); tu = ((maskIndu)*ud);
     # xFull = Vector{Real}(undef, 9);
     # uFull = Vector{Real}(undef, 4);
     # for i in 1:9
@@ -80,7 +80,9 @@ function f(xd)
     #     uFull[i] = f18_uTrim[i] + tu[i];
     # end 
     # perturbation about trim point
-    xFull = f18_xTrim + maskIndx*xd; 
+    # xFull = f18_xTrim + maskIndx*xd; 
+    maskTrim = ones(Float32,length(f18_xTrim)); maskTrim[indX] .= 0f0;
+    xFull = maskTrim.*f18_xTrim + maskIndx*xd; 
     uFull = [1f0;1f0;0f0;0f0].*f18_uTrim + maskIndu*ud;
 
     xdotFull = f18Dyn(xFull, uFull)
@@ -112,10 +114,10 @@ pde = [T1 ~ 0.f0, T2 ~ 0.0f0, T4 ~ 0.0f0]; # T3 not dependent on Kc, will sum th
 println("PDE defined.")
 
 ## Domain
-x1_min = -100f0; x1_max = 100f0;
-x2_min = deg2rad(-10f0); x2_max = deg2rad(10f0);
-x3_min = x2_min; x3_max = x2_max;
-x4_min = deg2rad(-5f0); x4_max = deg2rad(5f0);
+x1_min = -100f0 + f18_xTrim[indX[1]]; x1_max = 100f0 + f18_xTrim[indX[1]];
+x2_min = deg2rad(-10f0) + f18_xTrim[indX[2]]; x2_max = deg2rad(10f0) + f18_xTrim[indX[2]];
+x3_min = x2_min + f18_xTrim[indX[3]]; x3_max = x2_max + f18_xTrim[indX[3]];
+x4_min = deg2rad(-5f0) + f18_xTrim[indX[4]]; x4_max = deg2rad(5f0) + f18_xTrim[indX[4]];
 domains = [x1 ∈ IntervalDomain(x1_min, x1_max), x2 ∈ IntervalDomain(x2_min, x2_max), x3 ∈ IntervalDomain(x3_min, x3_max), x4 ∈ IntervalDomain(x4_min, x4_max),];
 
 dx = [10f0; deg2rad(1f0); deg2rad(1f0); deg2rad(1f0);]; # discretization size used for training
