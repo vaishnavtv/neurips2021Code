@@ -20,18 +20,18 @@ Q_fpke = 0.0f0; # Q = σ^2
 dt = 0.2f0; tEnd = 1.0f0;
 μ0  = [0f0,0f0]; Σ0 = 1f0*1.0f0I(2); #gaussian 
 A = -0.5f0*1.0f0I(2); # stable linear system
-α_c = 1f-5; # weight on control effort loss
+α_c = 0f0; # weight on control effort loss
 
 # file location to save data
 suff = string(activFunc);
-expNum = 20;
+expNum = 22;
 saveFile = "data_cont_rothe/vdp_exp$(expNum).jld2";
 useGPU = true;
 runExp = true;
 runExp_fileName = "out_cont_rothe/log$(expNum).txt";
 if runExp
     open(runExp_fileName, "a+") do io
-        write(io, "Designing a controller for ts_vdp__PINN using Rothe's method with Grid training. 2 HL with $(nn) neurons in the hl and $(suff) activation. using GPU? $(useGPU). dx = $(dx). α_c = $(α_c). Q_fpke = $(Q_fpke). dt = $(dt). tEnd = $(tEnd). Model matching. μ0 = $(μ0). Σ0 = $(Σ0). A = $(A). Adding norm loss for control effort with weight $(α_c). Changed A.
+        write(io, "Designing a controller for ts_vdp__PINN using Rothe's method with Grid training. 2 HL with $(nn) neurons in the hl and $(suff) activation. using GPU? $(useGPU). dx = $(dx). α_c = $(α_c). Q_fpke = $(Q_fpke). dt = $(dt). tEnd = $(tEnd). Model matching. μ0 = $(μ0). Σ0 = $(Σ0). A = $(A). Adding norm loss for control effort with weight $(α_c). Changed A. Removing ρ_sym from loss functions.
         Experiment number: $(expNum)\n")
     end
 end
@@ -76,7 +76,8 @@ for (tInt, tVal) in enumerate(tR[1:end-1])
     diff0 = sum([(Differential(xSym[i])*Differential(xSym[j]))(G0[i,j]) for i in 1:length(xSym), j=1:length(xSym)]);
     pdeOpt0 = -drift0 + diff0;
 
-    push!(eqns_lhs, abs2((ρ_sym1 - dt/2*pdeOpt1) - (ρ_sym0 + dt/2*pdeOpt0)))
+    # push!(eqns_lhs, abs2((ρ_sym1 - dt/2*pdeOpt1) - (ρ_sym0 + dt/2*pdeOpt0)))
+    push!(eqns_lhs, abs2((- dt/2*pdeOpt1) - (+ dt/2*pdeOpt0))) # removed ρ_sym
     push!(eqns, eqns_lhs[tInt] ~ 0.0f0)
     global pde_eqn_lhs += abs2((ρ_sym1 - dt/2*pdeOpt1) - (ρ_sym0 + dt/2*pdeOpt0)) # error at time k squared here itself
 end
@@ -181,9 +182,9 @@ cb_ = function (p, l)
 end
 
 println("Calling GalacticOptim()");
-res = GalacticOptim.solve(prob, opt1, cb=cb_, maxiters=maxOpt1Iters);
+res = GalacticOptim.solve(prob, opt1, callback=cb_, maxiters=maxOpt1Iters);
 prob = remake(prob, u0=res.minimizer)
-res = GalacticOptim.solve(prob, opt2, cb=cb_, maxiters=maxOpt2Iters);
+res = GalacticOptim.solve(prob, opt2, callback=cb_, maxiters=maxOpt2Iters);
 println("Optimization done.");
 
 # ## Save data
