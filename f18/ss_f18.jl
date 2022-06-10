@@ -21,14 +21,14 @@ maxOpt2Iters = 10000; # maximum number of training iterations for opt2
 Q_fpke = 0.0f0; # Q = σ^2
 
 # file location to save data
-expNum = 2;
+expNum = 3;
 useGPU = true;
 runExp = true;
 saveFile = "data_ss/exp$(expNum).jld2";
 runExp_fileName = "out_ss/log$(expNum).txt";
 if runExp
     open(runExp_fileName, "a+") do io
-        write(io, "Finding the ss distribution for the trimmed F18. 2 HL with $(nn) neurons in the hl and $(activFunc) activation. $(maxOpt1Iters) iterations with ADAM and then $(maxOpt2Iters) with LBFGS. using GPU? $(useGPU). Q_fpke = $(Q_fpke). 
+        write(io, "Finding the ss distribution for the trimmed F18. 2 HL with $(nn) neurons in the hl and $(activFunc) activation. $(maxOpt1Iters) iterations with ADAM and then $(maxOpt2Iters) with LBFGS. using GPU? $(useGPU). Q_fpke = $(Q_fpke). Increased size of training dataset.
         Experiment number: $(expNum)\n")
     end
 end
@@ -90,7 +90,7 @@ x4_min = deg2rad(-5f0); x4_max = deg2rad(5f0);
 
 domains = [x1 ∈ IntervalDomain(x1_min, x1_max), x2 ∈ IntervalDomain(x2_min, x2_max), x3 ∈ IntervalDomain(x3_min, x3_max), x4 ∈ IntervalDomain(x4_min, x4_max),];
 
-dx = [10f0; deg2rad(1f0); deg2rad(1f0); deg2rad(1f0);]; # discretization size used for training
+dx = 0.5f0*[10f0; deg2rad(1f0); deg2rad(1f0); deg2rad(1f0);]; # discretization size used for training
 
 # Boundary conditions
 bcs = [η(-100f0,x2,x3,x4) ~ 0.f0, η(100f0,x2,x3,x4) ~ 0.f0,
