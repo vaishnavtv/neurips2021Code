@@ -5,7 +5,7 @@ include("f18Dyn.jl")
 mkpath("out_ss")
 mkpath("data_ss")
 
-using NeuralPDE, Flux, ModelingToolkit, GalacticOptim, Optim, Symbolics, JLD2, DiffEqFlux, LinearAlgebra, Distributions
+using NeuralPDE, Flux, ModelingToolkit, Optim, Symbolics, JLD2, DiffEqFlux, LinearAlgebra, Distributions, Optimization
 
 import Random: seed!;
 seed!(1);
@@ -21,14 +21,14 @@ maxOpt2Iters = 10000; # maximum number of training iterations for opt2
 Q_fpke = 0.0f0; # Q = σ^2
 
 # file location to save data
-expNum = 4;
+expNum = 3;
 useGPU = true;
 runExp = true;
 saveFile = "data_ss/exp$(expNum).jld2";
 runExp_fileName = "out_ss/log$(expNum).txt";
 if runExp
     open(runExp_fileName, "a+") do io
-        write(io, "Finding the ss distribution for the trimmed F18. 3 HL with $(nn) neurons in the hl and $(activFunc) activation. $(maxOpt1Iters) iterations with ADAM and then $(maxOpt2Iters) with LBFGS. using GPU? $(useGPU). Q_fpke = $(Q_fpke). Increased size of training dataset.
+        write(io, "Finding the ss distribution for the trimmed F18. 2 HL with $(nn) neurons in the hl and $(activFunc) activation. $(maxOpt1Iters) iterations with ADAM and then $(maxOpt2Iters) with LBFGS. using GPU? $(useGPU). Q_fpke = $(Q_fpke). Increased size of training dataset.
         Experiment number: $(expNum)\n")
     end
 end
@@ -101,7 +101,7 @@ bcs = [η(-100f0,x2,x3,x4) ~ 0.f0, η(100f0,x2,x3,x4) ~ 0.f0,
 
 ## Neural network set up
 dim = 4 # number of dimensions
-chain = Chain(Dense(dim, nn, activFunc), Dense(nn, nn, activFunc), Dense(nn, nn, activFunc), Dense(nn, 1));
+chain = Chain(Dense(dim, nn, activFunc), Dense(nn, nn, activFunc), Dense(nn, 1));
 
 initθ = DiffEqFlux.initial_params(chain);
 if useGPU
