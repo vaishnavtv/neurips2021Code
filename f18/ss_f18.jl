@@ -14,14 +14,14 @@ seed!(1);
 nn = 100; # number of neurons in the hidden layer
 activFunc = tanh; # activation function
 opt1 = ADAM(1e-3); # primary optimizer used for training
-maxOpt1Iters = 10000; # maximum number of training iterations for opt1
+maxOpt1Iters = 50000; # maximum number of training iterations for opt1
 opt2 = Optim.LBFGS(); # second optimizer used for fine-tuning
 maxOpt2Iters = 10000; # maximum number of training iterations for opt2
 
 Q_fpke = 0.0f0; # Q = σ^2
 
 # file location to save data
-expNum = 1;
+expNum = 2;
 useGPU = true;
 runExp = true;
 saveFile = "data_ss/exp$(expNum).jld2";
