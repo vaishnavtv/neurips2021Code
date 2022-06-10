@@ -47,7 +47,7 @@ suff = string(activFunc);
 nn = 50;
 Q_fpke = 0.0f0#*1.0I(2); # σ^2
 
-expNum = 20; 
+expNum = 21; 
 fileLoc = "data_cont_rothe/vdp_exp$(expNum).jld2";
 @info "Loading file from ts_cont_vdp exp $(expNum)"
 file = jldopen(fileLoc, "r");

@@ -3,7 +3,7 @@ pygui(true);
 cd(@__DIR__);
 include("../utils.jl")
 include("f18Dyn.jl")
-mkpath("figs_rhoFixed")
+mkpath("figs_rhoFixed_gpu")
 
 import Random: seed!; seed!(1);
 
@@ -12,10 +12,11 @@ activFunc = tanh;
 suff = string(activFunc);
 nn = 100;
 Q_fpke = 0.0f0#*1.0I(2); # σ^2
-tEnd = 500.0; dt = 2.0;
+tEnd = 100.0; dt = 2.0;
 
-expNum = 18; 
-fileLoc = "data_rhoConst/exp$(expNum).jld2";
+expNum = 1; 
+# fileLoc = "data_rhoConst/exp$(expNum).jld2";
+fileLoc = "data_rhoConst_gpu/exp$(expNum).jld2";
 @info "Loading file from ss_cont_f18_rhoFixed exp $(expNum)"
 file = jldopen(fileLoc, "r");
 optParam = Array(read(file, "optParam"));
@@ -23,7 +24,7 @@ PDE_losses = read(file, "PDE_losses");
 close(file);
 println("Are any of the parameters NaN ever? $(any(isnan.(optParam)))")
 
-mkpath("figs_rhoFixed/exp$(expNum)")
+mkpath("figs_rhoFixed_gpu/exp$(expNum)")
 
 ## Plot Losses
 nIters = length(PDE_losses);
@@ -32,12 +33,12 @@ semilogy(1:nIters, PDE_losses, label =  "PDE");
 xlabel("Iterations"); ylabel("ϵ");
 title("Loss Function exp$(expNum)");
 legend(); tight_layout();
-savefig("figs_rhoFixed/exp$(expNum)/loss.png")
+savefig("figs_rhoFixed_gpu/exp$(expNum)/loss.png")
 
 ## Neural network set up
 dim = 4 # number of dimensions
-chain = Chain(Dense(dim, nn, activFunc), Dense(nn, nn, activFunc),Dense(nn, nn, activFunc), Dense(nn, 1));
-# chain2 = Chain(Dense(dim, nn, activFunc), Dense(nn, nn, activFunc), Dense(nn, 1));
+# chain = Chain(Dense(dim, nn, activFunc), Dense(nn, nn, activFunc),Dense(nn, nn, activFunc), Dense(nn, 1));
+chain = Chain(Dense(dim, nn, activFunc), Dense(nn, nn, activFunc), Dense(nn, 1));
 
 initθ,re  = Flux.destructure(chain)
 phi = (x,θ) -> re(θ)(Array(x))
@@ -61,20 +62,22 @@ for i in 1:length(indX)
         maskIndu[indU[i],i] = 1f0;
     end
 end
-
+maskTrim = ones(Float32,length(f18_xTrim)); maskTrim[indX] .= 0f0; # keeping nonrelevant states constant
+    
 function f18RedDyn(xd,t)
     # reduced order f18 dynamics
     ud = [first(phi(xd, th1)); first(phi(xd, th2))]
     
     tx = maskIndx*xd; tu = maskIndu*ud;
+    
     xFull = f18_xTrim + maskIndx*xd; 
-    # uFull = [1f0;1f0;0f0;1f0].*f18_uTrim + maskIndu*ud;
-    uFull = f18_uTrim + 0.1*maskIndu*ud;
- 
+    # uFull = [1f0;1f0;0f0;0f0].*f18_uTrim + maskIndu*ud;
+    uFull = f18_uTrim + maskIndu*ud;
+
+    # xFull = maskTrim.*f18_xTrim + maskIndx*xd; 
+    # uFull = [1f0;1f0;0f0;0f0].*f18_uTrim + maskIndu*ud;
     
     xdotFull = f18Dyn(xFull, uFull) #- f18Dyn(f18_xTrim, f18_uTrim)
-    # xdotFull = f18Dyn(f18_xTrim, f18_uTrim)
-    # @show maximum(xdotFull[indX])
     return (xdotFull[indX])
 end
 
@@ -95,15 +98,13 @@ end
 #
 function plotTraj(sol, figNum)
     tSim = sol.t
-    x1Sol = sol[1, :] #.+ f18_xTrim[indX[1]]
-    x2Sol = (sol[2, :]) #.+ f18_xTrim[indX[2]]
-    x3Sol = (sol[3, :]) #.+ f18_xTrim[indX[3]]
-    # x2Sol = angBounds.(sol[2, :]) #.+ f18_xTrim[indX[2]]
-    # x3Sol = angBounds.(sol[3, :]) #.+ f18_xTrim[indX[3]]
-    x4Sol = sol[4, :] #.+ f18_xTrim[indX[4]]
+    x1Sol = sol[1, :] #.- f18_xTrim[indX[1]]
+    x2Sol = (sol[2, :]) #.- f18_xTrim[indX[2]]
+    x3Sol = (sol[3, :]) #.- f18_xTrim[indX[3]]
+    x4Sol = sol[4, :] #.- f18_xTrim[indX[4]]
     # u = [(1-exp(-τ*tSim[i]))*first(phi(sol.u[i], optParam)) for i = 1:length(tSim)]
-    u1 = 0.1*[first(phi(sol.u[i], th1)) for i = 1:length(tSim)];
-    u2 = 0.1*[first(phi(sol.u[i], th2)) for i = 1:length(tSim)];
+    u1 = [first(phi(sol.u[i], th1)) for i = 1:length(tSim)] .- f18_uTrim[indU[1]];
+    u2 = [first(phi(sol.u[i], th2)) for i = 1:length(tSim)] .- f18_uTrim[indU[2]];
     # u2 = 0f0*ones(length(u1)) #*[first(phi(sol.u[i], th2)) for i = 1:length(tSim)];
 
     figure(figNum, figsize = (8,4));#clf()
@@ -131,62 +132,64 @@ function plotTraj(sol, figNum)
     PyPlot.plot(tSim, u2)
     xlabel("t"); ylabel("T"); grid("on")
 
-    suptitle("Exp$(expNum) Traj: Deviation from Trim");
+    suptitle("Exp$(expNum) Traj: Deviation from x̄");
     tight_layout()
 end
-vmin = [-100f0;deg2rad(-10f0);deg2rad(-10f0); deg2rad(-5f0)];
-xmin = 1f0*vmin; #[-100f0;deg2rad(-10f0);deg2rad(-10f0); deg2rad(-5f0)];
-xmax = -2f0*vmin;
+vmin = [-100f0;deg2rad(-10f0);deg2rad(-10f0); deg2rad(-5f0)] ;
+xmin = 1f0*vmin #.+ f18_xTrim[indX]; 
+xmax = -1f0*vmin #.+ f18_xTrim[indX]
 tx = xmin .+ ((xmax - xmin) .* rand(4));
 @show tx
 solSim = nlSim(tx);
 println("x1 initial value: $(solSim[1,1]);  x1 terminal value: $(solSim[1,end])");
 println("x2 initial value: $(rad2deg(solSim[2,1]));  x2 terminal value: $(rad2deg(solSim[2,end]))");
 println("x3 initial value: $(rad2deg(solSim[3,1]));  x3 terminal value: $(rad2deg(solSim[3,end]))");
-println("x4 initial value: $(solSim[4,1]);  x4 terminal value: $(rad2deg(solSim[4,end]))");
+println("x4 initial value: $(rad2deg(solSim[4,1]));  x4 terminal value: $(rad2deg(solSim[4,end]))");
 println("Terminal value state norm: $(norm(solSim[:,end]))");
 figure(3); clf();
 plotTraj(solSim, 3);
+savefig("figs_rhoFixed_gpu/exp$(expNum)/traj.png")
 # savefig("figs_rhoFixed/exp$(expNum)/traj.png")
+
 ## Generate 20 random trajectories
-seed!(1);
-nTraj = 10; figNum = nTraj;
-tx_nT = [xmin .+ ((xmax - xmin) .* rand(4)) for i in 1:nTraj];
-solSim_nT = [nlSim(txi) for txi in tx_nT];
-figure(figNum, figsize = (8,4)); clf();
-[plotTraj(solSim_nT[i], figNum) for i in 1:nTraj]; 
+# seed!(1);
+# nTraj = 10; figNum = nTraj;
+# tx_nT = [xmin .+ ((xmax - xmin) .* rand(4)) for i in 1:nTraj];
+# solSim_nT = [nlSim(txi) for txi in tx_nT];
+# figure(figNum, figsize = (8,4)); clf();
+# [plotTraj(solSim_nT[i], figNum) for i in 1:nTraj]; 
 
 
-# ##
-# function fs(xd, phi, th1, th2)
+##
+function fs(xd, phi, th1, th2)
 
-#     ud = [first(phi(xd, th1)); first(phi(xd, th2))]
+    ud = [first(phi(xd, th1)); first(phi(xd, th2))]
 
-#     # perturbation about trim point
-#     xFull = f18_xTrim + maskIndx*xd; 
-#     # uFull = [1f0;1f0;0f0;0f0].*f18_uTrim + maskIndu*ud;
-#     uFull = f18_uTrim + maskIndu*ud;
+    # perturbation about trim point
+    xFull = f18_xTrim + maskIndx*xd; 
+    # uFull = [1f0;1f0;0f0;0f0].*f18_uTrim + maskIndu*ud;
+    uFull = f18_uTrim + maskIndu*ud;
 
-#     xdotFull = f18Dyn(xFull, uFull)
-#     # xdotFull = xFull;
+    xdotFull = f18Dyn(xFull, uFull)
+    # xdotFull = xFull;
 
-#     return (xdotFull[indX]) # return the 4 state dynamics
+    return (xdotFull[indX]) # return the 4 state dynamics
 
-# end
+end
 
-# using ForwardDiff, Distributions
-# function tl(th1, th2, y, phi)
-#     μ_ss = [0f0,0f0,0f0,0f0] 
-#     Σ_ss = 0.1f0*Array(f18_xTrim[indX]).*1.0f0I(4)
-#     rho(x) =  pdf(MvNormal(μ_ss, Σ_ss),x);
-#     drho(x) = ForwardDiff.gradient(rho, x);
+using ForwardDiff, Distributions
+function tl(th1, th2, y, phi)
+    μ_ss = [0f0,0f0,0f0,0f0] 
+    Σ_ss = 0.1f0*Array(f18_xTrim[indX]).*1.0f0I(4)
+    rho(x) =  pdf(MvNormal(μ_ss, Σ_ss),x);
+    drho(x) = ForwardDiff.gradient(rho, x);
 
-#     dfs(x) = diag(ForwardDiff.jacobian(z->fs(z, phi, th1, th2), x));
-#     # dphi(x) = ForwardDiff.gradient(z->first(phi(z, th0)), x);
-#     @show dfs(y)
-#     @show drho(y)
-#     l = rho(y)*sum(dfs(y)) +  dot(fs(y, phi, th1, th2), drho(y));
-#     return l
-# end
+    dfs(x) = diag(ForwardDiff.jacobian(z->fs(z, phi, th1, th2), x));
+    # dphi(x) = ForwardDiff.gradient(z->first(phi(z, th0)), x);
+    @show dfs(y)
+    @show drho(y)
+    l = rho(y)*sum(dfs(y)) +  dot(fs(y, phi, th1, th2), drho(y));
+    return l
+end
 # txEnd = solSim[:,end];
 # @show tl(th1, th2, tx, phi)
