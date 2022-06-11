@@ -72,7 +72,7 @@ function f18RedDyn(xd,t)
     
     xFull = f18_xTrim + maskIndx*xd; 
     # uFull = [1f0;1f0;0f0;0f0].*f18_uTrim + maskIndu*ud;
-    uFull = f18_uTrim + maskIndu*ud;
+    uFull = f18_uTrim #+ maskIndu*ud;
 
     # xFull = maskTrim.*f18_xTrim + maskIndx*xd; 
     # uFull = [1f0;1f0;0f0;0f0].*f18_uTrim + maskIndu*ud;
@@ -103,8 +103,8 @@ function plotTraj(sol, figNum)
     x3Sol = (sol[3, :]) #.- f18_xTrim[indX[3]]
     x4Sol = sol[4, :] #.- f18_xTrim[indX[4]]
     # u = [(1-exp(-τ*tSim[i]))*first(phi(sol.u[i], optParam)) for i = 1:length(tSim)]
-    u1 = [first(phi(sol.u[i], th1)) for i = 1:length(tSim)] .- f18_uTrim[indU[1]];
-    u2 = [first(phi(sol.u[i], th2)) for i = 1:length(tSim)] .- f18_uTrim[indU[2]];
+    u1 = [first(phi(sol.u[i], th1)) for i = 1:length(tSim)]# .- f18_uTrim[indU[1]];
+    u2 = [first(phi(sol.u[i], th2)) for i = 1:length(tSim)]# .- f18_uTrim[indU[2]];
     # u2 = 0f0*ones(length(u1)) #*[first(phi(sol.u[i], th2)) for i = 1:length(tSim)];
 
     figure(figNum, figsize = (8,4));#clf()
@@ -138,7 +138,7 @@ end
 vmin = [-100f0;deg2rad(-10f0);deg2rad(-10f0); deg2rad(-5f0)] ;
 xmin = 1f0*vmin #.+ f18_xTrim[indX]; 
 xmax = -1f0*vmin #.+ f18_xTrim[indX]
-tx = xmin .+ ((xmax - xmin) .* rand(4));
+tx = 2*xmax# .+ ((xmax - xmin) .* rand(4));
 @show tx
 solSim = nlSim(tx);
 println("x1 initial value: $(solSim[1,1]);  x1 terminal value: $(solSim[1,end])");
@@ -148,7 +148,7 @@ println("x4 initial value: $(rad2deg(solSim[4,1]));  x4 terminal value: $(rad2de
 println("Terminal value state norm: $(norm(solSim[:,end]))");
 figure(3); clf();
 plotTraj(solSim, 3);
-savefig("figs_rhoFixed_gpu/exp$(expNum)/traj.png")
+# savefig("figs_rhoFixed_gpu/exp$(expNum)/traj.png")
 # savefig("figs_rhoFixed/exp$(expNum)/traj.png")
 
 ## Generate 20 random trajectories
