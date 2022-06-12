@@ -3,7 +3,7 @@
 cd(@__DIR__);
 mkpath("out_rothe");
 mkpath("data_rothe");
-using NeuralPDE, Flux, ModelingToolkit, GalacticOptim, Optim, Symbolics, JLD2, DiffEqFlux, LinearAlgebra, Distributions
+using NeuralPDE, Flux, ModelingToolkit, Optimization, Optim, Symbolics, JLD2, DiffEqFlux, LinearAlgebra, Distributions
 using Quadrature, Cubature, Cuba
 
 import Random:seed!; seed!(1);
@@ -18,19 +18,19 @@ maxOpt2Iters = 200; # maximum number of training iterations for opt2
 
 dx = 0.05; # discretization size used for training
 α_bc = 1.0f0 # weight on boundary conditions loss
-Q_fpke = 0.0f0; # Q = σ^2
-dt = 0.01; tEnd = 5.0;
+Q_fpke = 0.1f0; # Q = σ^2
+dt = 0.1; tEnd = 5.0;
 
 # file location to save data
 suff = string(activFunc);
-expNum = 35;
+expNum = 36;
 saveFile = "data_rothe/vdp_exp$(expNum).jld2";
 useGPU = true; if useGPU using CUDA end;
 runExp = true;
 runExp_fileName = "out_rothe/log$(expNum).txt";
 if runExp
     open(runExp_fileName, "a+") do io
-        write(io, "ts_vdp__PINN using Rothe's method with Grid training. 3 HL with $(nn) neurons in the hl and $(suff) activation. $(maxOpt1Iters) iterations with ADAM and then $(maxOpt2Iters) with LBFGS. using GPU? $(useGPU). dx = $(dx). α_bc = $(α_bc). Q_fpke = $(Q_fpke). dt = $(dt). tEnd = $(tEnd). Not using ADAM, just LBFGS for $(maxOpt2Iters) iterations. Using ρ. Positive value output using (abs2) on output layer. With norm loss function. Loading result from exp22 for t0. Midpoint rule for norm loss. 
+        write(io, "ts_vdp__PINN using Rothe's method with Grid training. 3 HL with $(nn) neurons in the hl and $(suff) activation. $(maxOpt1Iters) iterations with ADAM and then $(maxOpt2Iters) with LBFGS. using GPU? $(useGPU). dx = $(dx). α_bc = $(α_bc). Q_fpke = $(Q_fpke). dt = $(dt). tEnd = $(tEnd). Not using ADAM, just LBFGS for $(maxOpt2Iters) iterations. Using ρ. Positive value output using (abs2) on output layer. With norm loss function. Loading result from exp22 for t0. Midpoint rule for norm loss. Changed Q_fpke, adding diffusion.
         Experiment number: $(expNum)\n")
     end
 end
@@ -123,7 +123,7 @@ using Statistics
 ic_loss_fn =  (θ) -> mean(abs2,_ic_loss_fn(train_domain_set[1], θ));
 @show ic_loss_fn(initθ)
 
-ic_loss_fn_(θ, p) = ic_loss_fn(θ); # for GalacticOptim
+ic_loss_fn_(θ, p) = ic_loss_fn(θ); # for Optimization
 
 nSteps = 0;
 cb0 = function (p, l)
@@ -142,11 +142,11 @@ cb0 = function (p, l)
     return false
 end
 # println("Beginning optimization for initial condition...");
-# f0 = OptimizationFunction(ic_loss_fn_, GalacticOptim.AutoZygote())
-# prob0 = GalacticOptim.OptimizationProblem(f0, initθ)
-# # res0 = GalacticOptim.solve(prob0, opt1, cb=cb0, maxiters=maxOpt1Iters);
+# f0 = OptimizationFunction(ic_loss_fn_, Optimization.AutoZygote())
+# prob0 = Optimization.OptimizationProblem(f0, initθ)
+# # res0 = Optimization.solve(prob0, opt1, cb=cb0, maxiters=maxOpt1Iters);
 # # prob0 = remake(prob0, u0=res0.minimizer)
-# res0 = GalacticOptim.solve(prob0, opt2, cb=cb0, maxiters=maxOpt2Iters);
+# res0 = Optimization.solve(prob0, opt2, cb=cb0, maxiters=maxOpt2Iters);
 # println("Optimization for initial condition done.");
 # th0 = res0.minimizer;
 fileLoc = "data_rothe/vdp_exp22.jld2";
@@ -198,9 +198,9 @@ for (tInt, tVal) in enumerate(tR[1:end-1])
     end
     @show loss_function_(th0,0)
 
-    ## set up GalacticOptim optimization problem
-    f_ = OptimizationFunction(loss_function_, GalacticOptim.AutoZygote())
-    prob = GalacticOptim.OptimizationProblem(f_, cuθFull[tInt])
+    ## set up Optimization optimization problem
+    f_ = OptimizationFunction(loss_function_, Optimization.AutoZygote())
+    prob = Optimization.OptimizationProblem(f_, cuθFull[tInt])
 
     global nSteps = 0;
     # PDE_losses = Float32[];
@@ -232,10 +232,10 @@ for (tInt, tVal) in enumerate(tR[1:end-1])
         return false
     end
 
-    println("Calling GalacticOptim() at t =  $(tVal)");
-    # res = GalacticOptim.solve(prob, opt1, cb=cb_, maxiters=maxOpt1Iters);
+    println("Calling Optimization() at t =  $(tVal)");
+    # res = Optimization.solve(prob, opt1, cb=cb_, maxiters=maxOpt1Iters);
     # prob = remake(prob, u0=res.minimizer)
-    res = GalacticOptim.solve(prob, opt2, cb=cb_, maxiters=maxOpt2Iters);
+    res = Optimization.solve(prob, opt2, callback=cb_, maxiters=maxOpt2Iters);
 
     push!(θFull, Array(res.minimizer));
     push!(cuθFull, (res.minimizer));
