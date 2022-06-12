@@ -9,9 +9,9 @@ mkpath("figs_rothe");
 activFunc = tanh;
 suff = string(activFunc);
 nn = 100;
-Q_fpke = 0.0f0#*1.0I(2); # σ^2
+Q_fpke = 0.10#*1.0I(2); # σ^2
 
-expNum = 35; 
+expNum = 36; 
 fileLoc = "data_rothe/vdp_exp$(expNum).jld2";
 @info "Loading file from ts_rothe exp $(expNum)"
 file = jldopen(fileLoc, "r");
