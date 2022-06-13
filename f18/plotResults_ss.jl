@@ -11,7 +11,7 @@ mkpath("figs_ss")
 activFunc = tanh;
 nn = 100;
 
-expNum = 4;
+expNum = 5;
 fileLoc = "data_ss/exp$(expNum).jld2";
 
 mkpath("figs_ss/exp$(expNum)")
