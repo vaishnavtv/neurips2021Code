@@ -18,7 +18,7 @@ maxOpt1Iters = 50000; # maximum number of training iterations for opt1
 opt2 = Optim.LBFGS(); # second optimizer used for fine-tuning
 maxOpt2Iters = 10000; # maximum number of training iterations for opt2
 
-Q_fpke = 0.1f0; # Q = σ^2
+Q_fpke = 0.0f0; # Q = σ^2
 
 # file location to save data
 expNum = 6;
@@ -64,26 +64,35 @@ function f(xd)
 end
 
 ##
-g(x::Vector) = [1.0f0; 0.0f0;0.0f0; 0.0f0] # diffusion vector needs to be modified
+g(x::Vector) = [1.0f0; 1.0f0;1.0f0; 1.0f0] # diffusion vector needs to be modified
 
 # PDE
 ρ(x) = exp(η(x...));
 F = f(xSym) * ρ(xSym);
 G = 0.5f0 * (g(xSym) * Q_fpke * g(xSym)') * ρ(xSym);
 
-# T1 = Differential(xSym[1])(F[1])
-# T2 = Differential(xSym[2])(F[2])
-# T3 = Differential(xSym[3])(F[3])
-# T4 = Differential(xSym[4])(F[4])
-# pde = [T1/(ρ(xSym)) ~ 0.f0, T2/(ρ(xSym)) ~ 0.0f0, T3/(ρ(xSym)) ~ 0.0f0, T4/(ρ(xSym)) ~ 0.0f0]; 
-
+# Drift Terms
 driftTerms = ([Differential(xSym[i])(F[i]) for i = 1:length(xSym)]);
-diffTerms = ([(Differential(xSym[i])*Differential(xSym[j]))(G[i,j]) for i in 1:1, j=1:1]);
-
-# Eqn = expand_derivatives(-T1 + T2); # + dx*u(x1,x2)-1 ~ 0;
-# pde = simplify(Eqn) ~ 0.0f0;
 pdeDrift = driftTerms./(ρ(xSym)) .~ 0.0f0
-pdeDiff = diffTerms./(ρ(xSym)) .~ 0f0
+
+# Diffusion
+pdeDiff = Equation[]; # need to do the following to avoid NaNs
+# (Differential(x1)(η(x1,x2,x3,x4)))^2 gives NaNs
+# abs2(Differential(x1)(η(x1,x2,x3,x4))) is NaN-safe
+
+for i in 1:4
+    for j in 1:4
+        if i!=j
+            offDiagTerm = (Differential(xSym[i])*Differential(xSym[j]))(G[i,j])
+            offDiagTerm = expand_derivatives(offDiagTerm)
+            eqn = simplify(offDiagTerm/ρ(xSym), expand = true) ~ 0.0f0
+            push!(pdeDiff, eqn);
+        else
+            eqn = 0.5f0*Q_fpke*g(xSym)[i]*(abs2(Differential(xSym[i])(η(xSym...))) + Differential(xSym[i])(Differential(xSym[i])(η(xSym...)))) ~ 0.0f0
+            push!(pdeDiff, eqn);
+        end
+    end
+end
 println("PDE defined.")
 
 ## Domain
@@ -118,7 +127,6 @@ th0 = flat_initθ;
 eltypeθ = eltype(flat_initθ);
 parameterless_type_θ = DiffEqBase.parameterless_type(flat_initθ);
 
-
 strategy = NeuralPDE.GridTraining(dx);
 
 indvars = xSym
@@ -131,7 +139,7 @@ integral = NeuralPDE.get_numeric_integral(strategy, indvars, depvars, chain, der
 tx = cu(f18_xTrim[indX]);
 
 ## Loss function
-println("Defining pde loss function for each term.")
+println("Defining pde loss function for drift and diffusion terms.")
 _pde_loss_functions_drift = [NeuralPDE.build_loss_function(pde_i, indvars, depvars, phi, derivative, integral, chain, initθ, strategy) for pde_i in pdeDrift];
 @show [fn(tx, th0) for fn in _pde_loss_functions_drift]
 
@@ -139,7 +147,7 @@ _pde_loss_functions_diff = [NeuralPDE.build_loss_function(pde_i, indvars, depvar
 @show [fn(tx, th0) for fn in _pde_loss_functions_diff]
 
 
-_pde_loss_function(cord, θ) = sum([fn(cord, θ) for fn in _pde_loss_functions_drift]) - sum([fn(cord, θ) for fn in _pde_loss_functions_diff])
+_pde_loss_function(cord, θ) =  sum([fn(cord, θ) for fn in _pde_loss_functions_drift]) .- sum([fn(cord, θ) for fn in _pde_loss_functions_diff])
 @show _pde_loss_function(tx, th0) 
 # println("sleeping here.")
 # sleep(10000);
@@ -149,9 +157,9 @@ _bc_loss_functions = [NeuralPDE.build_loss_function(bc,indvars,depvars,phi,deriv
 
 # Domain and training sets
 train_domain_set, train_bound_set =
-    NeuralPDE.generate_training_sets(domains, dx, pde, bcs, eltypeθ, indvars, depvars);
+    NeuralPDE.generate_training_sets(domains, dx, pdeDrift, bcs, eltypeθ, indvars, depvars);
 if useGPU
-    train_domain_set[1] = train_domain_set[1] |> gpu;
+    train_domain_set = train_domain_set |> gpu;
     train_bound_set = train_bound_set |> gpu;
 end
 
