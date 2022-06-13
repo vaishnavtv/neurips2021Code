@@ -18,10 +18,10 @@ maxOpt1Iters = 50000; # maximum number of training iterations for opt1
 opt2 = Optim.LBFGS(); # second optimizer used for fine-tuning
 maxOpt2Iters = 10000; # maximum number of training iterations for opt2
 
-Q_fpke = 0.0f0; # Q = σ^2
+Q_fpke = 0.1f0; # Q = σ^2
 
 # file location to save data
-expNum = 6;
+expNum = 7;
 useGPU = true;
 runExp = true;
 saveFile = "data_ss/exp$(expNum).jld2";
