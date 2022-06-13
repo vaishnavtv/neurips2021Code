@@ -4,7 +4,7 @@ cd(@__DIR__);
 mkpath("out_rhoConst")
 mkpath("data_rhoConst")
 
-using NeuralPDE, Flux, ModelingToolkit, GalacticOptim, Optim, Symbolics, JLD2, DiffEqFlux, LinearAlgebra, Distributions
+using NeuralPDE, Flux, ModelingToolkit, Optimization, Optim, Symbolics, JLD2, DiffEqFlux, LinearAlgebra, Distributions
 
 import Random: seed!;
 seed!(1);
@@ -19,13 +19,13 @@ maxOpt2Iters = 10000; # maximum number of training iterations for opt2
 
 # parameters for rhoSS_desired
 μ_ss = [0f0,0f0];
-Σ_ss = 0.01f0*1.0f0I(2);
+Σ_ss = 1f0*1.0f0I(2);
 
 dx = 0.05f0; # discretization size used for training
 Q_fpke = 0.5f0; # Q = σ^2
 
 # file location to save data
-expNum = 14;
+expNum = 15;
 useGPU = true;
 runExp = true;
 saveFile = "data_rhoConst/exp$(expNum).jld2";
@@ -60,7 +60,7 @@ Eqn = expand_derivatives(-T1 + T2); # + dx*u(x1,x2)-1 ~ 0;
 pde = simplify(Eqn, expand = true) ~ 0.0f0;
 
 println("PDE defined.")
-# sleep(1000)
+sleep(1000)
 
 # Domain
 maxval = 4.0f0;
@@ -111,9 +111,9 @@ pde_loss_function = (θ) -> mean(abs2,_pde_loss_function(train_domain_set[1], θ
 
 loss_function_(θ, p) =  pde_loss_function(θ)
 
-## set up GalacticOptim optimization problem
-f_ = OptimizationFunction(loss_function_, GalacticOptim.AutoZygote())
-prob = GalacticOptim.OptimizationProblem(f_, initθ)
+## set up Optimization optimization problem
+f_ = OptimizationFunction(loss_function_, Optimization.AutoZygote())
+prob = Optimization.OptimizationProblem(f_, initθ)
 
 nSteps = 0;
 PDE_losses = Float32[];
@@ -137,10 +137,10 @@ cb_ = function (p, l)
     return false
 end
 
-println("Calling GalacticOptim()");
-res = GalacticOptim.solve(prob, opt1, callback=cb_, maxiters=maxOpt1Iters);
+println("Calling Optimization()");
+res = Optimization.solve(prob, opt1, callback=cb_, maxiters=maxOpt1Iters);
 prob = remake(prob, u0=res.minimizer);
-res = GalacticOptim.solve(prob, opt2, callback=cb_, maxiters=maxOpt2Iters);
+res = Optimization.solve(prob, opt2, callback=cb_, maxiters=maxOpt2Iters);
 println("Optimization done.");
 
 ## Save data
