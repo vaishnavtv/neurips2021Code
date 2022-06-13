@@ -1,11 +1,11 @@
 ## Obtain a controller for f18 using PINNs
-# terminal state pdf is fixed - using a thin gaussian about origin
+# With diffusion, NAN issue
 cd(@__DIR__);
 include("f18Dyn.jl")
 mkpath("out_ss")
 mkpath("data_ss")
 
-using NeuralPDE, Flux, ModelingToolkit, Optim, Symbolics, JLD2, DiffEqFlux, LinearAlgebra, Distributions, Optimization
+using NeuralPDE, Flux, ModelingToolkit, Optim, Symbolics, JLD2, DiffEqFlux, LinearAlgebra, Distributions, Optimization, GPUArrays
 
 import Random: seed!;
 seed!(1);
@@ -21,14 +21,14 @@ maxOpt2Iters = 10000; # maximum number of training iterations for opt2
 Q_fpke = 0.0f0; # Q = σ^2
 
 # file location to save data
-expNum = 5;
+expNum = 6;
 useGPU = true;
 runExp = true;
 saveFile = "data_ss/exp$(expNum).jld2";
 runExp_fileName = "out_ss/log$(expNum).txt";
 if runExp
     open(runExp_fileName, "a+") do io
-        write(io, "Finding the ss distribution for the trimmed F18. 3 HL with $(nn) neurons in the hl and $(activFunc) activation. $(maxOpt1Iters) iterations with ADAM and then $(maxOpt2Iters) with LBFGS. using GPU? $(useGPU). Q_fpke = $(Q_fpke). Increased size of training dataset. Changed dx.
+        write(io, "Finding the ss distribution for the trimmed F18. 3 HL with $(nn) neurons in the hl and $(activFunc) activation. $(maxOpt1Iters) iterations with ADAM and then $(maxOpt2Iters) with LBFGS. using GPU? $(useGPU). Q_fpke = $(Q_fpke). Increased size of training dataset. Changed dx. Added diffusion terms. Q_fpke is still 0.
         Experiment number: $(expNum)\n")
     end
 end
@@ -71,15 +71,28 @@ g(x::Vector) = [1.0f0; 1.0f0;1.0f0; 1.0f0] # diffusion vector needs to be modifi
 F = f(xSym) * ρ(xSym);
 G = 0.5f0 * (g(xSym) * Q_fpke * g(xSym)') * ρ(xSym);
 
-# driftTerm = sum([Differential(xSym[i])(F[i]) for i = 1:length(xSym)]);
-T1 = Differential(xSym[1])(F[1])
-T2 = Differential(xSym[2])(F[2])
-T3 = Differential(xSym[3])(F[3])
-T4 = Differential(xSym[4])(F[4])
-# Eqn = expand_derivatives(-T1 + T2); # + dx*u(x1,x2)-1 ~ 0;
-# pde = simplify(Eqn) ~ 0.0f0;
-pde = [T1/(ρ(xSym)) ~ 0.f0, T2/(ρ(xSym)) ~ 0.0f0, T3/(ρ(xSym)) ~ 0.0f0, T4/(ρ(xSym)) ~ 0.0f0]; 
-# pde = driftTerm/(ρ(xSym)) ~ 0.0f0
+# Drift Terms
+driftTerms = ([Differential(xSym[i])(F[i]) for i = 1:length(xSym)]);
+pdeDrift = driftTerms./(ρ(xSym)) .~ 0.0f0
+
+# Diffusion
+pdeDiff = Equation[]; # need to do the following to avoid NaNs
+# (Differential(x1)(η(x1,x2,x3,x4)))^2 gives NaNs
+# abs2(Differential(x1)(η(x1,x2,x3,x4))) is NaN-safe
+
+for i in 1:4
+    for j in 1:4
+        if i!=j
+            offDiagTerm = (Differential(xSym[i])*Differential(xSym[j]))(G[i,j])
+            offDiagTerm = expand_derivatives(offDiagTerm)
+            eqn = simplify(offDiagTerm/ρ(xSym), expand = true) ~ 0.0f0
+            push!(pdeDiff, eqn);
+        else
+            eqn = 0.5f0*Q_fpke*g(xSym)[i]*(abs2(Differential(xSym[i])(η(xSym...))) + Differential(xSym[i])(Differential(xSym[i])(η(xSym...)))) ~ 0.0f0
+            push!(pdeDiff, eqn);
+        end
+    end
+end
 println("PDE defined.")
 
 ## Domain
@@ -90,7 +103,7 @@ x4_min = deg2rad(-5f0); x4_max = deg2rad(5f0);
 
 domains = [x1 ∈ IntervalDomain(x1_min, x1_max), x2 ∈ IntervalDomain(x2_min, x2_max), x3 ∈ IntervalDomain(x3_min, x3_max), x4 ∈ IntervalDomain(x4_min, x4_max),];
 
-dx = [5f0; deg2rad(0.5f0); deg2rad(1f0); deg2rad(0.5f0);]; # discretization size used for training
+dx = [10f0; deg2rad(1f0); deg2rad(1f0); deg2rad(1f0);]; # discretization size used for training
 
 # Boundary conditions
 bcs = [η(-100f0,x2,x3,x4) ~ 0.f0, η(100f0,x2,x3,x4) ~ 0.f0,
@@ -114,7 +127,6 @@ th0 = flat_initθ;
 eltypeθ = eltype(flat_initθ);
 parameterless_type_θ = DiffEqBase.parameterless_type(flat_initθ);
 
-
 strategy = NeuralPDE.GridTraining(dx);
 
 indvars = xSym
@@ -127,22 +139,27 @@ integral = NeuralPDE.get_numeric_integral(strategy, indvars, depvars, chain, der
 tx = cu(f18_xTrim[indX]);
 
 ## Loss function
-println("Defining pde loss function for each term.")
-# _pde_loss_function = NeuralPDE.build_loss_function(pde, indvars, depvars, phi, derivative, integral, chain, initθ, strategy);
-_pde_loss_functions = [NeuralPDE.build_loss_function(pde_i, indvars, depvars, phi, derivative, integral, chain, initθ, strategy) for pde_i in pde];
-@show [fn(tx, th0) for fn in _pde_loss_functions]
+println("Defining pde loss function for drift and diffusion terms.")
+_pde_loss_functions_drift = [NeuralPDE.build_loss_function(pde_i, indvars, depvars, phi, derivative, integral, chain, initθ, strategy) for pde_i in pdeDrift];
+@show [fn(tx, th0) for fn in _pde_loss_functions_drift]
 
-_pde_loss_function(cord, θ) = sum([fn(cord, θ) for fn in _pde_loss_functions]);
+_pde_loss_functions_diff = [NeuralPDE.build_loss_function(pde_i, indvars, depvars, phi, derivative, integral, chain, initθ, strategy) for pde_i in pdeDiff];
+@show [fn(tx, th0) for fn in _pde_loss_functions_diff]
+
+
+_pde_loss_function(cord, θ) =  sum([fn(cord, θ) for fn in _pde_loss_functions_drift]) .- sum([fn(cord, θ) for fn in _pde_loss_functions_diff])
 @show _pde_loss_function(tx, th0) 
+# println("sleeping here.")
+# sleep(10000);
 
 bc_indvars = NeuralPDE.get_argument(bcs, indvars, depvars);
 _bc_loss_functions = [NeuralPDE.build_loss_function(bc,indvars,depvars,phi,derivative,integral,chain,initθ,strategy,bc_indvars = bc_indvar) for (bc, bc_indvar) in zip(bcs, bc_indvars)]
 
 # Domain and training sets
 train_domain_set, train_bound_set =
-    NeuralPDE.generate_training_sets(domains, dx, pde, bcs, eltypeθ, indvars, depvars);
+    NeuralPDE.generate_training_sets(domains, dx, pdeDrift, bcs, eltypeθ, indvars, depvars);
 if useGPU
-    train_domain_set[1] = train_domain_set[1] |> gpu;
+    train_domain_set = train_domain_set |> gpu;
     train_bound_set = train_bound_set |> gpu;
 end
 
