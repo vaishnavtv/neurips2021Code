@@ -20,20 +20,20 @@ maxOpt2Iters = 10000; # maximum number of training iterations for opt2
 
 # parameters for rhoSS_desired
 μ_ss = [0f0,0f0,0f0,0f0] #.+ Array(f18_xTrim[indX]);
-Σ_ss = 0.1f0*Array(f18_xTrim[indX]).*1.0f0I(4);
+Σ_ss = 0.01f0*Array(f18_xTrim[indX]).*1.0f0I(4);
 indU = [3]; # only using δ_stab for control
 
 Q_fpke = 0.0f0; # Q = σ^2
 
 # file location to save data
-expNum = 5;
+expNum = 6;
 useGPU = true;
 runExp = true;
 saveFile = "data_rhoConst_gpu/exp$(expNum).jld2";
 runExp_fileName = "out_rhoConst_gpu/log$(expNum).txt";
 if runExp
     open(runExp_fileName, "a+") do io
-        write(io, "Generating a controller for f18 with desired ss distribution. 2 HL with $(nn) neurons in the hl and $(activFunc) activation. $(maxOpt1Iters) iterations with ADAM and then $(maxOpt2Iters) with LBFGS. using GPU? $(useGPU). Q_fpke = $(Q_fpke). μ_ss = $(μ_ss). Σ_ss = $(Σ_ss). Not dividing equation by ρ. Finding utrim. Using (x̃) as input. Only δ_stab for control.
+        write(io, "Generating a controller for f18 with desired ss distribution. 2 HL with $(nn) neurons in the hl and $(activFunc) activation. $(maxOpt1Iters) iterations with ADAM and then $(maxOpt2Iters) with LBFGS. using GPU? $(useGPU). Q_fpke = $(Q_fpke). μ_ss = $(μ_ss). Σ_ss = $(Σ_ss). Not dividing equation by ρ. Finding utrim. Using (x̃) as input. Only δ_stab for control. Changed Σ_ss.
         Experiment number: $(expNum)\n")
     end
 end
