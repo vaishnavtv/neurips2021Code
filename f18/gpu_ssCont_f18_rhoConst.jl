@@ -5,7 +5,7 @@ include("f18Dyn.jl")
 mkpath("out_rhoConst_gpu")
 mkpath("data_rhoConst_gpu")
 
-using NeuralPDE, Flux, ModelingToolkit, GalacticOptim, Optim, Symbolics, JLD2, DiffEqFlux, LinearAlgebra, Distributions
+using NeuralPDE, Flux, ModelingToolkit, Optimization, Optim, Symbolics, JLD2, DiffEqFlux, LinearAlgebra, Distributions
 
 import Random: seed!;
 seed!(1);
@@ -14,32 +14,33 @@ seed!(1);
 nn = 100; # number of neurons in the hidden layer
 activFunc = tanh; # activation function
 opt1 = ADAM(1e-3); # primary optimizer used for training
-maxOpt1Iters = 10000; # maximum number of training iterations for opt1
+maxOpt1Iters = 1000; # maximum number of training iterations for opt1
 opt2 = Optim.LBFGS(); # second optimizer used for fine-tuning
 maxOpt2Iters = 10000; # maximum number of training iterations for opt2
 
 # parameters for rhoSS_desired
-μ_ss = [0f0,0f0,0f0,0f0] .+ Array(f18_xTrim[indX]);
+μ_ss = [0f0,0f0,0f0,0f0] #.+ Array(f18_xTrim[indX]);
 Σ_ss = 0.1f0*Array(f18_xTrim[indX]).*1.0f0I(4);
+indU = [3]; # only using δ_stab for control
 
 Q_fpke = 0.0f0; # Q = σ^2
 
 # file location to save data
-expNum = 4;
+expNum = 5;
 useGPU = true;
 runExp = true;
 saveFile = "data_rhoConst_gpu/exp$(expNum).jld2";
 runExp_fileName = "out_rhoConst_gpu/log$(expNum).txt";
 if runExp
     open(runExp_fileName, "a+") do io
-        write(io, "Generating a controller for f18 with desired ss distribution. 2 HL with $(nn) neurons in the hl and $(activFunc) activation. $(maxOpt1Iters) iterations with ADAM and then $(maxOpt2Iters) with LBFGS. using GPU? $(useGPU). Q_fpke = $(Q_fpke). μ_ss = $(μ_ss). Σ_ss = $(Σ_ss). Not dividing equation by ρ. Finding utrim. Using (x̄ + x̃) as input.
+        write(io, "Generating a controller for f18 with desired ss distribution. 2 HL with $(nn) neurons in the hl and $(activFunc) activation. $(maxOpt1Iters) iterations with ADAM and then $(maxOpt2Iters) with LBFGS. using GPU? $(useGPU). Q_fpke = $(Q_fpke). μ_ss = $(μ_ss). Σ_ss = $(Σ_ss). Not dividing equation by ρ. Finding utrim. Using (x̃) as input. Only δ_stab for control.
         Experiment number: $(expNum)\n")
     end
 end
 
 ## set up the NeuralPDE framework using low-level API
 @parameters x1, x2, x3, x4
-@variables Kc1(..), Kc2(..)
+@variables Kc1(..)#, Kc2(..)
 
 xSym = [x1; x2; x3; x4]
 
@@ -53,22 +54,11 @@ for i in 1:length(indX)
     end
 end
 
-if useGPU
-    # f18_xTrim = f18_xTrim |> gpu;
-    # f18_uTrim = f18_uTrim |> gpu;
-    # maskIndx = maskIndx |> gpu;
-    # maskIndu = maskIndu |> gpu;
-else
-    f18_xTrim = f18_xTrim |> cpu;
-    f18_uTrim = f18_uTrim |> cpu;
-    maskIndx = maskIndx |> cpu;
-    maskIndu = maskIndu |> cpu;
-end
-
 # F18 Dynamics
 function f(xd)
 
-    ud = [Kc1(xd[1],xd[2],xd[3],xd[4]); Kc2(xd[1],xd[2],xd[3],xd[4])];
+    ud = Kc1(xd[1],xd[2],xd[3],xd[4]); 
+    # ud = [Kc1(xd[1],xd[2],xd[3],xd[4]); Kc2(xd[1],xd[2],xd[3],xd[4])];
 
     # tx = ((maskIndx)*xd); tu = ((maskIndu)*ud);
     # xFull = Vector{Real}(undef, 9);
@@ -80,10 +70,10 @@ function f(xd)
     #     uFull[i] = f18_uTrim[i] + tu[i];
     # end 
     # perturbation about trim point
-    # xFull = f18_xTrim + maskIndx*xd; 
-    maskTrim = ones(Float32,length(f18_xTrim)); maskTrim[indX] .= 0f0;
-    xFull = maskTrim.*f18_xTrim + maskIndx*xd; 
-    uFull = [1f0;1f0;0f0;0f0].*f18_uTrim + maskIndu*ud;
+    xFull = f18_xTrim + maskIndx*xd; 
+    # maskTrim = ones(Float32,length(f18_xTrim)); maskTrim[indX] .= 0f0;
+    # xFull = maskTrim.*f18_xTrim + maskIndx*xd; 
+    uFull = [1f0;1f0;0f0;1f0].*f18_uTrim + maskIndu*ud;
 
     xdotFull = f18Dyn(xFull, uFull)
     # xdotFull = xFull;
@@ -114,33 +104,33 @@ pde = [T1 ~ 0.f0, T2 ~ 0.0f0, T4 ~ 0.0f0]; # T3 not dependent on Kc, will sum th
 println("PDE defined.")
 
 ## Domain
-x1_min = -100f0 + f18_xTrim[indX[1]]; x1_max = 100f0 + f18_xTrim[indX[1]];
-x2_min = deg2rad(-10f0) + f18_xTrim[indX[2]]; x2_max = deg2rad(10f0) + f18_xTrim[indX[2]];
-x3_min = x2_min + f18_xTrim[indX[3]]; x3_max = x2_max + f18_xTrim[indX[3]];
-x4_min = deg2rad(-5f0) + f18_xTrim[indX[4]]; x4_max = deg2rad(5f0) + f18_xTrim[indX[4]];
+x1_min = -100f0 ; x1_max = 100f0 #+ f18_xTrim[indX[1]];
+x2_min = deg2rad(-10f0) ; x2_max = deg2rad(10f0) #+ f18_xTrim[indX[2]];
+x3_min = x2_min ; x3_max = x2_max #+ f18_xTrim[indX[3]];
+x4_min = deg2rad(-5f0) ; x4_max = deg2rad(5f0) #+ f18_xTrim[indX[4]];
 domains = [x1 ∈ IntervalDomain(x1_min, x1_max), x2 ∈ IntervalDomain(x2_min, x2_max), x3 ∈ IntervalDomain(x3_min, x3_max), x4 ∈ IntervalDomain(x4_min, x4_max),];
 
 dx = [10f0; deg2rad(1f0); deg2rad(1f0); deg2rad(1f0);]; # discretization size used for training
 
 # Boundary conditions
-bcs = [Kc1(-100f0,x2,x3,x4) ~ 0.f0, Kc2(100f0,x2,x3,x4) ~ 0.f0]; # place holder, not really used
+bcs = [Kc1(-100f0,x2,x3,x4) ~ 0.f0]#, Kc2(100f0,x2,x3,x4) ~ 0.f0]; # place holder, not really used
 
 
 ## Neural network set up
 dim = 4 # number of dimensions
 chain1 = Chain(Dense(dim, nn, activFunc), Dense(nn, nn, activFunc), Dense(nn, 1));
-chain2 = Chain(Dense(dim, nn, activFunc), Dense(nn, nn, activFunc), Dense(nn, 1));
-chain = [chain1, chain2];
+# chain2 = Chain(Dense(dim, nn, activFunc), Dense(nn, nn, activFunc), Dense(nn, 1));
+chain = chain1;#[chain1, chain2];
 
-initθ = DiffEqFlux.initial_params.(chain);
+initθ = DiffEqFlux.initial_params(chain);
 if useGPU
     using CUDA
     CUDA.allowscalar(false)
     initθ = initθ |> gpu;
-    th10= initθ[1];
-    th20= initθ[2];
+    th10= initθ#[1];
+    # th20= initθ[2];
 end 
-flat_initθ = reduce(vcat, initθ); 
+flat_initθ = initθ;#reduce(vcat, initθ); 
 th0 = flat_initθ;
 eltypeθ = eltype(flat_initθ);
 parameterless_type_θ = DiffEqBase.parameterless_type(flat_initθ);
@@ -149,9 +139,9 @@ parameterless_type_θ = DiffEqBase.parameterless_type(flat_initθ);
 strategy = NeuralPDE.GridTraining(dx);
 
 indvars = xSym
-depvars = [Kc1(xSym...), Kc2(xSym...)]
+depvars = [Kc1(xSym...)]#, Kc2(xSym...)]
 
-phi = NeuralPDE.get_phi.(chain, parameterless_type_θ);
+phi = NeuralPDE.get_phi(chain, parameterless_type_θ);
 derivative = NeuralPDE.get_numeric_derivative();
 integral = NeuralPDE.get_numeric_integral(strategy, indvars, depvars, chain, derivative);
 ## Loss function
@@ -176,9 +166,9 @@ pde_loss_function = (θ) -> mean(abs2,_pde_loss_function2(cu(train_domain_set[1]
 
 loss_function_(θ, p) =  pde_loss_function(θ)
 
-## set up GalacticOptim optimization problem
-f_ = OptimizationFunction(loss_function_, GalacticOptim.AutoZygote())
-prob = GalacticOptim.OptimizationProblem(f_, flat_initθ)
+## set up Optimization optimization problem
+f_ = OptimizationFunction(loss_function_, Optimization.AutoZygote())
+prob = Optimization.OptimizationProblem(f_, flat_initθ)
 
 nSteps = 0;
 PDE_losses = Float32[];
@@ -202,10 +192,10 @@ cb_ = function (p, l)
     return false
 end
 
-println("Calling GalacticOptim()");
-res = GalacticOptim.solve(prob, opt1, callback=cb_, maxiters=maxOpt1Iters);
+println("Calling Optimization()");
+res = Optimization.solve(prob, opt1, callback=cb_, maxiters=maxOpt1Iters);
 prob = remake(prob, u0=res.minimizer);
-res = GalacticOptim.solve(prob, opt2, callback=cb_, maxiters=maxOpt2Iters);
+res = Optimization.solve(prob, opt2, callback=cb_, maxiters=maxOpt2Iters);
 println("Optimization done.");
 
 ## Save data
