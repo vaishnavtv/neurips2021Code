@@ -20,13 +20,13 @@ Q_fpke = 0.1f0; # Q = σ^2
 
 # parameters for rhoSS_desired
 μ_ss = zeros(Float32, 2);
-Σ_ss = 0.01f0 * 1.0f0I(2);
+Σ_ss = 0.1f0 * 1.0f0I(2);
 
 dx = 0.05; # discretization size used for training
 
 # file location to save data
 suff = string(activFunc);
-expNum = 8;
+expNum = 9;
 useGPU = false;
 saveFile = "data/ss_cont_vdp_exp$(expNum).jld2";
 runExp = true;
