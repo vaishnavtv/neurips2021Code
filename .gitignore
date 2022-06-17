@@ -131,3 +131,4 @@ f16/f16_sym_gpu.jl
 # f18/gpu_ssCont_f18_rhoConst.jl
 f18/gpu_rhoConst_batch.slurm
 f18/ss_batch.slurm
+cont_vdp/cont_batch.slurm
