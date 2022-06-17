@@ -11,29 +11,29 @@ nn = 48; # number of neurons in the hidden layer
 activFunc = tanh; # activation function
 # maxOptIters = 10000; # maximum number of training iterations
 # opt = Optim.BFGS(); # Optimizer used for training
-opt1 = Optim.LBFGS(); # primary optimizer used for training
+opt1 = Optim.BFGS(); # primary optimizer used for training
 maxOpt1Iters = 10000; # maximum number of training iterations for opt1
-opt2 = Optim.LBFGS(); # second optimizer used for fine-tuning
+opt2 = Optim.BFGS(); # second optimizer used for fine-tuning
 maxOpt2Iters = 10000; # maximum number of training iterations for opt2
 
 Q_fpke = 0.1f0; # Q = σ^2
 
 # parameters for rhoSS_desired
 μ_ss = zeros(Float32, 2);
-Σ_ss = 0.1f0 * 1.0f0I(2);
+Σ_ss = 0.01f0 * 1.0f0I(2);
 
 dx = 0.05; # discretization size used for training
 
 # file location to save data
 suff = string(activFunc);
-expNum = 7;
-useGPU = true;
+expNum = 8;
+useGPU = false;
 saveFile = "data/ss_cont_vdp_exp$(expNum).jld2";
 runExp = true;
 runExp_fileName = "out/log$(expNum).txt";
 if runExp
     open(runExp_fileName, "a+") do io
-        write(io, "Controller for steady state vdp with Grid training. 2 HL with $(nn) neurons in the hl and $(suff) activation. $(maxOpt1Iters) iterations with LFBGS and then $(maxOpt2Iters) with LBFGS. using GPU? $(useGPU). dx = $(dx). Q_fpke = $(Q_fpke). μ_ss = $(μ_ss). Σ_ss = $(Σ_ss).
+        write(io, "Controller for steady state vdp with Grid training. 2 HL with $(nn) neurons in the hl and $(suff) activation. $(maxOpt1Iters) iterations with BFGS and then $(maxOpt2Iters) with BFGS. using GPU? $(useGPU). dx = $(dx). Q_fpke = $(Q_fpke). μ_ss = $(μ_ss). Σ_ss = $(Σ_ss).
         Experiment number: $(expNum)\n")
     end
 end
