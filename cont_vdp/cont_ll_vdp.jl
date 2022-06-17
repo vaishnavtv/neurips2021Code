@@ -19,15 +19,15 @@ maxOpt2Iters = 10000; # maximum number of training iterations for opt2
 Q_fpke = 0.1f0; # Q = σ^2
 
 # parameters for rhoSS_desired
-μ_ss = zeros(2);
-Σ_ss = 0.001 * 1.0I(2);
+μ_ss = zeros(Float32, 2);
+Σ_ss = 0.001f0 * 1.0f0I(2);
 
 dx = 0.05; # discretization size used for training
 
 # file location to save data
 suff = string(activFunc);
-expNum = 1;
-useGPU = false;
+expNum = 2;
+useGPU = true;
 saveFile = "data/ss_cont_vdp_exp$(expNum).jld2";
 runExp = true;
 runExp_fileName = "out/log$(expNum).txt";
@@ -63,14 +63,22 @@ T2 = sum([
 ]);
 
 Eqn = expand_derivatives(-T1 + T2); # + dx*u(x1,x2)-1 ~ 0;
-pde = simplify(Eqn / ρ(xSym), expand = true) ~ 0.0f0;
+pdeOrig = simplify(Eqn / ρ(xSym), expand = true) ~ 0.0f0;
+
+# derived a little bit manually to work with GPU
+driftTerm = (1f0 + Differential(x2)(Kc(x1, x2)) - (x1^2)) + x2*Differential(x1)(η(x1, x2)) + (x2*(1 - (x1^2)) + Kc(x1, x2) - x1)*Differential(x2)(η(x1, x2))
+diffTerm1 = Differential(x2)(Differential(x2)(η(x1, x2)))
+diffTerm2 = abs2(Differential(x2)(η(x1,x2)))
+diffTerm = Q_fpke/2*(diffTerm1 + diffTerm2); # diffusion term
+pde = driftTerm - diffTerm ~ 0.0f0 # full pde
+
 
 # Domain
 maxval = 4.0f0;
 domains = [x1 ∈ IntervalDomain(-maxval, maxval), x2 ∈ IntervalDomain(-maxval, maxval)];
 
 # Boundary conditions
-bcs = [ρ([-maxval, x2]) ~ 0.0f0,ρ([maxval, x2]) ~ 0,ρ([x1, -maxval]) ~ 0.0f0,ρ([x1, maxval]) ~ 0];
+bcs = [ρ([-maxval, x2]) ~ 0.0f0,ρ([maxval, x2]) ~ 0f0,ρ([x1, -maxval]) ~ 0.0f0,ρ([x1, maxval]) ~ 0];
 
 ## Neural network
 dim = 2 # number of dimensions
@@ -79,6 +87,11 @@ chain2 = Chain(Dense(dim, nn, activFunc), Dense(nn, nn, activFunc), Dense(nn, 1)
 chain = [chain1, chain2];
 
 initθ = DiffEqFlux.initial_params.(chain);
+if useGPU
+    using CUDA
+    CUDA.allowscalar(false)
+    initθ = initθ |> gpu;
+end
 flat_initθ = reduce(vcat, initθ);
 eltypeθ = eltype(flat_initθ);
 parameterless_type_θ = DiffEqBase.parameterless_type(flat_initθ);
@@ -115,8 +128,12 @@ bc_loss_function_sum = θ -> sum(map(l -> l(θ), bc_loss_functions))
 @show (bc_loss_function_sum(flat_initθ))
 
 ## control loss function (requiring rhoSSPred = rhoDesired)
-rhoTrue(x) = exp(-1 / 2 * (x - μ_ss)' * inv(Σ_ss) * (x - μ_ss)) / (2 * pi * sqrt(det(Σ_ss))); # desired steady-state distribution (gaussian function) 
-rhoSSEq = ρ([x1, x2]) - rhoTrue([x1, x2]) ~ 0.0f0;
+# rhoTrue(x) = exp(-1f0 / 2f0 * (x - μ_ss)' * inv(Σ_ss) * (x - μ_ss)) / (2 * pif0 * sqrt(det(Σ_ss))); # desired steady-state distribution (gaussian function) 
+# rhoSSEq = ρ([x1, x2]) - rhoTrue([x1, x2]) ~ 0.0f0;
+using Distributions
+ρSS_sym = pdf(MvNormal(μ_ss, Σ_ss),xSym)
+rhoSSEq = ρ([x1, x2]) - ρSS_sym ~ 0.0f0;
+
 
 _rhoSS_loss_function = NeuralPDE.build_loss_function(rhoSSEq,indvars,depvars,phi,derivative,integral,chain,initθ,strategy);
 
@@ -166,6 +183,14 @@ cb_ = function (p, l)
     push!(BC_losses, bc_loss_function_sum(p))
     push!(rhoSS_losses, rhoSS_loss_function(p))
     # push!(uNorm_losses, uNorm_loss_function(p))
+
+    if runExp # if running job file
+        open(runExp_fileName, "a+") do io
+            write(io, "[$nSteps] Current loss is: $l \n")
+        end;
+        
+        jldsave(saveFile; optParam=Array(p), PDE_losses, BC_losses, rhoSS_losses);
+    end
     return false
 end
 
@@ -178,5 +203,5 @@ println("Optimization done.");
 
 ## Save data
 if runExp
-    jldsave(saveFile; optParam = res.minimizer, PDE_losses, BC_losses, rhoSS_losses)#, uNorm_losses, );
+    jldsave(saveFile; optParam = Array(res.minimizer), PDE_losses, BC_losses, rhoSS_losses)#, uNorm_losses, );
 end
