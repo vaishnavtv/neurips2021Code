@@ -25,7 +25,7 @@ Q_fpke = 0.1f0; # Q = σ^2
 dx = 0.05; # discretization size used for training
 
 # file location to save data
-# suff = string(activFunc);
+suff = string(activFunc);
 expNum = 1;
 useGPU = false;
 saveFile = "data/ss_cont_vdp_exp$(expNum).jld2";
