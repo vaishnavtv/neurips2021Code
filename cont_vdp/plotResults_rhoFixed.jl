@@ -18,9 +18,9 @@ activFunc = tanh;
 suff = string(activFunc);
 nn = 48;
 Q_fpke = 0.1f0#*1.0I(2); # σ^2
-tEnd = 20.0; dt = 2.0;
+tEnd = 20.0; dt = tEnd/10f0;
 
-expNum = 10; 
+expNum = 9; 
 fileLoc = "data_rhoConst/exp$(expNum).jld2";
 @info "Loading file from cont_vdp_rhoFixed exp $(expNum)"
 file = jldopen(fileLoc, "r");
@@ -60,6 +60,14 @@ function vdpDyn(x,t)
 end
 #
 function nlSim(x0)
+    # function to simulate nonlinear controlled dynamics with initial condition x0 and controller K
+    odeFn(x, p, t) = vdpDyn(x, t)
+    prob = ODEProblem(odeFn, x0, (0.0, tEnd))
+    sol = solve(prob, Tsit5(), saveat = 1f0, reltol = 1e-6, abstol = 1e-6)
+    return sol
+end
+
+function nlSimGrid(x0)
     # function to simulate nonlinear controlled dynamics with initial condition x0 and controller K
     odeFn(x, p, t) = vdpDyn(x, t)
     prob = ODEProblem(odeFn, x0, (0.0, tEnd))
@@ -115,7 +123,7 @@ gridXG = xg' .* ones(nEvalTerm);
 gridYG = ones(nEvalTerm)' .* yg;
 
 # plot over time
-solSimGrid = [nlSim([x,y]) for x in xg, y in yg];
+solSimGrid = [nlSimGrid([x,y]) for x in xg, y in yg];
 
 ##
 for tInd in 1:size(solSimGrid[1,1],2)
