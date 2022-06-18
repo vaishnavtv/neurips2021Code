@@ -17,14 +17,14 @@ maxOpt2Iters = 10000; # maximum number of training iterations for opt2
 
 dx = 0.1; # discretization size used for training
 Q_fpke = 0.1f0; # Q = σ^2
-dt = 0.2f0; tEnd = 1.0f0;
+dt = 1f0; tEnd = 10.0f0;
 μ0  = [0f0,0f0]; Σ0 = 1f0*1.0f0I(2); #gaussian 
 A = 0.5f0*1.0f0I(2); # stable linear system
 α_c = 0f0; # weight on control effort loss
 
 # file location to save data
 suff = string(activFunc);
-expNum = 25;
+expNum = 26;
 saveFile = "data_cont_rothe/vdp_exp$(expNum).jld2";
 useGPU = true;
 runExp = true;
@@ -32,7 +32,7 @@ runExp_fileName = "out_cont_rothe/log$(expNum).txt";
 if runExp
     open(runExp_fileName, "a+") do io
         write(io, "Designing a controller for ts_vdp__PINN using Rothe's method with Grid training. 2 HL with $(nn) neurons in the hl and $(suff) activation. using GPU? $(useGPU). dx = $(dx). α_c = $(α_c). Q_fpke = $(Q_fpke). dt = $(dt). tEnd = $(tEnd). Model matching. μ0 = $(μ0). Σ0 = $(Σ0). A = $(A). Adding norm loss for control effort with weight $(α_c). 
-        Added diffusion. A > 0. Training with ADAM for $(maxOpt1Iters) iterations and LBFGS for $(maxOpt2Iters) iterations.
+        Added diffusion. A > 0. Training with ADAM for $(maxOpt1Iters) iterations and LBFGS for $(maxOpt2Iters) iterations. Changed dt and tEnd.
         Experiment number: $(expNum)\n")
     end
 end
