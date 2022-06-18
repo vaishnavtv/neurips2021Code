@@ -3,12 +3,12 @@
 cd(@__DIR__);
 mkpath("out_cont_rothe");
 mkpath("data_cont_rothe");
-using NeuralPDE, Flux, ModelingToolkit, GalacticOptim, Optim, Symbolics, JLD2, DiffEqFlux, LinearAlgebra, Distributions, Statistics
+using NeuralPDE, Flux, ModelingToolkit, Optimization, Optim, Symbolics, JLD2, DiffEqFlux, LinearAlgebra, Distributions, Statistics
 
 import Random:seed!; seed!(1);
 
 ## parameters for neural network
-nn = 50; # number of neurons in the hidden layer
+nn = 48; # number of neurons in the hidden layer
 activFunc = tanh; # activation function
 opt1 = ADAM(1e-3); # primary optimizer used for training
 maxOpt1Iters = 1000; # maximum number of training iterations for opt1
@@ -16,22 +16,23 @@ opt2 = Optim.LBFGS(); # second optimizer used for fine-tuning
 maxOpt2Iters = 10000; # maximum number of training iterations for opt2
 
 dx = 0.1; # discretization size used for training
-Q_fpke = 0.0f0; # Q = σ^2
+Q_fpke = 0.1f0; # Q = σ^2
 dt = 0.2f0; tEnd = 1.0f0;
 μ0  = [0f0,0f0]; Σ0 = 1f0*1.0f0I(2); #gaussian 
-A = -0.5f0*1.0f0I(2); # stable linear system
-α_c = 1f-6; # weight on control effort loss
+A = 0.5f0*1.0f0I(2); # stable linear system
+α_c = 0f0; # weight on control effort loss
 
 # file location to save data
 suff = string(activFunc);
-expNum = 21;
+expNum = 23;
 saveFile = "data_cont_rothe/vdp_exp$(expNum).jld2";
 useGPU = true;
 runExp = true;
 runExp_fileName = "out_cont_rothe/log$(expNum).txt";
 if runExp
     open(runExp_fileName, "a+") do io
-        write(io, "Designing a controller for ts_vdp__PINN using Rothe's method with Grid training. 2 HL with $(nn) neurons in the hl and $(suff) activation. using GPU? $(useGPU). dx = $(dx). α_c = $(α_c). Q_fpke = $(Q_fpke). dt = $(dt). tEnd = $(tEnd). Model matching. μ0 = $(μ0). Σ0 = $(Σ0). A = $(A). Adding norm loss for control effort with weight $(α_c). Changed A.
+        write(io, "Designing a controller for ts_vdp__PINN using Rothe's method with Grid training. 2 HL with $(nn) neurons in the hl and $(suff) activation. using GPU? $(useGPU). dx = $(dx). α_c = $(α_c). Q_fpke = $(Q_fpke). dt = $(dt). tEnd = $(tEnd). Model matching. μ0 = $(μ0). Σ0 = $(Σ0). A = $(A). Adding norm loss for control effort with weight $(α_c). 
+        Added diffusion. A > 0.
         Experiment number: $(expNum)\n")
     end
 end
@@ -146,9 +147,9 @@ cont_loss_function = (θ) -> (norm(phi(train_domain_set[1], θ)));
 loss_function_(θ, p) = pde_loss_function(θ) + α_c*cont_loss_function(θ) ;
 @show loss_function_(initθ, 0)
 
-## set up GalacticOptim optimization problem
-f_ = OptimizationFunction(loss_function_, GalacticOptim.AutoZygote())
-prob = GalacticOptim.OptimizationProblem(f_, initθ)
+## set up Optimization optimization problem
+f_ = OptimizationFunction(loss_function_, Optimization.AutoZygote())
+prob = Optimization.OptimizationProblem(f_, initθ)
 
 nSteps = 0;
 PDE_losses = Float32[];
@@ -180,10 +181,10 @@ cb_ = function (p, l)
     return false
 end
 
-println("Calling GalacticOptim()");
-res = GalacticOptim.solve(prob, opt1, callback=cb_, maxiters=maxOpt1Iters);
+println("Calling Optimization()");
+res = Optimization.solve(prob, opt1, callback=cb_, maxiters=maxOpt1Iters);
 prob = remake(prob, u0=res.minimizer)
-res = GalacticOptim.solve(prob, opt2, callback=cb_, maxiters=maxOpt2Iters);
+res = Optimization.solve(prob, opt2, callback=cb_, maxiters=maxOpt2Iters);
 println("Optimization done.");
 
 # ## Save data
