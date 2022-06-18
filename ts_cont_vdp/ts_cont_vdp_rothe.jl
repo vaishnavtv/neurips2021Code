@@ -11,7 +11,7 @@ import Random:seed!; seed!(1);
 nn = 48; # number of neurons in the hidden layer
 activFunc = tanh; # activation function
 opt1 = ADAM(1e-3); # primary optimizer used for training
-maxOpt1Iters = 1000; # maximum number of training iterations for opt1
+maxOpt1Iters = 20000; # maximum number of training iterations for opt1
 opt2 = Optim.LBFGS(); # second optimizer used for fine-tuning
 maxOpt2Iters = 10000; # maximum number of training iterations for opt2
 
@@ -24,7 +24,7 @@ A = 0.5f0*1.0f0I(2); # stable linear system
 
 # file location to save data
 suff = string(activFunc);
-expNum = 23;
+expNum = 25;
 saveFile = "data_cont_rothe/vdp_exp$(expNum).jld2";
 useGPU = true;
 runExp = true;
@@ -32,7 +32,7 @@ runExp_fileName = "out_cont_rothe/log$(expNum).txt";
 if runExp
     open(runExp_fileName, "a+") do io
         write(io, "Designing a controller for ts_vdp__PINN using Rothe's method with Grid training. 2 HL with $(nn) neurons in the hl and $(suff) activation. using GPU? $(useGPU). dx = $(dx). α_c = $(α_c). Q_fpke = $(Q_fpke). dt = $(dt). tEnd = $(tEnd). Model matching. μ0 = $(μ0). Σ0 = $(Σ0). A = $(A). Adding norm loss for control effort with weight $(α_c). 
-        Added diffusion. A > 0.
+        Added diffusion. A > 0. Training with ADAM for $(maxOpt1Iters) iterations and LBFGS for $(maxOpt2Iters) iterations.
         Experiment number: $(expNum)\n")
     end
 end
