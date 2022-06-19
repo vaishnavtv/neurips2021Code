@@ -1,5 +1,5 @@
 # Dynamic system 5 from Kumar's PUFEM paper using quasi-strategy
-# system taken from Wojtkiewicz, S. F., and L. A. Bergman. "Numerical solution of high dimensional Fokker-Planck equations." 8th ASCE Specialty Conference on Probablistic Mechanics and Structural Reliability, Notre Dame, IN, USA. 2000.
+# system taken from Zhang, Hao, et al. "Solving Fokker–Planck equations using deep KD-tree with a small amount of data." Nonlinear Dynamics (2022): 1-15.
 
 using NeuralPDE, Flux, ModelingToolkit, Optimization, Optim, Symbolics, JLD2, DiffEqFlux
 cd(@__DIR__);
@@ -18,17 +18,17 @@ opt2 = Optim.LBFGS(); # second optimizer used for fine-tuning
 maxOpt2Iters = 10000; # maximum number of training iterations for opt2
 
 # file location to save data
-dx = 0.25f0;
+dx = 0.5f0;
 
 suff = string(activFunc);
-expNum = 4;
+expNum = 1;
 useGPU = true;
-saveFile = "data_grid/ll_grid_mk4d_exp$(expNum).jld2";
+saveFile = "data_grid/ll_grid_zhang4d_exp$(expNum).jld2";
 runExp = true;
 runExp_fileName = "out_grid/log$(expNum).txt";
 if runExp
     open(runExp_fileName, "a+") do io
-        write(io, "Steady State 4D linear dynamics with Grid training. 2 HL with $(nn) neurons in the hl and $(suff) activation. $(maxOpt1Iters) iterations with ADAM and then $(maxOpt2Iters) with LBFGS.  UniformSample strategy. PDE written directly in η. dx = $(dx). Using GPU? $(useGPU). PDE written manually in η. dx changed. Increased ADAM iters.
+        write(io, "Steady State 4D dynamics from Zhang's 2022 paper with Grid training. 2 HL with $(nn) neurons in the hl and $(suff) activation. $(maxOpt1Iters) iterations with ADAM and then $(maxOpt2Iters) with LBFGS.  UniformSample strategy. PDE written directly in η. dx = $(dx). Using GPU? $(useGPU). PDE written manually in η. dx changed. 
         Experiment number: $(expNum)\n")
     end
 end
@@ -38,28 +38,37 @@ end
 
 xSym = [x1;x2; x3; x4]
 
-# Linear 4D Dynamics
-k1 = 1; k2 = 1; k3 = 1;
-c1 = 0.4; c2 = 0.4;
-linA = Float32.([0 1 0 0;
-        -(k1+k2) -c1 k2 0;
-        0 0 0 1;
-        k2 0 -(k2+k3) -c2]);
-f(x) = linA*x;
+## 4D Dynamics
+a = 0.5f0; b = 1f0; k1 = -0.5f0; k2 = k1;
+ϵ = 0.5f0; λ1 = 0.25f0; λ2 = 0.125f0; μ = 0.375f0;
+M = 1f0; varI = 1f0;
+
+vFn(x1,x2) = k1*x1^2 + k2*x2^2 + ϵ*(λ1*x1^4 + λ2*x2^4 + μ*x1^2*x2^2)
+dvdx1_expr = Symbolics.derivative(vFn(x1,x2), x1);
+dvdx1_fn(y1,y2) = substitute(dvdx1_expr, Dict([x1=>y1, x2=>y2]));
+dvdx2_expr = Symbolics.derivative(vFn(x1,x2), x2);
+dvdx2_fn(y1,y2) = substitute(dvdx2_expr, Dict([x1=>y1, x2=>y2]));
+
+function f(x)
+    output = [x[3]; x[4];
+             -a*x[3] - 1/M*dvdx1_fn(x[1],x[2])
+             -b*x[4] - 1/varI*dvdx2_fn(x[1],x[2])]
+    return output
+end
 
 function g(x::Vector)
-    return [0.0f0 0.0f0;1.0f0 0.0f0; 0.0f0 0.0f0; 0.0f0 1.0f0];
+    return [0.0f0 0.0f0;0.0f0 0.0f0; 1.0f0 0.0f0; 0.0f0 1.0f0];
 end
 
 # PDE
 println("Defining PDE");
-Q_fpke = 0.4f0; # Q = σ^2
+Q_fpke = [2f0 0f0; 0f0 4f0;]; # Q = σ^2
 ρ(x) = exp(η(xSym...));
 # F = f(xSym)*ρ(xSym);
-# G = 0.5f0*(g(xSym)*Q_fpke*g(xSym)')*ρ(xSym);
+G = 0.5f0*(g(xSym)*Q_fpke*g(xSym)')*ρ(xSym);
 
 # T1 = sum([Differential(xSym[i])(F[i]) for i in 1:length(xSym)]);
-# T2 = sum([(Differential(xSym[i])*Differential(xSym[j]))(G[i,j]) for i in 1:length(xSym), j=1:length(xSym)]);
+T2 = sum([(Differential(xSym[i])*Differential(xSym[j]))(G[i,j]) for i in 1:length(xSym), j=1:length(xSym)]);
 
 # Eqn = expand_derivatives(-T1+T2); # + dx*u(x1,x2)-1 ~ 0;
 # pdeOrig = simplify(Eqn/ρ(xSym)) ~ 0.0f0;
@@ -73,7 +82,7 @@ G2 = diffC*η(xSym...);
 T1_2 = sum([(Differential(xSym[i])(f(xSym)[i]) + (f(xSym)[i]* Differential(xSym[i])(η(xSym...)))) for i in 1:length(xSym)]); # drift term
 # T2_2 = sum([(Differential(xSym[i])*Differential(xSym[j]))(G2[i,j]) for i in 1:length(xSym), j=1:length(xSym)]);
 # T2_2 += sum([(Differential(xSym[i])*Differential(xSym[j]))(diffC[i,j]) - (Differential(xSym[i])*Differential(xSym[j]))(diffC[i,j])*η(xSym...) + diffC[i,j]*(Differential(xSym[i])(η(xSym...)))*(Differential(xSym[j])(η(xSym...))) for i in 1:length(xSym), j=1:length(xSym)]); # complete diffusion term
-T2_2 = 0.2f0*abs2(Differential(x2)(η(x1, x2, x3, x4))) + 0.2f0*abs2(Differential(x4)(η(x1, x2, x3, x4))) + 0.2f0Differential(x2)(Differential(x2)(η(x1, x2, x3, x4))) + 0.2f0Differential(x4)(Differential(x4)(η(x1, x2, x3, x4)));
+T2_2 = 2.0f0*abs2(Differential(x4)(η(x1, x2, x3, x4))) + 2.0f0*Differential(x4)(Differential(x4)(η(x1, x2, x3, x4))) + abs2(Differential(x3)(η(x1, x2, x3, x4))) + Differential(x3)(Differential(x3)(η(x1, x2, x3, x4)))
 
 Eqn = expand_derivatives(-T1_2+T2_2); 
 pdeOrig2 = simplify(Eqn, expand = true) ~ 0.0f0;
@@ -81,7 +90,7 @@ pde = pdeOrig2;
 println("PDE in  η defined symbolically.")
 
 ## Domain
-maxval = 4.0;
+maxval = 5.0f0;
 domains = [x1 ∈ IntervalDomain(-maxval,maxval),
            x2 ∈ IntervalDomain(-maxval,maxval),
            x3 ∈ IntervalDomain(-maxval,maxval),
