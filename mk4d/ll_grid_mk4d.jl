@@ -12,23 +12,23 @@ import Random:seed!; seed!(1);
 ## parameters for neural network
 nn = 48; # number of neurons in the hidden layer
 activFunc = tanh; # activation function
-opt1 = ADAM(1e-3); # primary optimizer used for training
+opt1 = Optim.BFGS()#ADAM(1e-3); # primary optimizer used for training
 maxOpt1Iters = 10000; # maximum number of training iterations for opt1
-opt2 = Optim.LBFGS(); # second optimizer used for fine-tuning
+opt2 = Optim.BFGS(); # second optimizer used for fine-tuning
 maxOpt2Iters = 10000; # maximum number of training iterations for opt2
 
 # file location to save data
 dx = 0.25f0;
 
 suff = string(activFunc);
-expNum = 2;
-useGPU = true;
-saveFile = "data_grid/ll_quasi_mk4d_exp$(expNum).jld2";
+expNum = 3;
+useGPU = false;
+saveFile = "data_grid/ll_grid_mk4d_exp$(expNum).jld2";
 runExp = true;
 runExp_fileName = "out_grid/log$(expNum).txt";
 if runExp
     open(runExp_fileName, "a+") do io
-        write(io, "Steady State 4D linear dynamics with Grid training. 2 HL with $(nn) neurons in the hl and $(suff) activation. $(maxOpt1Iters) iterations with ADAM and then $(maxOpt2Iters) with LBFGS.  UniformSample strategy. PDE written directly in η. dx = $(dx). Using GPU? $(useGPU). PDE written manually in η. dx changed.
+        write(io, "Steady State 4D linear dynamics with Grid training. 2 HL with $(nn) neurons in the hl and $(suff) activation. $(maxOpt1Iters) iterations with ADAM and then $(maxOpt2Iters) with LBFGS.  UniformSample strategy. PDE written directly in η. dx = $(dx). Using GPU? $(useGPU). PDE written manually in η. dx changed. Using BFGS instead of ADAM,LBFGS w/o GPU.
         Experiment number: $(expNum)\n")
     end
 end
