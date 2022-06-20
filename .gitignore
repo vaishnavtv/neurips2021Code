@@ -132,3 +132,8 @@ f16/f16_sym_gpu.jl
 f18/gpu_rhoConst_batch.slurm
 f18/ss_batch.slurm
 cont_vdp/cont_batch.slurm
+f18/ts_f18_cont.jl
+mk4d/grid_batch.slurm
+zhang4d/grid_batch.slurm
+zhang4d/out*
+zhang4d/figs*
