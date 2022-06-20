@@ -18,17 +18,17 @@ opt2 = Optim.LBFGS(); # second optimizer used for fine-tuning
 maxOpt2Iters = 10000; # maximum number of training iterations for opt2
 
 # file location to save data
-dx = 0.5f0;
+dx = 0.25f0;
 
 suff = string(activFunc);
-expNum = 1;
+expNum = 2;
 useGPU = true;
 saveFile = "data_grid/ll_grid_zhang4d_exp$(expNum).jld2";
 runExp = true;
 runExp_fileName = "out_grid/log$(expNum).txt";
 if runExp
     open(runExp_fileName, "a+") do io
-        write(io, "Steady State 4D dynamics from Zhang's 2022 paper with Grid training. 2 HL with $(nn) neurons in the hl and $(suff) activation. $(maxOpt1Iters) iterations with ADAM and then $(maxOpt2Iters) with LBFGS.  UniformSample strategy. PDE written directly in η. dx = $(dx). Using GPU? $(useGPU). PDE written manually in η. dx changed. 
+        write(io, "Steady State 4D dynamics from Zhang's 2022 paper with Grid training. 2 HL with $(nn) neurons in the hl and $(suff) activation. $(maxOpt1Iters) iterations with ADAM and then $(maxOpt2Iters) with LBFGS.  UniformSample strategy. PDE written directly in η. dx = $(dx). Using GPU? $(useGPU). PDE written manually in η. dx changed. Chagned maxval to 4.0f0.
         Experiment number: $(expNum)\n")
     end
 end
@@ -90,7 +90,7 @@ pde = pdeOrig2;
 println("PDE in  η defined symbolically.")
 
 ## Domain
-maxval = 5.0f0;
+maxval = 4.0f0;
 domains = [x1 ∈ IntervalDomain(-maxval,maxval),
            x2 ∈ IntervalDomain(-maxval,maxval),
            x3 ∈ IntervalDomain(-maxval,maxval),
