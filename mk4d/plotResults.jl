@@ -11,9 +11,11 @@ nn = 48;
 
 expNum = 5;
 cd(@__DIR__);
-fileLoc = "data_quasi/ll_quasi_mk4d_exp$(expNum).jld2";
+# fileLoc = "data_quasi/ll_quasi_mk4d_exp$(expNum).jld2";
+fileLoc = "data_grid/ll_grid_mk4d_exp$(expNum).jld2";
+mkpath("figs_grid/exp$(expNum)")
 
-println("Loading file");
+println("Loading file from ll_grid_exp$(expNum)");
 file = jldopen(fileLoc, "r");
 optParam = read(file, "optParam");
 PDE_losses = read(file, "PDE_losses");
@@ -29,10 +31,11 @@ semilogy(1:nIters, BC_losses, label = "BC_losses");
 legend();
 title("Loss Functions")
 tight_layout();
-
+savefig("figs_grid/exp$(expNum)/loss.png")
 ## Neural network
 dim = 4;
-chain = Chain(Dense(dim, nn, activFunc), Dense(nn, nn, activFunc), Dense(nn, 1));
+# chain = Chain(Dense(dim, nn, activFunc), Dense(nn, nn, activFunc), Dense(nn, 1));
+chain = Chain(Dense(dim, nn, activFunc), Dense(nn, nn, activFunc), Dense(nn, nn, activFunc), Dense(nn, 1));
 parameterless_type_θ = DiffEqBase.parameterless_type(optParam);
 phi = NeuralPDE.get_phi(chain, parameterless_type_θ);
 
@@ -140,7 +143,7 @@ function ρ12(x1,x2)
     return sol.u
 end
 RHO12Fine = [ρ12(x1d, x2d) for x1d in x1Fine, x2d in x2Fine];
-RHO12Fine = RHO12Fine/trapz((x1Fine, x2Fine), RHO12Fine); # normalizing
+RHO12FineP = RHO12Fine/trapz((x1Fine, x2Fine), RHO12Fine); # normalizing
 println("Marginal pdf for x1 and x2 computed.")
 
 ## Marginal pdf for the states(V, q)
@@ -191,9 +194,10 @@ function plotDistErr(figNum,x1Fine,x2Fine,RHOFine, label1, label2)
 
     figure(figNum)#, [8, 4])
     clf()
-    # pcolor(XX, YY, RHOFine, shading = "auto", cmap = "inferno"); colorbar();
+    pcolor(XX, YY, RHOFine, shading = "auto", cmap = "hsv"); colorbar();
     # pcolor(xvFine_XX, xαFine_YY, RHO12Fine, shading = "auto", cmap = "inferno")
-    surf(XX, YY, RHOFine, cmap = "hsv"); #zlabel("Marginal PDF ρ($(label1), $(label2))");
+    # surf(XX, YY, RHOFine, cmap = "hsv"); #zlabel("Marginal PDF ρ($(label1), $(label2))");
+    # colorbar();
     xlabel(label1); ylabel(label2)
     axis("auto")
     title("Marginal PDF ρ($(label1), $(label2))");
@@ -202,8 +206,9 @@ function plotDistErr(figNum,x1Fine,x2Fine,RHOFine, label1, label2)
     tight_layout()
 
 end
-plotDistErr(12, x1Fine,x2Fine, RHO12Fine, "x1", "x2");
-savefig("figs_quasi/exp$(expNum).png");
+plotDistErr(12, x1Fine,x2Fine, RHO12FineP, "x1", "x2");
+savefig("figs_grid/exp$(expNum)/pdf12.png")
+# savefig("figs_quasi/exp$(expNum).png");
 # plotDistErr(14, xVFine,xqFine, RHO14Fine, "V (ft/s)", "q (rad/s)");
 # plotDistErr(24, xαFine,xqFine, RHO24Fine, "α (rad)", "q (rad/s)");
 # plotDistErr(23, xαFine,xθFine, RHO23Fine, "α (rad)", "θ (rad");
@@ -214,3 +219,30 @@ savefig("figs_quasi/exp$(expNum).png");
 # ρ14_int = trapz((xVFine,xqFine), RHO12Fine); @show ρ14_int
 # ρ24_int = trapz((xαFine,xqFine), RHO24Fine); @show ρ24_int
 # ρ23_int = trapz((xαFine,xθFine), RHO23Fine); @show ρ23_int
+
+## EXACT SOLUTION
+# μ_ssT = zeros(Float32,4);
+# Σ_ssT = [0.3333 0 0.16667 0;
+#          0 0.5 0 0;
+#          0.16667 0 0.3333 0;
+#          0 0 0 0.5];
+
+# using Distributions         
+# ρ_ssT(xSym) = pdf(MvNormal(μ_ssT, Σ_ssT), xSym);
+
+# # Marginal pdf for the first two states
+# using Cubature
+# function ρ12T(x1,x2)
+#     # p = [xV, xα]; y = [xθ, xq]
+#     ρFnQuad34(y,p) = ρ_ssT([x1;x2;y])
+#     prob = QuadratureProblem(ρFnQuad34, [x3_min; x4_min], [x3_max; x4_max], p = 0)
+#     sol = solve(prob,HCubatureJL(),reltol=1e-6,abstol=1e-6)
+#     return sol.u
+# end
+# RHO12FineT = [ρ12T(x1d, x2d) for x1d in x1Fine, x2d in x2Fine];
+# # RHO12FineT2 = RHO12FineT/trapz((x1Fine, x2Fine), RHO12FineT); # normalizing
+# println("Marginal pdf for x1 and x2 computed.")
+# ##
+# plotDistErr(120, x1Fine,x2Fine, RHO12FineT, "x1", "x2");
+# title("True Marginal PDF")
+# savefig("truePDF.png")

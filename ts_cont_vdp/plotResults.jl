@@ -44,10 +44,13 @@ YY = reshape(CEval[2, :], NN, NN);
 ## Load data 
 activFunc = tanh;
 suff = string(activFunc);
-nn = 50;
-Q_fpke = 0.0f0#*1.0I(2); # σ^2
+nn = 48;
+Q_fpke = 0.1f0#*1.0I(2); # σ^2
 
-expNum = 21; 
+tEnd = 10.0f0;
+dt = tEnd/10f0;
+
+expNum = 26; 
 fileLoc = "data_cont_rothe/vdp_exp$(expNum).jld2";
 @info "Loading file from ts_cont_vdp exp $(expNum)"
 file = jldopen(fileLoc, "r");
@@ -69,8 +72,7 @@ nIters = length(PDE_losses);
 figure(1); clf();
 semilogy(1:nIters, PDE_losses, label =  "PDE");
 semilogy(1:nIters, NORM_losses, label = "NORM");
-xlabel("Iterations");
-ylabel("ϵ");
+xlabel("Iterations"); ylabel("ϵ");
 title("Loss Function exp$(expNum)");
 title(string(" Exp $(expNum)"));
 legend(); tight_layout();
@@ -95,12 +97,18 @@ function vdpDyn(x,t)
     return (dx)
 end
 #
-tEnd = 20.0;
 function nlSim(x0)
     # function to simulate nonlinear controlled dynamics with initial condition x0 and controller K
     odeFn(x, p, t) = vdpDyn(x, t)
     prob = ODEProblem(odeFn, x0, (0.0, tEnd))
     sol = solve(prob, Tsit5(), saveat = 0.2, reltol = 1e-6, abstol = 1e-6)
+    return sol
+end
+function nlSimGrid(x0)
+    # function to simulate nonlinear controlled dynamics with initial condition x0 and controller K
+    odeFn(x, p, t) = vdpDyn(x, t)
+    prob = ODEProblem(odeFn, x0, (0.0, tEnd))
+    sol = solve(prob, Tsit5(), saveat = dt, reltol = 1e-6, abstol = 1e-6)
     return sol
 end
 #
@@ -152,7 +160,7 @@ gridXG = xg' .* ones(nEvalTerm);
 gridYG = ones(nEvalTerm)' .* yg;
 
 # plot over time
-solSimGrid = [nlSim([x,y]) for x in xg, y in yg];
+solSimGrid = [nlSimGrid([x,y]) for x in xg, y in yg];
 
 ##
 μ0 = μ[:,1]; Σ0 = Σ[:,:,1];

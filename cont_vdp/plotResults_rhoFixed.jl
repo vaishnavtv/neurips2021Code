@@ -63,7 +63,7 @@ function nlSim(x0)
     # function to simulate nonlinear controlled dynamics with initial condition x0 and controller K
     odeFn(x, p, t) = vdpDyn(x, t)
     prob = ODEProblem(odeFn, x0, (0.0, tEnd))
-    sol = solve(prob, Tsit5(), saveat = 1f0, reltol = 1e-6, abstol = 1e-6)
+    sol = solve(prob, Tsit5(), saveat = 0.2f0, reltol = 1e-6, abstol = 1e-6)
     return sol
 end
 
