@@ -13,19 +13,19 @@ import Random:seed!; seed!(1);
 nn = 48; # number of neurons in the hidden layer
 activFunc = tanh; # activation function
 opt1 = ADAM(1e-3); # primary optimizer used for training
-maxOpt1Iters = 10000; # maximum number of training iterations for opt1
+maxOpt1Iters = 1000; # maximum number of training iterations for opt1
 opt2 = Optim.LBFGS(); # second optimizer used for fine-tuning
 maxOpt2Iters = 10000; # maximum number of training iterations for opt2
 
 ## For OT
-nOTIters = 10;
-maxNewPts = 200;
-dxFine = 0.25f0;
+nOTIters = 20;
+maxNewPts = 500;
+dxFine = 0.5f0;
 
 dx = 0.5f0;
 # file location to save data
-expNum = 1;
-useGPU = false;
+expNum = 3;
+useGPU = true;
 saveFile = "data_ot/ot_zhang4d_exp$(expNum).jld2";
 runExp = true;
 runExp_fileName = "out_ot/log$(expNum).txt";
@@ -186,15 +186,17 @@ println("Optimization done.");
 ## Save data
 cd(@__DIR__);
 if runExp
-    jldsave(saveFile;optParam = Array(res.minimizer), PDE_losses, BC_losses);
+    jldsave(saveFile;optParam = Array(res.minimizer), PDE_losses = [PDE_losses1], BC_losses = [BC_losses1]);
 end
 
 optParam1 = res.minimizer;
 
 ## OT ITERATIONS BEGIN
 CsEvalSet, _ = NeuralPDE.generate_training_sets(domains, dxFine, [pde], bcs, eltypeθ, indvars, depvars) ;
-CsEval = CsEvalSet[1]
-
+CsEval = CsEvalSet[1] 
+if useGPU
+    CsEval = CsEvalSet[1] |> gpu;
+end
 
 ## initialize variables for OT-iterations
 pde_train_sets = Vector{typeof(train_domain_set)}(undef, nOTIters + 1);
@@ -248,9 +250,9 @@ function newPtsFn(Cs, maxNewPts, optParam)
     indSort = sortperm(eqnErrCs[:], rev = true) # sort in descending order
     indMaxErr = indSort[1:maxNewPts] # indices corresponding to maximum error (first maxNewPts)
 
-    Cs_ot = Cs[:, indMaxErr]
+    Cs_ot = Array(Cs[:, indMaxErr])
     w1 = ones(maxNewPts) / maxNewPts
-    w2 = eqnErrCs[indMaxErr]
+    w2 = Array(eqnErrCs[indMaxErr])
     w2 = w2 / sum(w2)
 
     W, D, Phi_sp = otMapSp(Cs_ot,w1,w2);
@@ -296,6 +298,14 @@ for i=1:nOTIters
 
         push!(PDE_losses[i+1], pdeLossFunction(p))
         push!(BC_losses[i+1], bc_loss_function_sum(p))
+
+        if runExp # if running job file
+            open(runExp_fileName, "a+") do io
+                write(io, "[$(i+1)][$nSteps] Current loss is: $l \n")
+            end;
+            
+            # jldsave(saveFile; optParam=Array(p), PDE_losses1, BC_losses1);
+        end
         return false
     end
 
@@ -310,14 +320,13 @@ for i=1:nOTIters
     println("Optimization done.")
 
     optParams[i+1] = res.minimizer
-end
-pde_train_sets_cpu = Vector{Vector{Matrix{Float32}}}(undef, nOTIters + 1) 
-for i in 1:nOTIters + 1
-    pde_train_sets_cpu[i] = Array.(pde_train_sets[i]);
-end
-@show typeof(pde_train_sets_cpu)
 
+    pde_train_sets_cpu = Vector{Vector{Matrix{Float32}}}(undef, i + 1) 
+    for k in 1:i+1    
+        pde_train_sets_cpu[k] = Array.(pde_train_sets[k]);
+    end
 
-if runExp
-    jldsave(saveFile; optParams = Array.(optParams), PDE_losses, BC_losses, pde_train_sets = pde_train_sets_cpu, newPtsAll = Array.(newPtsAll));
+    if runExp
+        jldsave(saveFile; optParams = Array.(optParams[1:i+1]), PDE_losses, BC_losses, pde_train_sets = pde_train_sets_cpu, newPtsAll = Array.(newPtsAll[1:i]));
+    end
 end
