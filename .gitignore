@@ -137,3 +137,4 @@ mk4d/grid_batch.slurm
 zhang4d/grid_batch.slurm
 zhang4d/out*
 zhang4d/figs*
+zhang4d/ot_batch.slurm
