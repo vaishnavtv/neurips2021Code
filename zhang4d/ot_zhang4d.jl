@@ -18,13 +18,13 @@ opt2 = Optim.LBFGS(); # second optimizer used for fine-tuning
 maxOpt2Iters = 10000; # maximum number of training iterations for opt2
 
 ## For OT
-nOTIters = 20;
+nOTIters = 50;
 maxNewPts = 500;
 dxFine = 0.25f0;
 
 dx = 1f0;
 # file location to save data
-expNum = 5;
+expNum = 6;
 useGPU = true;
 saveFile = "data_ot/ot_zhang4d_exp$(expNum).jld2";
 runExp = true;
