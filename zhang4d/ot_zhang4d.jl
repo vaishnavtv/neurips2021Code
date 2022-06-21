@@ -20,11 +20,11 @@ maxOpt2Iters = 10000; # maximum number of training iterations for opt2
 ## For OT
 nOTIters = 20;
 maxNewPts = 500;
-dxFine = 0.5f0;
+dxFine = 0.25f0;
 
 dx = 0.5f0;
 # file location to save data
-expNum = 3;
+expNum = 4;
 useGPU = true;
 saveFile = "data_ot/ot_zhang4d_exp$(expNum).jld2";
 runExp = true;
