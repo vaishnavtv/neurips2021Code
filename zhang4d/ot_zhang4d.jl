@@ -18,13 +18,13 @@ opt2 = Optim.LBFGS(); # second optimizer used for fine-tuning
 maxOpt2Iters = 10000; # maximum number of training iterations for opt2
 
 ## For OT
-nOTIters = 50;
-maxNewPts = 500;
+nOTIters = 100;
+maxNewPts = 200;
 dxFine = 0.25f0;
 
 dx = 1f0;
 # file location to save data
-expNum = 6;
+expNum = 7;
 useGPU = true;
 saveFile = "data_ot/ot_zhang4d_exp$(expNum).jld2";
 runExp = true;
@@ -33,6 +33,7 @@ if runExp
     open(runExp_fileName, "a+") do io
         write(io, "OT: Steady State 4D dynamics from Zhang's 2022 paper with Grid training. 2 HL with $(nn) neurons in the hl and $(activFunc) activation. $(maxOpt1Iters) iterations with ADAM and then $(maxOpt2Iters) with LBFGS.  PDE written directly in η. dx = $(dx). Using GPU? $(useGPU). PDE written manually in η. 
         nOTIters = $(nOTIters). maxNewPts = $(maxNewPts). dxFine = $(dxFine).
+        Changed nOTIters and maxNewPts.
         Experiment number: $(expNum)\n")
     end
 end
