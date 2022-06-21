@@ -24,16 +24,16 @@ dxFine = 0.25f0;
 
 dx = 1f0;
 # file location to save data
-expNum = 7;
+expNum = 8;
 useGPU = true;
 saveFile = "data_ot/ot_zhang4d_exp$(expNum).jld2";
 runExp = true;
 runExp_fileName = "out_ot/log$(expNum).txt";
 if runExp
     open(runExp_fileName, "a+") do io
-        write(io, "OT: Steady State 4D dynamics from Zhang's 2022 paper with Grid training. 2 HL with $(nn) neurons in the hl and $(activFunc) activation. $(maxOpt1Iters) iterations with ADAM and then $(maxOpt2Iters) with LBFGS.  PDE written directly in η. dx = $(dx). Using GPU? $(useGPU). PDE written manually in η. 
+        write(io, "OT: Steady State 4D dynamics from Zhang's 2022 paper with Grid training. 3 HL with $(nn) neurons in the hl and $(activFunc) activation. $(maxOpt1Iters) iterations with ADAM and then $(maxOpt2Iters) with LBFGS.  PDE written directly in η. dx = $(dx). Using GPU? $(useGPU). PDE written manually in η. 
         nOTIters = $(nOTIters). maxNewPts = $(maxNewPts). dxFine = $(dxFine).
-        Changed nOTIters and maxNewPts.
+        Changed nHLs.
         Experiment number: $(expNum)\n")
     end
 end
@@ -97,7 +97,8 @@ bcs = [ρ([-maxval,x2,x3,x4]) ~ 0.f0, ρ([maxval,x2,x3,x4]) ~ 0,
 
 ## Neural network
 dim = 4 # number of dimensions
-chain = Chain(Dense(dim,nn,activFunc), Dense(nn,nn,activFunc), Dense(nn,1));
+# chain = Chain(Dense(dim,nn,activFunc), Dense(nn,nn,activFunc), Dense(nn,1)); # 2 hls
+chain = Chain(Dense(dim,nn,activFunc), Dense(nn,nn,activFunc), Dense(nn,nn,activFunc), Dense(nn,1)); # 3 hls
 
 initθ = DiffEqFlux.initial_params(chain) #|> gpu;
 if useGPU
