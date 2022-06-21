@@ -22,9 +22,9 @@ nOTIters = 20;
 maxNewPts = 500;
 dxFine = 0.25f0;
 
-dx = 0.5f0;
+dx = 1f0;
 # file location to save data
-expNum = 4;
+expNum = 5;
 useGPU = true;
 saveFile = "data_ot/ot_zhang4d_exp$(expNum).jld2";
 runExp = true;
