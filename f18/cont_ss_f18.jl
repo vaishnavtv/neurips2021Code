@@ -22,19 +22,19 @@ Q_fpke = 0.1f0; # Q = σ^2
 
 # parameters for rhoSS_desired
 μ_ss = [0f0,0f0,0f0,0f0] #.+ Array(f18_xTrim[indX]);
-Σ_ss = 0.01f0*Array(f18_xTrim[indX]).*1.0f0I(4);
+Σ_ss = 0.1f0*Array(f18_xTrim[indX]).*1.0f0I(4);
 indU = [3]; # only using δ_stab for control
 
 
 # file location to save data
-expNum = 1;
+expNum = 2;
 useGPU = true;
 runExp = true;
 saveFile = "data_ss1_cont/exp$(expNum).jld2";
 runExp_fileName = "out_ss1_cont/log$(expNum).txt";
 if runExp
     open(runExp_fileName, "a+") do io
-        write(io, "Controller and ss distribution for the trimmed F18. 2 HL with $(nn) neurons in the hl and $(activFunc) activation. $(maxOpt1Iters) iterations with ADAM and then $(maxOpt2Iters) with LBFGS. using GPU? $(useGPU). Q_fpke = $(Q_fpke). μ_ss = $(μ_ss). Σ_ss = $(Σ_ss). Only using δ_stab for control.
+        write(io, "Controller and ss distribution for the trimmed F18. 2 HL with $(nn) neurons in the hl and $(activFunc) activation. $(maxOpt1Iters) iterations with ADAM and then $(maxOpt2Iters) with LBFGS. using GPU? $(useGPU). Q_fpke = $(Q_fpke). μ_ss = $(μ_ss). Σ_ss = $(Σ_ss). Only using δ_stab for control. Changed Σ_ss.
         Experiment number: $(expNum)\n")
     end
 end
