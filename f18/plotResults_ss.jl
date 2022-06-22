@@ -11,7 +11,7 @@ mkpath("figs_ss")
 activFunc = tanh;
 nn = 100;
 
-expNum = 5;
+expNum = 7;
 fileLoc = "data_ss/exp$(expNum).jld2";
 
 mkpath("figs_ss/exp$(expNum)")
@@ -76,10 +76,10 @@ x4Fine = collect(x4_min:dx[4]:x4_max); #range(x4_min, x4_max, length = nEvalFine
 # RHOFine = [ρFn([x1d, x2d, x3d, x4d]) for x1d in x1Fine, x2d in x2Fine, x3d in x3Fine, x4d in x4Fine]; # no need to compute true ρ for full state
 
 ## Normalize
-ρFnQuad(x,p) = ρFn(x); # to obtain normalization constant
-prob = QuadratureProblem(ρFnQuad, [x1_min,x2_min,x3_min, x4_min], [x1_max, x2_max, x3_max, x4_max], p = 0);
-sol = solve(prob,HCubatureJL(),reltol=1e-3,abstol=1e-3)
-println("Found normalizing constant: $(sol.u)"); # don't know if it's correct
+# ρFnQuad(x,p) = ρFn(x); # to obtain normalization constant
+# prob = QuadratureProblem(ρFnQuad, [x1_min,x2_min,x3_min, x4_min], [x1_max, x2_max, x3_max, x4_max], p = 0);
+# sol = solve(prob,HCubatureJL(),reltol=1e-3,abstol=1e-3)
+# println("Found normalizing constant: $(sol.u)"); # don't know if it's correct
 
 ## Quadrature technique to obtain marginal pdf, requires integration for every set of states
 # Marginal pdf for the first two states
