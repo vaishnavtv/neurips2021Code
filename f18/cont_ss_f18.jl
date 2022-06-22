@@ -27,14 +27,14 @@ indU = [3]; # only using δ_stab for control
 
 
 # file location to save data
-expNum = 4;
+expNum = 5;
 useGPU = true;
 runExp = true;
 saveFile = "data_ss1_cont/exp$(expNum).jld2";
 runExp_fileName = "out_ss1_cont/log$(expNum).txt";
 if runExp
     open(runExp_fileName, "a+") do io
-        write(io, "Controller and ss distribution for the trimmed F18. 2 HL with $(nn) neurons in the hl and $(activFunc) activation. $(maxOpt1Iters) iterations with ADAM and then $(maxOpt2Iters) with LBFGS. using GPU? $(useGPU). Q_fpke = $(Q_fpke). μ_ss = $(μ_ss). Σ_ss = $(Σ_ss). Trying to find δ_stab (eq), not using corresponding utrim.
+        write(io, "Controller and ss distribution for the trimmed F18. 2 HL with $(nn) neurons in the hl and $(activFunc) activation. $(maxOpt1Iters) iterations with ADAM and then $(maxOpt2Iters) with LBFGS. using GPU? $(useGPU). Q_fpke = $(Q_fpke). μ_ss = $(μ_ss). Σ_ss = $(Σ_ss). Trying to find δ_stab (eq), not using corresponding utrim, ud a function of xd + xbar.
         Experiment number: $(expNum)\n")
     end
 end
@@ -59,7 +59,8 @@ end
 function f(xd)
     # xd: perturbed state
 
-    ud = Kc1(xd[1],xd[2],xd[3],xd[4]); 
+    xInp = xd .+ f18_xTrim[indX];
+    ud = Kc1(xInp[1],xInp[2],xInp[3],xInp[4]); 
     # ud = [Kc1(xd[1],xd[2],xd[3],xd[4]); Kc2(xd...)]
     # maskTrim = ones(Float32,length(f18_xTrim)); maskTrim[indX] .= 0f0;
     xFull = f18_xTrim + maskIndx*xd; # perturbed state
