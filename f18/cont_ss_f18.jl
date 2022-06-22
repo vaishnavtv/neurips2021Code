@@ -23,18 +23,18 @@ Q_fpke = 0.1f0; # Q = σ^2
 # parameters for rhoSS_desired
 μ_ss = [0f0,0f0,0f0,0f0] #.+ Array(f18_xTrim[indX]);
 Σ_ss = 0.1f0*Array(f18_xTrim[indX]).*1.0f0I(4);
-indU = [3,4]; # only using δ_stab for control
+indU = [3]; # only using δ_stab for control
 
 
 # file location to save data
-expNum = 3;
+expNum = 4;
 useGPU = true;
 runExp = true;
 saveFile = "data_ss1_cont/exp$(expNum).jld2";
 runExp_fileName = "out_ss1_cont/log$(expNum).txt";
 if runExp
     open(runExp_fileName, "a+") do io
-        write(io, "Controller and ss distribution for the trimmed F18. 2 HL with $(nn) neurons in the hl and $(activFunc) activation. $(maxOpt1Iters) iterations with ADAM and then $(maxOpt2Iters) with LBFGS. using GPU? $(useGPU). Q_fpke = $(Q_fpke). μ_ss = $(μ_ss). Σ_ss = $(Σ_ss). Using both δ_stab and T for control. 
+        write(io, "Controller and ss distribution for the trimmed F18. 2 HL with $(nn) neurons in the hl and $(activFunc) activation. $(maxOpt1Iters) iterations with ADAM and then $(maxOpt2Iters) with LBFGS. using GPU? $(useGPU). Q_fpke = $(Q_fpke). μ_ss = $(μ_ss). Σ_ss = $(Σ_ss). Trying to find δ_stab (eq), not using corresponding utrim.
         Experiment number: $(expNum)\n")
     end
 end
@@ -59,11 +59,11 @@ end
 function f(xd)
     # xd: perturbed state
 
-    # ud = Kc1(xd[1],xd[2],xd[3],xd[4]); 
-    ud = [Kc1(xd[1],xd[2],xd[3],xd[4]); Kc2(xd...)]
+    ud = Kc1(xd[1],xd[2],xd[3],xd[4]); 
+    # ud = [Kc1(xd[1],xd[2],xd[3],xd[4]); Kc2(xd...)]
     # maskTrim = ones(Float32,length(f18_xTrim)); maskTrim[indX] .= 0f0;
     xFull = f18_xTrim + maskIndx*xd; # perturbed state
-    uFull = f18_uTrim + maskIndu*ud; # utrim
+    uFull = [1f0;1f0;0f0;1f0].*f18_uTrim + maskIndu*ud; # utrim
 
     xdotFull = f18Dyn(xFull, uFull)
 
@@ -124,8 +124,8 @@ bcs = [η(-100f0,x2,x3,x4) ~ 0.f0, η(100f0,x2,x3,x4) ~ 0.f0,
 dim = 4 # number of dimensions
 chain1 = Chain(Dense(dim, nn, activFunc), Dense(nn, nn, activFunc), Dense(nn, 1));
 chain2 = Chain(Dense(dim, nn, activFunc), Dense(nn, nn, activFunc), Dense(nn, 1));
-chain3 = Chain(Dense(dim, nn, activFunc), Dense(nn, nn, activFunc), Dense(nn, 1));
-chain = [chain1, chain2, chain3];
+# chain3 = Chain(Dense(dim, nn, activFunc), Dense(nn, nn, activFunc), Dense(nn, 1));
+chain = [chain1, chain2]#, chain3];
 
 initθ = DiffEqFlux.initial_params.(chain);
 if useGPU
@@ -141,7 +141,7 @@ parameterless_type_θ = DiffEqBase.parameterless_type(flat_initθ);
 strategy = NeuralPDE.GridTraining(dx);
 
 indvars = xSym
-depvars = [η(xSym...), Kc1(xSym...), Kc2(xSym...)]
+depvars = [η(xSym...), Kc1(xSym...)]#, Kc2(xSym...)]
 
 phi = NeuralPDE.get_phi.(chain, parameterless_type_θ);
 derivative = NeuralPDE.get_numeric_derivative();
