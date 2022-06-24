@@ -18,15 +18,15 @@ activFunc = tanh;
 suff = string(activFunc);
 nn = 48;
 Q_fpke = 0.1;
-tEnd = 100.0f0;
+tEnd = 20.0f0;
 dt = tEnd/10f0;
 
 # parameters for rhoSS_desired
 μ_ss = zeros(2);
-Σ_ss = 0.001 * 1.0I(2);
+Σ_ss = 0.1 * 1.0I(2);
 rhoTrue(x) = exp(-1 / 2 * (x - μ_ss)' * inv(Σ_ss) * (x - μ_ss)) / (2 * pi * sqrt(det(Σ_ss))); # desired steady-state distribution (gaussian function) 
 
-expNum = 1;
+expNum = 9;
 # fileLoc = "data/dx5eM2_vdp_tanh_48_cont.jld2";
 fileLoc = "data/ss_cont_vdp_exp$(expNum).jld2";
 @info "Loading file from cont_vdp_ss1 exp $(expNum)"
@@ -140,7 +140,7 @@ function nlSim(x0)
     # function to simulate nonlinear controlled dynamics with initial condition x0 and controller K
     odeFn(x, p, t) = vdpDyn(x)
     prob = ODEProblem(odeFn, x0, (0.0, tEnd))
-    sol = solve(prob, Tsit5(), saveat = 1f0,  reltol = 1e-6, abstol = 1e-6)
+    sol = solve(prob, Tsit5(), saveat = 0.2f0,  reltol = 1e-6, abstol = 1e-6)
     return sol
 end
 
