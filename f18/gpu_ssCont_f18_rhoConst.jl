@@ -27,17 +27,17 @@ maxOpt2Iters = 10000; # maximum number of training iterations for opt2
 # indU = [3]; # only using δ_stab for control
 
 Q_fpke = 0.0f0; # Q = σ^2
-dx = 0.01f0;
+dx = 0.05f0;
 
 # file location to save data
-expNum = 10;
+expNum = 7;
 useGPU = false;
 runExp = true;
 saveFile = "data_rhoConst_gpu/exp$(expNum).jld2";
 runExp_fileName = "out_rhoConst_gpu/log$(expNum).txt";
 if runExp
     open(runExp_fileName, "a+") do io
-        write(io, "Generating a controller for f18 with desired ss distribution. 2 HL with $(nn) neurons in the hl and $(activFunc) activation. $(maxOpt1Iters) iterations with ADAM and then $(maxOpt2Iters) with LBFGS. using GPU? $(useGPU). Q_fpke = $(Q_fpke). μ_ss = $(μ_ss). Σ_ss = $(Σ_ss). Not dividing equation by ρ. Finding utrim, using xN as input. Changed several things. useGPU = $(useGPU). Changed Σ_ss. dx = $(dx).
+        write(io, "Generating a controller for f18 with desired ss distribution. 2 HL with $(nn) neurons in the hl and $(activFunc) activation. $(maxOpt1Iters) iterations with ADAM and then $(maxOpt2Iters) with LBFGS. using GPU? $(useGPU). Q_fpke = $(Q_fpke). μ_ss = $(μ_ss). Σ_ss = $(Σ_ss). Not dividing equation by ρ. Finding utrim, using xN as input. Changed several things. useGPU = $(useGPU). Changed Σ_ss. dx = $(dx). Redo exp7.
         Experiment number: $(expNum)\n")
     end
 end
@@ -135,18 +135,18 @@ bcs = [Kc1(x1_min,x2,x3,x4) ~ 0.f0, Kc2(100f0,x2,x3,x4) ~ 0.f0]; # place holder,
 ## Neural network set up
 dim = 4 # number of dimensions
 chain1 = Chain(Dense(dim, nn, activFunc), Dense(nn, nn, activFunc), Dense(nn, 1));
-# chain2 = Chain(Dense(dim, nn, activFunc), Dense(nn, nn, activFunc), Dense(nn, 1));
-chain = chain1;#[chain1, chain2];
+chain2 = Chain(Dense(dim, nn, activFunc), Dense(nn, nn, activFunc), Dense(nn, 1));
+chain = [chain1, chain2];
 
-initθ = DiffEqFlux.initial_params(chain);
+initθ = DiffEqFlux.initial_params.(chain);
 if useGPU
     using CUDA
     CUDA.allowscalar(false)
     initθ = initθ |> gpu;
-    th10= initθ#[1];
-    # th20= initθ[2];
+    th10= initθ[1];
+    th20= initθ[2];
 end 
-flat_initθ = initθ;#reduce(vcat, initθ); 
+flat_initθ = reduce(vcat, initθ); 
 th0 = flat_initθ;
 eltypeθ = eltype(flat_initθ);
 parameterless_type_θ = DiffEqBase.parameterless_type(flat_initθ);
