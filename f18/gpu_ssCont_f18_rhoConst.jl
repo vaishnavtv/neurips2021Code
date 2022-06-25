@@ -23,21 +23,21 @@ maxOpt2Iters = 10000; # maximum number of training iterations for opt2
 # μ_ss = [0f0,0f0,0f0,0f0] #.+ Array(f18_xTrim[indX]);
 # Σ_ss = 0.01f0*Array(f18_xTrim[indX]).*1.0f0I(4);
 μ_ss = An*([0f0,0f0,0f0,0f0] .+ Array(f18_xTrim[indX])) + bn;
-Σ_ss = 0.01f0.*1.0f0I(4);
+Σ_ss = 0.1f0.*1.0f0I(4);
 # indU = [3]; # only using δ_stab for control
 
 Q_fpke = 0.0f0; # Q = σ^2
 dx = 0.05f0;
 
 # file location to save data
-expNum = 8;
+expNum = 7;
 useGPU = false;
 runExp = true;
 saveFile = "data_rhoConst_gpu/exp$(expNum).jld2";
 runExp_fileName = "out_rhoConst_gpu/log$(expNum).txt";
 if runExp
     open(runExp_fileName, "a+") do io
-        write(io, "Generating a controller for f18 with desired ss distribution. 2 HL with $(nn) neurons in the hl and $(activFunc) activation. $(maxOpt1Iters) iterations with ADAM and then $(maxOpt2Iters) with LBFGS. using GPU? $(useGPU). Q_fpke = $(Q_fpke). μ_ss = $(μ_ss). Σ_ss = $(Σ_ss). Not dividing equation by ρ. Finding utrim, using xN as input. Changed several things. useGPU = $(useGPU). Changed Σ_ss. dx = $(dx). Redo exp7.
+        write(io, "Generating a controller for f18 with desired ss distribution. 2 HL with $(nn) neurons in the hl and $(activFunc) activation. $(maxOpt1Iters) iterations with ADAM and then $(maxOpt2Iters) with LBFGS. using GPU? $(useGPU). Q_fpke = $(Q_fpke). μ_ss = $(μ_ss). Σ_ss = $(Σ_ss). Not dividing equation by ρ. Finding utrim, using xN as input. Changed several things. useGPU = $(useGPU). Σ_ss. dx = $(dx). 
         Experiment number: $(expNum)\n")
     end
 end
@@ -157,7 +157,7 @@ strategy = NeuralPDE.GridTraining(dx);
 indvars = xSym
 depvars = [Kc1(xSym...), Kc2(xSym...)]
 
-phi = NeuralPDE.get_phi(chain, parameterless_type_θ);
+phi = NeuralPDE.get_phi.(chain, parameterless_type_θ);
 derivative = NeuralPDE.get_numeric_derivative();
 integral = NeuralPDE.get_numeric_integral(strategy, indvars, depvars, chain, derivative);
 ## Loss function
