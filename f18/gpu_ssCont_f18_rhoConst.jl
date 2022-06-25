@@ -27,17 +27,17 @@ maxOpt2Iters = 10000; # maximum number of training iterations for opt2
 # indU = [3]; # only using δ_stab for control
 
 Q_fpke = 0.0f0; # Q = σ^2
-dx = 0.05f0;
+dx = 0.01f0;
 
 # file location to save data
-expNum = 7;
-useGPU = false;
+expNum = 8;
+useGPU = true;
 runExp = true;
 saveFile = "data_rhoConst_gpu/exp$(expNum).jld2";
 runExp_fileName = "out_rhoConst_gpu/log$(expNum).txt";
 if runExp
     open(runExp_fileName, "a+") do io
-        write(io, "Generating a controller for f18 with desired ss distribution. 2 HL with $(nn) neurons in the hl and $(activFunc) activation. $(maxOpt1Iters) iterations with ADAM and then $(maxOpt2Iters) with LBFGS. using GPU? $(useGPU). Q_fpke = $(Q_fpke). μ_ss = $(μ_ss). Σ_ss = $(Σ_ss). Not dividing equation by ρ. Finding utrim, using xN as input. Changed several things. useGPU = $(useGPU). Σ_ss. dx = $(dx). 
+        write(io, "Generating a controller for f18 with desired ss distribution. 2 HL with $(nn) neurons in the hl and $(activFunc) activation. $(maxOpt1Iters) iterations with ADAM and then $(maxOpt2Iters) with LBFGS. using GPU? $(useGPU). Q_fpke = $(Q_fpke). μ_ss = $(μ_ss). Σ_ss = $(Σ_ss). Not dividing equation by ρ. Finding utrim, using xN as input. Changed several things. useGPU = $(useGPU). Σ_ss. dx = $(dx).
         Experiment number: $(expNum)\n")
     end
 end
@@ -86,7 +86,7 @@ function f(xn)
     # return (xdotFull[indX]) # return the 4 state dynamics
 
     # normalized input to f18 dynamics (full dynamics)
-    xi = An\(xn-bn); # x of 'i'nterest
+    xi = AnInv*(xn .- bn); # x of 'i'nterest
     ui = [Kc1(xn...), Kc2(xn...)];
 
     xFull = maskTrim.*f18_xTrim + maskIndx*xi;
@@ -166,6 +166,9 @@ _pde_loss_functions = [NeuralPDE.build_loss_function(pde_i, indvars, depvars, ph
 # _pde_loss_function = NeuralPDE.build_loss_function(pde, indvars, depvars, phi, derivative, integral, chain, initθ, strategy);
 # _pde_loss_function(tx, th0) # ptxas code issue
 tx = (μ_ss);
+if useGPU
+    tx = cu(μ_ss);
+end
 @show [fn(tx, th0) for fn in _pde_loss_functions]
 _pde_loss_function2(cord, θ) = sum([fn(cord, θ) for fn in _pde_loss_functions]);
 
