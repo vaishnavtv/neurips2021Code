@@ -14,7 +14,7 @@ seed!(1);
 ## parameters for neural network
 nn = 100; # number of neurons in the hidden layer
 activFunc = tanh; # activation function
-opt1 = ADAM(1e-1); # primary optimizer used for training
+opt1 = ADAM(1e-2); # primary optimizer used for training
 maxOpt1Iters = 100000; # maximum number of training iterations for opt1
 opt2 = Optim.LBFGS(); # second optimizer used for fine-tuning
 maxOpt2Iters = 10000; # maximum number of training iterations for opt2
@@ -32,7 +32,7 @@ TMax = 50000f0; # maximum thrust
 dStab_max = pi/3; # min, max values for δ_stab
 
 # file location to save data
-expNum = 17;
+expNum = 16;
 useGPU = true;
 runExp = true;
 saveFile = "data_rhoConst_gpu/exp$(expNum).jld2";
