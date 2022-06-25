@@ -23,14 +23,14 @@ maxOpt2Iters = 10000; # maximum number of training iterations for opt2
 # μ_ss = [0f0,0f0,0f0,0f0] #.+ Array(f18_xTrim[indX]);
 # Σ_ss = 0.01f0*Array(f18_xTrim[indX]).*1.0f0I(4);
 μ_ss = An*([0f0,0f0,0f0,0f0] .+ Array(f18_xTrim[indX])) + bn;
-Σ_ss = 0.1f0.*1.0f0I(4);
+Σ_ss = 0.01f0.*1.0f0I(4);
 # indU = [3]; # only using δ_stab for control
 
 Q_fpke = 0.0f0; # Q = σ^2
 dx = 0.05f0;
 
 # file location to save data
-expNum = 7;
+expNum = 8;
 useGPU = false;
 runExp = true;
 saveFile = "data_rhoConst_gpu/exp$(expNum).jld2";
