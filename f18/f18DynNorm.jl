@@ -39,3 +39,10 @@ AnInv = inv(An);
 #     xdotFull = f18Dyn(xFull, uFull)
 #     return An*(xdotFull[indX]) # return the 4 state dynamics
 # end
+
+# ==== HOW TO COMPUTE SIGMA =====
+sig_v = (vN(f18_xTrim[indX][1] + 20f0) - vN(f18_xTrim[indX][1] - 20f0))/6f0
+sig_alp = (alpN(f18_xTrim[indX][2] + deg2rad(2f0)) - alpN(f18_xTrim[indX][2] - deg2rad(2f0)))/6f0
+sig_th = (thN(f18_xTrim[indX][3] + deg2rad(2f0)) - thN(f18_xTrim[indX][3] - deg2rad(2f0)))/6f0
+sig_q = (qN(f18_xTrim[indX][4] + deg2rad(2f0)) - qN(f18_xTrim[indX][4] - deg2rad(2f0)))/6f0
+
