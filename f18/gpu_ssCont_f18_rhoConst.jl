@@ -1,8 +1,8 @@
 ## Obtain a controller for f18 using PINNs
 # terminal state pdf is fixed - using a thin gaussian about origin
 cd(@__DIR__);
-include("f18DynNorm.jl") # normalized state variable info
 include("f18Dyn.jl")
+include("f18DynNorm.jl") # normalized state variable info
 mkpath("out_rhoConst_gpu")
 mkpath("data_rhoConst_gpu")
 
@@ -23,21 +23,23 @@ maxOpt2Iters = 10000; # maximum number of training iterations for opt2
 # μ_ss = [0f0,0f0,0f0,0f0] #.+ Array(f18_xTrim[indX]);
 # Σ_ss = 0.01f0*Array(f18_xTrim[indX]).*1.0f0I(4);
 μ_ss = An*([0f0,0f0,0f0,0f0] .+ Array(f18_xTrim[indX])) + bn;
-Σ_ss = 0.001f0.*1.0f0I(4);
+Σ_ss = 0.1f0.*1.0f0I(4);
 # indU = [3]; # only using δ_stab for control
 
 Q_fpke = 0.0f0; # Q = σ^2
 dx = 0.01f0;
+TMax = 50000f0; # maximum thrust
+dStab_max = pi/3; # min, max values for δ_stab
 
 # file location to save data
-expNum = 10;
+expNum = 11;
 useGPU = true;
 runExp = true;
 saveFile = "data_rhoConst_gpu/exp$(expNum).jld2";
 runExp_fileName = "out_rhoConst_gpu/log$(expNum).txt";
 if runExp
     open(runExp_fileName, "a+") do io
-        write(io, "Generating a controller for f18 with desired ss distribution. 2 HL with $(nn) neurons in the hl and $(activFunc) activation. $(maxOpt1Iters) iterations with ADAM and then $(maxOpt2Iters) with LBFGS. using GPU? $(useGPU). Q_fpke = $(Q_fpke). μ_ss = $(μ_ss). Σ_ss = $(Σ_ss). Not dividing equation by ρ. Finding utrim, using xN as input. Changed several things. useGPU = $(useGPU). Σ_ss = $(Σ_ss). dx = $(dx).
+        write(io, "Generating a controller for f18 with desired ss distribution. 2 HL with $(nn) neurons in the hl and $(activFunc) activation. $(maxOpt1Iters) iterations with ADAM and then $(maxOpt2Iters) with LBFGS. using GPU? $(useGPU). Q_fpke = $(Q_fpke). μ_ss = $(μ_ss). Σ_ss = $(Σ_ss). Not dividing equation by ρ. Finding utrim, using xN as input. dx = $(dx). Added dStab_max and TMax with tanh and sigmoid activation functions on output for δ_stab and Thrust.
         Experiment number: $(expNum)\n")
     end
 end
@@ -87,7 +89,7 @@ function f(xn)
 
     # normalized input to f18 dynamics (full dynamics)
     xi = AnInv*(xn .- bn); # x of 'i'nterest
-    ui = [Kc1(xn...), Kc2(xn...)];
+    ui = [dStab_max*Kc1(xn...), TMax*Kc2(xn...)];
 
     xFull = maskTrim.*f18_xTrim + maskIndx*xi;
     uFull = [1f0;1f0;0f0;0f0].*f18_uTrim + maskIndu*ui; 
@@ -122,7 +124,7 @@ println("PDE defined.")
 # All xi between 0 and 1
 x1_min = vN(f18_xTrim[indX[1]] - 100f0) ; x1_max = vN(f18_xTrim[indX[1]] + 100f0) #+ f18_xTrim[indX[1]];
 x2_min = alpN(f18_xTrim[indX[2]] - deg2rad(10f0)) ; x2_max = alpN(f18_xTrim[indX[2]] + deg2rad(10f0)) #+ f18_xTrim[indX[2]];
-x3_min = x2_min ; x3_max = x2_max #+ f18_xTrim[indX[3]];
+x3_min = thN(f18_xTrim[indX[3]] - deg2rad(10f0)) ; x3_max = thN(f18_xTrim[indX[3]] + deg2rad(10f0)) #+ f18_xTrim[indX[3]];
 x4_min = qN(f18_xTrim[indX[4]] + deg2rad(-5f0)) ; x4_max = qN(f18_xTrim[indX[4]] + deg2rad(5f0)) #+ f18_xTrim[indX[4]];
 domains = [x1 ∈ IntervalDomain(x1_min, x1_max), x2 ∈ IntervalDomain(x2_min, x2_max), x3 ∈ IntervalDomain(x3_min, x3_max), x4 ∈ IntervalDomain(x4_min, x4_max),];
 
@@ -134,8 +136,8 @@ bcs = [Kc1(x1_min,x2,x3,x4) ~ 0.f0, Kc2(100f0,x2,x3,x4) ~ 0.f0]; # place holder,
 
 ## Neural network set up
 dim = 4 # number of dimensions
-chain1 = Chain(Dense(dim, nn, activFunc), Dense(nn, nn, activFunc), Dense(nn, 1));
-chain2 = Chain(Dense(dim, nn, activFunc), Dense(nn, nn, activFunc), Dense(nn, 1));
+chain1 = Chain(Dense(dim, nn, activFunc), Dense(nn, nn, activFunc), Dense(nn, 1, tanh));
+chain2 = Chain(Dense(dim, nn, activFunc), Dense(nn, nn, activFunc), Dense(nn, 1, sigmoid));
 chain = [chain1, chain2];
 
 initθ = DiffEqFlux.initial_params.(chain);
