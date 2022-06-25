@@ -27,12 +27,12 @@ maxOpt2Iters = 10000; # maximum number of training iterations for opt2
 # indU = [3]; # only using δ_stab for control
 
 Q_fpke = 0.0f0; # Q = σ^2
-dx = 0.001f0;
+dx = 0.0001f0;
 TMax = 50000f0; # maximum thrust
 dStab_max = pi/3; # min, max values for δ_stab
 
 # file location to save data
-expNum = 13;
+expNum = 14;
 useGPU = true;
 runExp = true;
 saveFile = "data_rhoConst_gpu/exp$(expNum).jld2";
