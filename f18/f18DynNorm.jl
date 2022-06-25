@@ -22,6 +22,7 @@ An[2,2] = 1/(αMax - αMin); bn[2] = -αMin/(αMax - αMin);
 An[3,3] = 1/(θMax - θMin); bn[3] = -θMin/(θMax - θMin) ;
 An[4,4] = 1/(qMax - qMin); bn[4] = - qMin/(qMax - qMin) ;
 
+AnInv = inv(An);
 # xnTrim = An*f18_xTrim[indX] + bn
 # xOrig = An\(xn - bn)
 
