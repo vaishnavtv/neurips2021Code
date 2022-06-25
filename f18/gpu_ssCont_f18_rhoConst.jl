@@ -34,7 +34,7 @@ dStab_max = pi/3; # min, max values for δ_stab
 # file location to save data
 expNum = 17;
 useGPU = true;
-runExp = false;
+runExp = true;
 saveFile = "data_rhoConst_gpu/exp$(expNum).jld2";
 runExp_fileName = "out_rhoConst_gpu/log$(expNum).txt";
 if runExp
