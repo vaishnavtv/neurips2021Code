@@ -15,31 +15,31 @@ seed!(1);
 nn = 100; # number of neurons in the hidden layer
 activFunc = tanh; # activation function
 opt1 = ADAM(1e-3); # primary optimizer used for training
-maxOpt1Iters = 200000; # maximum number of training iterations for opt1
+maxOpt1Iters = 10000; # maximum number of training iterations for opt1
 opt2 = Optim.LBFGS(); # second optimizer used for fine-tuning
-maxOpt2Iters = 20000; # maximum number of training iterations for opt2
+maxOpt2Iters = 10000; # maximum number of training iterations for opt2
 
 # parameters for rhoSS_desired
 # μ_ss = [0f0,0f0,0f0,0f0] #.+ Array(f18_xTrim[indX]);
 # Σ_ss = 0.01f0*Array(f18_xTrim[indX]).*1.0f0I(4);
-μ_ss = An*([0f0,0f0,0f0,0f0] .+ Array(f18_xTrim[indX])) + bn;
-Σ_ss = 0.001f0.*1.0f0I(4);
+μ_ss = An2*([0f0,0f0,0f0,0f0] .+ Array(f18_xTrim[indX])) + bn2;
+Σ_ss = 0.01f0.*1.0f0I(4);
 # indU = [3]; # only using δ_stab for control
 
 Q_fpke = 0.0f0; # Q = σ^2
-dx = 0.01f0;
+dx = 0.05f0;
 TMax = 50000f0; # maximum thrust
 dStab_max = pi/3; # min, max values for δ_stab
 
 # file location to save data
-expNum = 19;
+expNum = 20;
 useGPU = true;
 runExp = true;
 saveFile = "data_rhoConst_gpu/exp$(expNum).jld2";
 runExp_fileName = "out_rhoConst_gpu/log$(expNum).txt";
 if runExp
     open(runExp_fileName, "a+") do io
-        write(io, "Generating a controller for f18 with desired ss distribution. 2 HL with $(nn) neurons in the hl and $(activFunc) activation. $(maxOpt1Iters) iterations with ADAM and then $(maxOpt2Iters) with LBFGS. using GPU? $(useGPU). Q_fpke = $(Q_fpke). μ_ss = $(μ_ss). Σ_ss = $(Σ_ss). Not dividing equation by ρ. Finding utrim, using xN as input. dx = $(dx). Added dStab_max and TMax with tanh and sigmoid activation functions on output for δ_stab and Thrust. Changed Σ_ss to $(Σ_ss). Added more ADAM iters again, using 1e-3 as lr.
+        write(io, "Generating a controller for f18 with desired ss distribution. 2 HL with $(nn) neurons in the hl and $(activFunc) activation. $(maxOpt1Iters) iterations with ADAM and then $(maxOpt2Iters) with LBFGS. using GPU? $(useGPU). Q_fpke = $(Q_fpke). μ_ss = $(μ_ss). Σ_ss = $(Σ_ss). Not dividing equation by ρ. Finding utrim, using xN as input. dx = $(dx). Added dStab_max and TMax with tanh and sigmoid activation functions on output for δ_stab and Thrust. Changed normalized variable bounds to [-5,5] instead of [0,1]. Check Σ_ss = $(Σ_ss).
         Experiment number: $(expNum)\n")
     end
 end
@@ -88,14 +88,14 @@ function f(xn)
     # return (xdotFull[indX]) # return the 4 state dynamics
 
     # normalized input to f18 dynamics (full dynamics)
-    xi = AnInv*(xn .- bn); # x of 'i'nterest
+    xi = An2Inv*(xn .- bn2); # x of 'i'nterest
     ui = [dStab_max*Kc1(xn...), TMax*Kc2(xn...)];
 
     xFull = maskTrim.*f18_xTrim + maskIndx*xi;
     uFull = [1f0;1f0;0f0;0f0].*f18_uTrim + maskIndu*ui; 
 
     xdotFull = f18Dyn(xFull, uFull)
-    return An*(xdotFull[indX]) # return the 4 state dynamics in normalized form
+    return An2*(xdotFull[indX]) # return the 4 state dynamics in normalized form
 
 end
 
@@ -122,10 +122,10 @@ println("PDE defined.")
 
 ## Domain
 # All xi between 0 and 1
-x1_min = vN(f18_xTrim[indX[1]] - 100f0) ; x1_max = vN(f18_xTrim[indX[1]] + 100f0) #+ f18_xTrim[indX[1]];
-x2_min = alpN(f18_xTrim[indX[2]] - deg2rad(10f0)) ; x2_max = alpN(f18_xTrim[indX[2]] + deg2rad(10f0)) #+ f18_xTrim[indX[2]];
-x3_min = thN(f18_xTrim[indX[3]] - deg2rad(10f0)) ; x3_max = thN(f18_xTrim[indX[3]] + deg2rad(10f0)) #+ f18_xTrim[indX[3]];
-x4_min = qN(f18_xTrim[indX[4]] + deg2rad(-5f0)) ; x4_max = qN(f18_xTrim[indX[4]] + deg2rad(5f0)) #+ f18_xTrim[indX[4]];
+x1_min = vN2(f18_xTrim[indX[1]] - 100f0) ; x1_max = vN2(f18_xTrim[indX[1]] + 100f0) #+ f18_xTrim[indX[1]];
+x2_min = alpN2(f18_xTrim[indX[2]] - deg2rad(10f0)) ; x2_max = alpN2(f18_xTrim[indX[2]] + deg2rad(10f0)) #+ f18_xTrim[indX[2]];
+x3_min = thN2(f18_xTrim[indX[3]] - deg2rad(10f0)) ; x3_max = thN2(f18_xTrim[indX[3]] + deg2rad(10f0)) #+ f18_xTrim[indX[3]];
+x4_min = qN2(f18_xTrim[indX[4]] + deg2rad(-5f0)) ; x4_max = qN2(f18_xTrim[indX[4]] + deg2rad(5f0)) #+ f18_xTrim[indX[4]];
 domains = [x1 ∈ IntervalDomain(x1_min, x1_max), x2 ∈ IntervalDomain(x2_min, x2_max), x3 ∈ IntervalDomain(x3_min, x3_max), x4 ∈ IntervalDomain(x4_min, x4_max),];
 
 # dx = [10f0; deg2rad(1f0); deg2rad(1f0); deg2rad(1f0);]; # discretization size used for training
@@ -180,6 +180,7 @@ if useGPU
     train_domain_set = train_domain_set |> gpu;
     train_bound_set = train_bound_set |> gpu;
 end
+@show size(train_domain_set[1])
 
 using Statistics
 pde_loss_function = (θ) -> mean(abs2,_pde_loss_function2((train_domain_set[1]), θ));
