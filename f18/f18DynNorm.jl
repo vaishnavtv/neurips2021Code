@@ -7,8 +7,9 @@ vMin = 200f0; vMax = 1500f0;
 αMin = -deg2rad(10f0); αMax = deg2rad(90f0);
 θMin = -deg2rad(10f0); θMax = deg2rad(90f0);
 qMin = Float32(-pi/3); qMax = Float32(pi/3);
-##
-# How to normalize
+
+## ============
+# How to normalize to between [0,1]
 vN(v) = (v - vMin)/(vMax - vMin); # v between 200 and 1500
 alpN(α) = (α - (αMin))/(αMax - αMin) # α between -10 and 90
 thN(θ) = (θ - (θMin))/(θMax - θMin) # θ between -10 and 90
@@ -23,6 +24,25 @@ An[3,3] = 1/(θMax - θMin); bn[3] = -θMin/(θMax - θMin) ;
 An[4,4] = 1/(qMax - qMin); bn[4] = - qMin/(qMax - qMin) ;
 
 AnInv = inv(An);
+
+## ========== 
+# How to normalize all variables to [-bd,bd] where bd: bound
+bd = 5.0f0;
+vN2(v) = 2*bd*(v - (vMax+vMin)/2f0)/(vMax - vMin)
+alpN2(α) = 2*bd*(α - (αMax + αMin)/2f0)/(αMax - αMin)
+thN2(θ) = 2*bd*(θ - (θMax + θMin)/2f0)/(θMax - θMin)
+qN2(q) = 2*bd*(q - (qMax + qMin)/2f0)/(qMax - qMin)
+
+An2 = 1.0f0I(4);
+bn2 = zeros(Float32,4);
+
+An2[1,1] = 2*bd/(vMax - vMin); bn2[1] = -2*bd*((vMax+vMin)/2f0)/(vMax - vMin);
+An2[2,2] = 2*bd/(αMax - αMin); bn2[2] = -2*bd*((αMax + αMin)/2f0)/(αMax - αMin);
+An2[3,3] = 2*bd/(θMax - θMin); bn2[3] = -2*bd*((θMax + θMin)/2f0)/(θMax - θMin) ;
+An2[4,4] = 2*bd/(qMax - qMin); bn2[4] = -2*bd*((qMax + qMin)/2f0)/(qMax - qMin) ;
+
+An2Inv = inv(An2);
+
 # xnTrim = An*f18_xTrim[indX] + bn
 # xOrig = An\(xn - bn)
 
