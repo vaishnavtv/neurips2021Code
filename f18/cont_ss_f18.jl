@@ -2,6 +2,7 @@
 # With diffusion, NAN issue
 cd(@__DIR__);
 include("f18Dyn.jl")
+include("f18DynNorm.jl") # normalized state variable info
 mkpath("out_ss1_cont")
 mkpath("data_ss1_cont")
 
@@ -14,27 +15,33 @@ seed!(1);
 nn = 100; # number of neurons in the hidden layer
 activFunc = tanh; # activation function
 opt1 = ADAM(1e-3); # primary optimizer used for training
-maxOpt1Iters = 50000; # maximum number of training iterations for opt1
+maxOpt1Iters = 10000; # maximum number of training iterations for opt1
 opt2 = Optim.LBFGS(); # second optimizer used for fine-tuning
 maxOpt2Iters = 10000; # maximum number of training iterations for opt2
 
-Q_fpke = 0.1f0; # Q = σ^2
+Q_fpke = 0.0f0; # Q = σ^2
 
 # parameters for rhoSS_desired
-μ_ss = [0f0,0f0,0f0,0f0] #.+ Array(f18_xTrim[indX]);
-Σ_ss = 0.1f0*Array(f18_xTrim[indX]).*1.0f0I(4);
-indU = [3]; # only using δ_stab for control
+# μ_ss = [0f0,0f0,0f0,0f0] #.+ Array(f18_xTrim[indX]);
+# Σ_ss = 0.01f0*Array(f18_xTrim[indX]).*1.0f0I(4);
+μ_ss = An2*([0f0,0f0,0f0,0f0] .+ Array(f18_xTrim[indX])) + bn2;
+Σ_ss = 0.01f0.*1.0f0I(4);
 
+TMax = 50000f0; # maximum thrust
+dStab_max = pi/3; # min, max values for δ_stab
+
+dx = 0.1f0;
+indU = [3,4]; # only using δ_stab for control
 
 # file location to save data
-expNum = 5;
+expNum = 6;
 useGPU = true;
 runExp = true;
 saveFile = "data_ss1_cont/exp$(expNum).jld2";
 runExp_fileName = "out_ss1_cont/log$(expNum).txt";
 if runExp
     open(runExp_fileName, "a+") do io
-        write(io, "Controller and ss distribution for the trimmed F18. 2 HL with $(nn) neurons in the hl and $(activFunc) activation. $(maxOpt1Iters) iterations with ADAM and then $(maxOpt2Iters) with LBFGS. using GPU? $(useGPU). Q_fpke = $(Q_fpke). μ_ss = $(μ_ss). Σ_ss = $(Σ_ss). Trying to find δ_stab (eq), not using corresponding utrim, ud a function of xd + xbar.
+        write(io, "Controller and ss distribution for the trimmed F18. 2 HL with $(nn) neurons in the hl and $(activFunc) activation. $(maxOpt1Iters) iterations with ADAM and then $(maxOpt2Iters) with LBFGS. using GPU? $(useGPU). Q_fpke = $(Q_fpke). μ_ss = $(μ_ss). Σ_ss = $(Σ_ss). Using normalized variables between [-5,5], finding both δ_stab and T. Q_fpke = $(Q_fpke). dx = $(dx). 
         Experiment number: $(expNum)\n")
     end
 end
@@ -56,24 +63,34 @@ for i in 1:length(indX)
 end
 
 # F18 Dynamics
-function f(xd)
+maskTrim = ones(Float32,length(f18_xTrim)); maskTrim[indX] .= 0f0;
+function f(xn)
     # xd: perturbed state
 
-    xInp = xd .+ f18_xTrim[indX];
-    ud = Kc1(xInp[1],xInp[2],xInp[3],xInp[4]); 
-    # ud = [Kc1(xd[1],xd[2],xd[3],xd[4]); Kc2(xd...)]
-    # maskTrim = ones(Float32,length(f18_xTrim)); maskTrim[indX] .= 0f0;
-    xFull = f18_xTrim + maskIndx*xd; # perturbed state
-    uFull = [1f0;1f0;0f0;1f0].*f18_uTrim + maskIndu*ud; # utrim
+    # xInp = xd .+ f18_xTrim[indX];
+    # ud = Kc1(xInp[1],xInp[2],xInp[3],xInp[4]); 
+    # # ud = [Kc1(xd[1],xd[2],xd[3],xd[4]); Kc2(xd...)]
+    # # maskTrim = ones(Float32,length(f18_xTrim)); maskTrim[indX] .= 0f0;
+    # xFull = f18_xTrim + maskIndx*xd; # perturbed state
+    # uFull = [1f0;1f0;0f0;1f0].*f18_uTrim + maskIndu*ud; # utrim
+
+    # xdotFull = f18Dyn(xFull, uFull)
+
+    # return (xdotFull[indX]) # return the 4 state dynamics
+
+    # normalized input to f18 dynamics (full dynamics)
+    xi = An2Inv*(xn .- bn2); # x of 'i'nterest
+    ui = [dStab_max*Kc1(xn...), TMax*Kc2(xn...)];
+
+    xFull = maskTrim.*f18_xTrim + maskIndx*xi;
+    uFull = [1f0;1f0;0f0;0f0].*f18_uTrim + maskIndu*ui; 
 
     xdotFull = f18Dyn(xFull, uFull)
-
-    return (xdotFull[indX]) # return the 4 state dynamics
-
+    return An2*(xdotFull[indX]) # return the 4 state dynamics in normalized form
 end
 
 ##
-g(x::Vector) = [1.0f0; 1.0f0;1.0f0; 1.0f0] # diffusion vector needs to be modified
+g(x::Vector) = [0.0f0; 1.0f0;0.0f0; 0.0f0] # diffusion in α
 
 # PDE
 ρ(x) = exp(η(x...));
@@ -105,17 +122,22 @@ end
 println("PDE defined.")
 
 ## Domain
-x1_min = -100f0; x1_max = 100f0;
-x2_min = deg2rad(-10f0); x2_max = deg2rad(10f0);
-x3_min = x2_min ; x3_max = x2_max ;
-x4_min = deg2rad(-5f0); x4_max = deg2rad(5f0);
+# x1_min = -100f0; x1_max = 100f0;
+# x2_min = deg2rad(-10f0); x2_max = deg2rad(10f0);
+# x3_min = x2_min ; x3_max = x2_max ;
+# x4_min = deg2rad(-5f0); x4_max = deg2rad(5f0);
+
+# All xi between 0 and 1
+x1_min = vN2(f18_xTrim[indX[1]] - 100f0) ; x1_max = vN2(f18_xTrim[indX[1]] + 100f0) 
+x2_min = alpN2(f18_xTrim[indX[2]] - deg2rad(10f0)) ; x2_max = alpN2(f18_xTrim[indX[2]] + deg2rad(10f0)) 
+x3_min = thN2(f18_xTrim[indX[3]] - deg2rad(10f0)) ; x3_max = thN2(f18_xTrim[indX[3]] + deg2rad(10f0)) 
+x4_min = qN2(f18_xTrim[indX[4]] + deg2rad(-5f0)) ; x4_max = qN2(f18_xTrim[indX[4]] + deg2rad(5f0)) 
 
 domains = [x1 ∈ IntervalDomain(x1_min, x1_max), x2 ∈ IntervalDomain(x2_min, x2_max), x3 ∈ IntervalDomain(x3_min, x3_max), x4 ∈ IntervalDomain(x4_min, x4_max),];
 
-dx = [10f0; deg2rad(1f0); deg2rad(1f0); deg2rad(1f0);]; # discretization size used for training
 
 # Boundary conditions
-bcs = [η(-100f0,x2,x3,x4) ~ 0.f0, η(100f0,x2,x3,x4) ~ 0.f0,
+bcs = [η(x1_min,x2,x3,x4) ~ 0.f0, η(x1_max,x2,x3,x4) ~ 0.f0,
        η(x1,x2_min,x3,x4) ~ 0.f0, η(x1,x2_max,x3,x4) ~ 0.f0,
        η(x1,x2,x3_min,x4) ~ 0.f0, η(x1,x2,x3_max,x4) ~ 0.f0,
        η(x1,x2,x3,x4_min) ~ 0.f0, η(x1,x2_max,x3,x4_max) ~ 0.f0,];
@@ -124,9 +146,9 @@ bcs = [η(-100f0,x2,x3,x4) ~ 0.f0, η(100f0,x2,x3,x4) ~ 0.f0,
 ## Neural network set up
 dim = 4 # number of dimensions
 chain1 = Chain(Dense(dim, nn, activFunc), Dense(nn, nn, activFunc), Dense(nn, 1));
-chain2 = Chain(Dense(dim, nn, activFunc), Dense(nn, nn, activFunc), Dense(nn, 1));
-# chain3 = Chain(Dense(dim, nn, activFunc), Dense(nn, nn, activFunc), Dense(nn, 1));
-chain = [chain1, chain2]#, chain3];
+chain2 = Chain(Dense(dim, nn, activFunc), Dense(nn, nn, activFunc), Dense(nn, 1, tanh));
+chain3 = Chain(Dense(dim, nn, activFunc), Dense(nn, nn, activFunc), Dense(nn, 1, sigmoid));
+chain = [chain1, chain2, chain3];
 
 initθ = DiffEqFlux.initial_params.(chain);
 if useGPU
@@ -142,7 +164,7 @@ parameterless_type_θ = DiffEqBase.parameterless_type(flat_initθ);
 strategy = NeuralPDE.GridTraining(dx);
 
 indvars = xSym
-depvars = [η(xSym...), Kc1(xSym...)]#, Kc2(xSym...)]
+depvars = [η(xSym...), Kc1(xSym...), Kc2(xSym...)]
 
 phi = NeuralPDE.get_phi.(chain, parameterless_type_θ);
 derivative = NeuralPDE.get_numeric_derivative();
@@ -161,8 +183,6 @@ _pde_loss_functions_diff = [NeuralPDE.build_loss_function(pde_i, indvars, depvar
 
 _pde_loss_function(cord, θ) =  sum([fn(cord, θ) for fn in _pde_loss_functions_drift]) .- sum([fn(cord, θ) for fn in _pde_loss_functions_diff])
 @show _pde_loss_function(tx, th0) 
-# println("sleeping here.")
-# sleep(10000);
 
 bc_indvars = NeuralPDE.get_argument(bcs, indvars, depvars);
 _bc_loss_functions = [NeuralPDE.build_loss_function(bc,indvars,depvars,phi,derivative,integral,chain,initθ,strategy,bc_indvars = bc_indvar) for (bc, bc_indvar) in zip(bcs, bc_indvars)]
