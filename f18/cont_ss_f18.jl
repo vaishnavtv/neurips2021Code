@@ -25,7 +25,7 @@ Q_fpke = 0.1f0; # Q = σ^2
 # μ_ss = [0f0,0f0,0f0,0f0] #.+ Array(f18_xTrim[indX]);
 # Σ_ss = 0.01f0*Array(f18_xTrim[indX]).*1.0f0I(4);
 μ_ss = An2*([0f0,0f0,0f0,0f0] .+ Array(f18_xTrim[indX])) + bn2;
-Σ_ss = 0.01f0.*1.0f0I(4);
+Σ_ss = 0.001f0.*1.0f0I(4);
 
 TMax = 50000f0; # maximum thrust
 dStab_max = pi/3; # min, max values for δ_stab
@@ -34,9 +34,9 @@ dx = 0.1f0;
 indU = [3,4]; # only using δ_stab for control
 
 # file location to save data
-expNum = 7;
+expNum = 9;
 useGPU = true;
-runExp = false;
+runExp = true;
 saveFile = "data_ss1_cont/exp$(expNum).jld2";
 runExp_fileName = "out_ss1_cont/log$(expNum).txt";
 if runExp
