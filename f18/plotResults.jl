@@ -13,12 +13,12 @@ activFunc = tanh;
 suff = string(activFunc);
 nn = 100;
 Q_fpke = 0.0f0#*1.0I(2); # σ^2
-tEnd = 500.0f0; dt = 0.2f0;
+tEnd = 200.0f0; dt = 0.2f0;
 
 TMax = 50000f0; # maximum thrust
 dStab_max = pi/3; # min, max values for δ_stab
 
-expNum = 20; 
+expNum = 25; 
 # fileLoc = "data_rhoConst/exp$(expNum).jld2";
 fileLoc = "data_rhoConst_gpu/exp$(expNum).jld2";
 @info "Loading file from ss2_cont_f18_rhoFixed exp $(expNum)"

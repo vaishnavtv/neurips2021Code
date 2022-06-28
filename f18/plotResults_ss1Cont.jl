@@ -3,6 +3,7 @@ using JLD2,PyPlot,LinearAlgebra,Trapz,Printf,LaTeXStrings, Flux, Distributions
 pygui(true);
 cd(@__DIR__);
 include("../utils.jl")
+include("f18DynNorm.jl")
 include("f18Dyn.jl")
 mkpath("figs_ss1Cont")
 
@@ -13,11 +14,14 @@ activFunc = tanh;
 suff = string(activFunc);
 nn = 100;
 Q_fpke = 0.1f0#*1.0I(2); # σ^2
-tEnd = 100.0; dt = 2.0;
+tEnd = 500.0; dt = 0.2f0;
 
-nInp = 1;
+TMax = 50000f0; # maximum thrust
+dStab_max = pi/3; # min, max values for δ_stab
 
-expNum = 4; 
+nInp = 2;
+
+expNum = 9; 
 # fileLoc = "data_rhoConst/exp$(expNum).jld2";
 fileLoc = "data_ss1_cont/exp$(expNum).jld2";
 @info "Loading file from ss1_cont_f18 exp $(expNum)"
@@ -82,25 +86,26 @@ for i in 1:length(indX)
 end
 maskTrim = ones(Float32,length(f18_xTrim)); maskTrim[indX] .= 0f0; # keeping nonrelevant states constant
     
-function f18RedDyn(xd,t)
+function f18RedDyn(xn,t)
     # reduced order f18 dynamics
-    if nInp == 1
-        ud = first(phi(xd, th2))
-    elseif  nInp == 2
-        ud = [first(phi(xd, th2)); first(phi(xd, th3))]
-    end
+    # if nInp == 1
+    #     ud = first(phi(xd, th2))
+    # elseif  nInp == 2
+    #     ud = [first(phi(xd, th2)); first(phi(xd, th3))]
+    # end
     
-    tx = maskIndx*xd; tu = maskIndu*ud;
+    xi = An2\(xn-bn2);
+    ud = [dStab_max*tanh(first(phi(xn, th1))); TMax*sigmoid(first(phi(xn, th2)))]
     
-    xFull = f18_xTrim + maskIndx*xd; 
-    uFull = [1f0;1f0;0f0;1f0].*f18_uTrim + maskIndu*ud;
+    # xFull = f18_xTrim + maskIndx*xd; 
+    # uFull = [1f0;1f0;0f0;1f0].*f18_uTrim + maskIndu*ud;
     # uFull = f18_uTrim + maskIndu*ud;
 
-    # xFull = maskTrim.*f18_xTrim + maskIndx*xd; 
-    # uFull = [1f0;1f0;0f0;0f0].*f18_uTrim + maskIndu*ud;
+    xFull = maskTrim.*f18_xTrim + maskIndx*xi; 
+    uFull = [1f0;1f0;0f0;0f0].*f18_uTrim + maskIndu*ud;
     
     xdotFull = f18Dyn(xFull, uFull) #- f18Dyn(f18_xTrim, f18_uTrim)
-    return (xdotFull[indX])
+    return An2*(xdotFull[indX])
 end
 
 function nlSim(x0)
@@ -118,18 +123,21 @@ function angBounds(x)
 end
 
 #
-function plotTraj(sol, figNum)
-    tSim = sol.t
-    x1Sol = sol[1, :] #.- f18_xTrim[indX[1]]
-    x2Sol = (sol[2, :]) #.- f18_xTrim[indX[2]]
-    x3Sol = (sol[3, :]) #.- f18_xTrim[indX[3]]
-    x4Sol = sol[4, :] #.- f18_xTrim[indX[4]]
+function plotTraj(solInp, figNum)
+    sol = hcat([An2\(xt - bn2) for xt in solInp.u]...)
+    tSim = solInp.t
+    x1Sol = sol[1, :] .- f18_xTrim[indX[1]]
+    x2Sol = (sol[2, :]) .- f18_xTrim[indX[2]]
+    x3Sol = (sol[3, :]) .- f18_xTrim[indX[3]]
+    x4Sol = sol[4, :] .- f18_xTrim[indX[4]]
     # u = [(1-exp(-τ*tSim[i]))*first(phi(sol.u[i], optParam)) for i = 1:length(tSim)]
-    u1 = [first(phi(sol.u[i], th2)) for i = 1:length(tSim)]# .- f18_uTrim[indU[1]];
-    if nInp == 2
-        u2 = [first(phi(sol.u[i], th3)) for i = 1:length(tSim)]# .- f18_uTrim[indU[2]];
-    end
-    # u2 = 0f0*ones(length(u1)) #*[first(phi(sol.u[i], th2)) for i = 1:length(tSim)];
+    # u1 = [first(phi(sol.u[i], th2)) for i = 1:length(tSim)]# .- f18_uTrim[indU[1]];
+    # if nInp == 2
+    #     u2 = [first(phi(sol.u[i], th3)) for i = 1:length(tSim)]# .- f18_uTrim[indU[2]];
+    # end
+
+    u1 = [dStab_max*tanh(first(phi(solInp[:,i], th1))) for i = 1:length(tSim)]
+    u2 = [TMax*sigmoid(first(phi(solInp[:,i], th2))) for i = 1:length(tSim)]
 
     figure(figNum, figsize = (8,4));#clf()
     subplot(3, 2, 1);
@@ -161,28 +169,34 @@ function plotTraj(sol, figNum)
     tight_layout()
 end
 vmin = [-100f0;deg2rad(-10f0);deg2rad(-10f0); deg2rad(-5f0)] ;
-xmin = 1f0*vmin #.+ f18_xTrim[indX]; 
-xmax = 0f0*vmin #.+ f18_xTrim[indX]
-tx = xmin .+ ((xmax - xmin) .* rand(4));
+xmin = 1f0*vmin .+ f18_xTrim[indX]; 
+xmax = -1f0*vmin .+ f18_xTrim[indX]
+txFull = xmin .+ ((xmax - xmin) .* rand(4));
+tx = An2*(txFull) + bn2;
+@show txFull
 @show tx
 solSim = nlSim(tx);
-println("x1 initial value: $(solSim[1,1]);  x1 terminal value: $(solSim[1,end])");
-println("x2 initial value: $(rad2deg(solSim[2,1])) deg;  x2 terminal value: $(rad2deg(solSim[2,end])) deg");
-println("x3 initial value: $(rad2deg(solSim[3,1])) deg;  x3 terminal value: $(rad2deg(solSim[3,end])) deg");
-println("x4 initial value: $(rad2deg(solSim[4,1])) deg/s;  x4 terminal value: $(rad2deg(solSim[4,end])) deg/s");
-println("Terminal value state norm: $(norm(solSim[:,end]))");
 figure(3); clf();
 plotTraj(solSim, 3);
+solSim[:,1] = An2\(solSim[:,1] - bn2); solSim[:,end] = An2\(solSim[:,end] - bn2);
+println("x1 initial value: $(solSim[1,1]);  x1 terminal value: $(solSim[1,end] - f18_xTrim[indX][1])");
+println("x2 initial value: $(rad2deg(solSim[2,1])) deg;  x2 terminal value: $(rad2deg(solSim[2,end]- f18_xTrim[indX][2])) deg");
+println("x3 initial value: $(rad2deg(solSim[3,1])) deg;  x3 terminal value: $(rad2deg(solSim[3,end]- f18_xTrim[indX][3])) deg");
+println("x4 initial value: $(rad2deg(solSim[4,1])) deg/s;  x4 terminal value: $(rad2deg(solSim[4,end]- f18_xTrim[indX][4])) deg/s");
+println("Terminal value state norm: $(norm(solSim[:,end] - f18_xTrim[indX]))");
 savefig("figs_ss1Cont/exp$(expNum)/traj.png")
 # savefig("figs_rhoFixed/exp$(expNum)/traj.png")
 
 ## Generate 20 random trajectories
 # seed!(1);
 # nTraj = 10; figNum = nTraj;
-# tx_nT = [xmin .+ ((xmax - xmin) .* rand(4)) for i in 1:nTraj];
+# tx_nT = [An2*(xmin .+ ((xmax - xmin) .* rand(4))) + bn2 for i in 1:nTraj];
+# # tx_nT = [xmin .+ ((xmax - xmin) .* rand(4)) for i in 1:nTraj];
 # solSim_nT = [nlSim(txi) for txi in tx_nT];
 # figure(figNum, figsize = (8,4)); clf();
 # [plotTraj(solSim_nT[i], figNum) for i in 1:nTraj]; 
+# suptitle("Deviation from x̄ ($(nTraj) trajectories)"); 
+# savefig("figs_ss1Cont/exp$(expNum)/traj$(nTraj).png")
 
 
 ##
