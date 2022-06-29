@@ -27,19 +27,19 @@ maxOpt2Iters = 10000; # maximum number of training iterations for opt2
 Σ_ss = 0.001f0.*1.0f0I(4);
 
 Q_fpke = 0.0f0; # Q = σ^2
-dx = 0.33f0;
+dx = 0.1f0;
 TMax = 50000f0; # maximum thrust
 dStab_max = pi/3; # min, max values for δ_stab
 
 # file location to save data
-expNum = 32;
-useGPU = true;
+expNum = 33;
+useGPU = false;
 runExp = true;
 saveFile = "data_rhoConst_gpu/exp$(expNum).jld2";
 runExp_fileName = "out_rhoConst_gpu/log$(expNum).txt";
 if runExp
     open(runExp_fileName, "a+") do io
-        write(io, "Generating a controller for f18 with desired ss distribution. 2 HL with $(nn) neurons in the hl and $(activFunc) activation. $(maxOpt1Iters) iterations with ADAM and then $(maxOpt2Iters) with LBFGS. using GPU? $(useGPU). Q_fpke = $(Q_fpke). μ_ss = $(μ_ss). Σ_ss = $(Σ_ss). Not dividing equation by ρ. Finding utrim, using xN as input. dx = $(dx). Added dStab_max and TMax with tanh and sigmoid activation functions on output for δ_stab and Thrust. Changed normalized variable bounds to [-5,5] instead of [0,1]. Changed Σ_ss to $(Σ_ss). Check ADAM iters. Adding utrim. Perturbation dynamics instead of full dynamics. Increasing domain bounds, changed dx.
+        write(io, "Generating a controller for f18 with desired ss distribution. 2 HL with $(nn) neurons in the hl and $(activFunc) activation. $(maxOpt1Iters) iterations with ADAM and then $(maxOpt2Iters) with LBFGS. using GPU? $(useGPU). Q_fpke = $(Q_fpke). μ_ss = $(μ_ss). Σ_ss = $(Σ_ss). Not dividing equation by ρ. Finding utrim, using xN as input. dx = $(dx). Added dStab_max and TMax with tanh and sigmoid activation functions on output for δ_stab and Thrust. Changed normalized variable bounds to [-5,5] instead of [0,1]. Changed Σ_ss to $(Σ_ss). Check ADAM iters. Adding utrim. Perturbation dynamics instead of full dynamics. With Kc_lqr.
         Experiment number: $(expNum)\n")
     end
 end
@@ -59,7 +59,7 @@ for i in 1:length(indX)
         maskIndu[indU[i],i] = 1f0;
     end
 end
-maskK = Float32.(maskIndu*Kc_nomStab) # masking linear controller in perturbation
+maskK = Float32.(maskIndu*Kc_lqr) # masking linear controller in perturbation
 # F18 Dynamics
 maskTrim = ones(Float32,length(f18_xTrim)); maskTrim[indX] .= 0f0;
 function f(xn)
@@ -104,7 +104,7 @@ function f(xn)
     ui = [dStab_max*Kc1((xn)...), TMax*Kc2((xn)...)];
 
     xFull = f18_xTrim + maskIndx*xi;
-    uFull = f18_uTrim + maskIndu*ui;# + maskK*xi;
+    uFull = f18_uTrim + maskIndu*ui + maskK*xi;
 
      xdotFull = f18Dyn(xFull, uFull)
     return An3*(xdotFull[indX]) # return the 4 state dynamics in normalized form
@@ -128,10 +128,10 @@ println("PDE defined.")
 
 ## Domain
 # All xi between [bd,bd]
-x1_min = vN3(-200f0) ; x1_max = vN3(200f0);
-x2_min = alpN3(deg2rad(-20f0)) ; x2_max = alpN3(deg2rad(20f0))
-x3_min = thN3(deg2rad(-20f0)) ; x3_max = thN3( deg2rad(20f0));
-x4_min = qN3(deg2rad(-10f0)) ; x4_max = qN3(deg2rad(10f0)) 
+x1_min = vN3(-100f0) ; x1_max = vN3(100f0);
+x2_min = alpN3(deg2rad(-10f0)) ; x2_max = alpN3(deg2rad(10f0))
+x3_min = thN3(deg2rad(-10f0)) ; x3_max = thN3( deg2rad(10f0));
+x4_min = qN3(deg2rad(-5f0)) ; x4_max = qN3(deg2rad(5f0)) 
 domains = [x1 ∈ IntervalDomain(x1_min, x1_max), x2 ∈ IntervalDomain(x2_min, x2_max), x3 ∈ IntervalDomain(x3_min, x3_max), x4 ∈ IntervalDomain(x4_min, x4_max),];
 
 # Boundary conditions
