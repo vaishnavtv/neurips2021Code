@@ -66,6 +66,9 @@ An3[4,4] = 2*bd/(qdMax - qdMin); bn3[4] = -2*bd*((qdMax + qdMin)/2f0)/(qdMax - q
 
 An3Inv = inv(An3);
 
+Kc_nomStab = [-1.09602  18.379   19.0464  9.91444
+-1.11965  21.9143  21.942   9.77763]; # nominal stabilizing controller about linear perturbation plant
+
 ## ==== Trim values Normalized
 xnTrim = An2*f18_xTrim[indX] + bn2
 # xOrig = An\(xn - bn)
