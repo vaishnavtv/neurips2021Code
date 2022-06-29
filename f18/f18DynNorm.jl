@@ -69,6 +69,9 @@ An3Inv = inv(An3);
 Kc_nomStab = Float32.([-1.09602  18.379   19.0464  9.91444
 -1.11965  21.9143  21.942   9.77763]); # nominal stabilizing controller about linear perturbation plant
 
+Kc_lqr = Float32.([ -0.00891916  0.0850919   0.568954    0.712423
+-1.56943e-6  3.22057e-5  4.64721e-5  5.06978e-5]); # lqr controller with better behavior, inputs constrained. 
+
 ## ==== Trim values Normalized
 xnTrim = An2*f18_xTrim[indX] + bn2
 # xOrig = An\(xn - bn)
