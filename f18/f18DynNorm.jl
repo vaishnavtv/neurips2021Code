@@ -43,10 +43,34 @@ An2[4,4] = 2*bd/(qMax - qMin); bn2[4] = -2*bd*((qMax + qMin)/2f0)/(qMax - qMin) 
 
 An2Inv = inv(An2);
 
-# xnTrim = An*f18_xTrim[indX] + bn
+## =========
+# Normalize perturbations, not states
+bd = 5.0f0;
+vdMin = -300f0; vdMax = 300f0;
+αdMin = -deg2rad(30f0); αdMax = deg2rad(30f0);
+θdMin = -deg2rad(30f0); θdMax = deg2rad(30f0);
+qdMin = -deg2rad(30f0); qdMax = deg2rad(30f0);
+
+vN3(v) = 2*bd*(v - (vdMax+vdMin)/2f0)/(vdMax - vdMin)
+alpN3(α) = 2*bd*(α - (αdMax + αdMin)/2f0)/(αdMax - αdMin)
+thN3(θ) = 2*bd*(θ - (θdMax + θdMin)/2f0)/(θdMax - θdMin)
+qN3(q) = 2*bd*(q - (qdMax + qdMin)/2f0)/(qdMax - qdMin)
+
+An3 = 1.0f0I(4);
+bn3 = zeros(Float32,4);
+
+An3[1,1] = 2*bd/(vdMax - vdMin); bn3[1] = -2*bd*((vdMax+vdMin)/2f0)/(vdMax - vdMin);
+An3[2,2] = 2*bd/(αdMax - αdMin); bn3[2] = -2*bd*((αdMax + αdMin)/2f0)/(αdMax - αdMin);
+An3[3,3] = 2*bd/(θdMax - θdMin); bn3[3] = -2*bd*((θdMax + θdMin)/2f0)/(θdMax - θdMin) ;
+An3[4,4] = 2*bd/(qdMax - qdMin); bn3[4] = -2*bd*((qdMax + qdMin)/2f0)/(qdMax - qdMin) ;
+
+An3Inv = inv(An3);
+
+## ==== Trim values Normalized
+xnTrim = An2*f18_xTrim[indX] + bn2
 # xOrig = An\(xn - bn)
 
-# ====== HOW YOU WANT NORMALIZED DYNAMICS TO LOOK
+## ====== HOW YOU WANT NORMALIZED DYNAMICS TO LOOK
 # maskTrim = ones(Float32,length(f18_xTrim)); maskTrim[indX] .= 0f0;
 # function f18n(xn)
 #     # normalized input to f18 dynamics (full dynamics)
