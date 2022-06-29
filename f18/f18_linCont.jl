@@ -38,9 +38,29 @@ function getKc_nomStab(A2, B2)
 end
 Kc_nomStab = getKc_nomStab(linA,linB);
 
+## Solve LMI and get LQR controller
+Q = Diagonal([1e-1; 1e-1; 1e0; 1e-1]); R = Diagonal([1e3; 1e2]);
+# Q = Diagonal([1e-1; 1e-1; 1e-1; 1e-2]); R = Diagonal([1e3; 1e2]); # this is good.
+# Q = Diagonal([1f1; 1f0; 1f0; 1f-1]); R = Diagonal([1f-3; 1f-1]);
+function getKc_lqr(A2,B2)
+    # Get lqr controller
+    Y = Convex.Variable(4,4)
+    lmiTerm = -[Y*A2' + A2*Y - B2*inv(R)*B2' Y*sqrt(Q);
+                sqrt(Q)*Y   -1.0I(4) ];
+    constraint = (lmiTerm in :SDP)
+    problem = Convex.maximize(tr(Y));
+    problem.constraints += constraint;
+    Convex.solve!(problem, Mosek.Optimizer)
+    
+    Kc = -inv(R)*B2'*inv(Y.value);
+    return Kc
+end
+Kc_lqr = getKc_lqr(linA,linB);
+
+
 ## TESTING CONTROLLER ON LINEAR SYSTEM
-# ## Check if nominal linear system is controlled - Yes.
-# Kc = Kc_nomStab;
+## Check if nominal linear system is controlled - Yes.
+# Kc = Kc_lqr;
 # using DifferentialEquations
 # function f18_linDyn(x, Kc, A, B)
 #     # linear perturbation dynamics
@@ -61,10 +81,16 @@ Kc_nomStab = getKc_nomStab(linA,linB);
 # # # @show x̃
 # solCheck = lSim(vmin, tEnd, Kc_nomStab, linA, linB); # perturb around trim point and check if linear system is controlled
 # @show norm(solCheck[1:4, end]) # Looks like linear system is controlled. 
-#
+
 # using Plots
 # p1 = plot(solCheck, vars = (0,1))
 # p2 = plot(solCheck, vars = (0,2))
 # p3 = plot(solCheck, vars = (0,3))
 # p4 = plot(solCheck, vars = (0,4))
-# plot(p1, p2, p3, p4, layout= (2,2))
+# # plot(p1, p2, p3, p4, layout= (2,2))
+
+# uCont1(t,x1,x2,x3,x4) = (t,(Kc*[x1;x2;x3;x4])[1]);
+# uCont2(t,x1,x2,x3,x4) = (t,(Kc*[x1;x2;x3;x4])[2]);
+# pu1 = plot(solCheck, vars = (uCont1, 0,1,2,3,4))
+# pu2 = plot(solCheck, vars = (uCont2, 0,1,2,3,4))
+# plot(p1, p2, p3, p4, pu1, pu2, layout = (3,2))
