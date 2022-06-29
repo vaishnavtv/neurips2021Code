@@ -27,19 +27,19 @@ maxOpt2Iters = 10000; # maximum number of training iterations for opt2
 Σ_ss = 0.001f0.*1.0f0I(4);
 
 Q_fpke = 0.0f0; # Q = σ^2
-dx = 0.2f0;
+dx = 0.33f0;
 TMax = 50000f0; # maximum thrust
 dStab_max = pi/3; # min, max values for δ_stab
 
 # file location to save data
-expNum = 31;
+expNum = 32;
 useGPU = true;
 runExp = true;
 saveFile = "data_rhoConst_gpu/exp$(expNum).jld2";
 runExp_fileName = "out_rhoConst_gpu/log$(expNum).txt";
 if runExp
     open(runExp_fileName, "a+") do io
-        write(io, "Generating a controller for f18 with desired ss distribution. 2 HL with $(nn) neurons in the hl and $(activFunc) activation. $(maxOpt1Iters) iterations with ADAM and then $(maxOpt2Iters) with LBFGS. using GPU? $(useGPU). Q_fpke = $(Q_fpke). μ_ss = $(μ_ss). Σ_ss = $(Σ_ss). Not dividing equation by ρ. Finding utrim, using xN as input. dx = $(dx). Added dStab_max and TMax with tanh and sigmoid activation functions on output for δ_stab and Thrust. Changed normalized variable bounds to [-5,5] instead of [0,1]. Changed Σ_ss to $(Σ_ss). Check ADAM iters. Adding utrim. Perturbation dynamics instead of full dynamics. Increasing domain size.
+        write(io, "Generating a controller for f18 with desired ss distribution. 2 HL with $(nn) neurons in the hl and $(activFunc) activation. $(maxOpt1Iters) iterations with ADAM and then $(maxOpt2Iters) with LBFGS. using GPU? $(useGPU). Q_fpke = $(Q_fpke). μ_ss = $(μ_ss). Σ_ss = $(Σ_ss). Not dividing equation by ρ. Finding utrim, using xN as input. dx = $(dx). Added dStab_max and TMax with tanh and sigmoid activation functions on output for δ_stab and Thrust. Changed normalized variable bounds to [-5,5] instead of [0,1]. Changed Σ_ss to $(Σ_ss). Check ADAM iters. Adding utrim. Perturbation dynamics instead of full dynamics. Increasing domain bounds, changed dx.
         Experiment number: $(expNum)\n")
     end
 end
