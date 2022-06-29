@@ -22,24 +22,24 @@ maxOpt2Iters = 10000; # maximum number of training iterations for opt2
 # parameters for rhoSS_desired
 # μ_ss = [0f0,0f0,0f0,0f0] #.+ Array(f18_xTrim[indX]);
 # Σ_ss = 0.01f0*Array(f18_xTrim[indX]).*1.0f0I(4);
-μ_ss = An2*([0f0,0f0,0f0,0f0] .+ Array(f18_xTrim[indX])) + bn2;
-Σ_ss = [1f-4, 1f-3,1f-3,1f-3].*1.0f0I(4);
-# indU = [3]; # only using δ_stab for control
+# μ_ss = An2*([0f0,0f0,0f0,0f0] .+ Array(f18_xTrim[indX])) + bn2; # full dynamics
+μ_ss = An3*([0f0,0f0,0f0,0f0]) + bn3; # perturbation dynamics == 0
+Σ_ss = 0.001f0.*1.0f0I(4);
 
 Q_fpke = 0.0f0; # Q = σ^2
-dx = 0.05f0;
+dx = 0.1f0;
 TMax = 50000f0; # maximum thrust
 dStab_max = pi/3; # min, max values for δ_stab
 
 # file location to save data
-expNum = 25;
+expNum = 26;
 useGPU = true;
 runExp = true;
 saveFile = "data_rhoConst_gpu/exp$(expNum).jld2";
 runExp_fileName = "out_rhoConst_gpu/log$(expNum).txt";
 if runExp
     open(runExp_fileName, "a+") do io
-        write(io, "Generating a controller for f18 with desired ss distribution. 2 HL with $(nn) neurons in the hl and $(activFunc) activation. $(maxOpt1Iters) iterations with ADAM and then $(maxOpt2Iters) with LBFGS. using GPU? $(useGPU). Q_fpke = $(Q_fpke). μ_ss = $(μ_ss). Σ_ss = $(Σ_ss). Not dividing equation by ρ. Finding utrim, using xN as input. dx = $(dx). Added dStab_max and TMax with tanh and sigmoid activation functions on output for δ_stab and Thrust. Changed normalized variable bounds to [-5,5] instead of [0,1]. Changed Σ_ss to $(Σ_ss). Check ADAM iters.
+        write(io, "Generating a controller for f18 with desired ss distribution. 2 HL with $(nn) neurons in the hl and $(activFunc) activation. $(maxOpt1Iters) iterations with ADAM and then $(maxOpt2Iters) with LBFGS. using GPU? $(useGPU). Q_fpke = $(Q_fpke). μ_ss = $(μ_ss). Σ_ss = $(Σ_ss). Not dividing equation by ρ. Finding utrim, using xN as input. dx = $(dx). Added dStab_max and TMax with tanh and sigmoid activation functions on output for δ_stab and Thrust. Changed normalized variable bounds to [-5,5] instead of [0,1]. Changed Σ_ss to $(Σ_ss). Check ADAM iters. Adding utrim. Perturbation dynamics instead of full dynamics.
         Experiment number: $(expNum)\n")
     end
 end
@@ -88,15 +88,26 @@ function f(xn)
     # return (xdotFull[indX]) # return the 4 state dynamics
 
     # normalized input to f18 dynamics (full dynamics)
-    xi = An2Inv*(xn .- bn2); # x of 'i'nterest
-    ui = [dStab_max*Kc1(xn...), TMax*Kc2(xn...)];
+    # xi = An2Inv*(xn .- bn2); # x of 'i'nterest
+    # ui = [dStab_max*Kc1((xn)...), TMax*Kc2((xn)...)];
 
-    xFull = maskTrim.*f18_xTrim + maskIndx*xi;
-    uFull = [1f0;1f0;0f0;0f0].*f18_uTrim + maskIndu*ui; 
+    # xFull = maskTrim.*f18_xTrim + maskIndx*xi;
+    # # uFull = [1f0;1f0;0f0;0f0].*f18_uTrim + maskIndu*ui; 
 
-    xdotFull = f18Dyn(xFull, uFull)
-    return An2*(xdotFull[indX]) # return the 4 state dynamics in normalized form
+    # uFull = f18_uTrim + maskIndu*(ui)# .- uiTrim); 
 
+    # xdotFull = f18Dyn(xFull, uFull)
+    # return An2*(xdotFull[indX]) # return the 4 state dynamics in normalized form
+
+    # normalized input to f18 dynamics (xn is perturbation)
+    xi = An3Inv*(xn .- bn3); # x of 'i'nterest
+    ui = [dStab_max*Kc1((xn)...), TMax*Kc2((xn)...)];
+
+    xFull = f18_xTrim + maskIndx*xi;
+    uFull = f18_uTrim + maskIndu*ui;
+
+     xdotFull = f18Dyn(xFull, uFull)
+    return An3*(xdotFull[indX]) # return the 4 state dynamics in normalized form
 end
 
 ##
@@ -107,32 +118,24 @@ g(x::Vector) = [1.0f0; 1.0f0;1.0f0; 1.0f0] # diffusion vector needs to be modifi
 F = f(xSym) * ρSS_sym;
 G = 0.5f0 * (g(xSym) * Q_fpke * g(xSym)') * ρSS_sym;
 
-# driftTerm = sum([Differential(xSym[i])(F[i]) for i = 1:length(xSym)]);
-T1 = Differential(xSym[1])(F[1]) #length(xSym)]);
-T2 = Differential(xSym[2])(F[2]) #length(xSym)]);
-T3 = Differential(xSym[3])(F[3]) #length(xSym)]);
-T4 = Differential(xSym[4])(F[4]) #length(xSym)]);
-# T2 = sum([(Differential(xSym[i]) * Differential(xSym[j]))(G[i, j]) for i = 1:length(xSym),j = 1:length(xSym)]);
+T1 = Differential(xSym[1])(F[1]) 
+T2 = Differential(xSym[2])(F[2]) 
+T3 = Differential(xSym[3])(F[3]) 
+T4 = Differential(xSym[4])(F[4]) 
 
-# Eqn = expand_derivatives(-T1 + T2); # + dx*u(x1,x2)-1 ~ 0;
-# pde = simplify(Eqn) ~ 0.0f0;
 pde = [expand_derivatives(T1) ~ 0.f0, expand_derivatives(T2) ~ 0.0f0, expand_derivatives(T4) ~ 0.0f0]; # T3 not dependent on Kc, will sum these terms later
-# pde = driftTerm ~ 0.0f0
 println("PDE defined.")
 
 ## Domain
-# All xi between 0 and 1
-x1_min = vN2(f18_xTrim[indX[1]] - 100f0) ; x1_max = vN2(f18_xTrim[indX[1]] + 100f0) #+ f18_xTrim[indX[1]];
-x2_min = alpN2(f18_xTrim[indX[2]] - deg2rad(10f0)) ; x2_max = alpN2(f18_xTrim[indX[2]] + deg2rad(10f0)) #+ f18_xTrim[indX[2]];
-x3_min = thN2(f18_xTrim[indX[3]] - deg2rad(10f0)) ; x3_max = thN2(f18_xTrim[indX[3]] + deg2rad(10f0)) #+ f18_xTrim[indX[3]];
-x4_min = qN2(f18_xTrim[indX[4]] + deg2rad(-5f0)) ; x4_max = qN2(f18_xTrim[indX[4]] + deg2rad(5f0)) #+ f18_xTrim[indX[4]];
+# All xi between [bd,bd]
+x1_min = vN3(-100f0) ; x1_max = vN3(100f0);
+x2_min = alpN3(deg2rad(-10f0)) ; x2_max = alpN3(deg2rad(10f0))
+x3_min = thN3(deg2rad(-10f0)) ; x3_max = thN3( deg2rad(10f0));
+x4_min = qN3(deg2rad(-5f0)) ; x4_max = qN3(deg2rad(5f0)) 
 domains = [x1 ∈ IntervalDomain(x1_min, x1_max), x2 ∈ IntervalDomain(x2_min, x2_max), x3 ∈ IntervalDomain(x3_min, x3_max), x4 ∈ IntervalDomain(x4_min, x4_max),];
-
-# dx = [10f0; deg2rad(1f0); deg2rad(1f0); deg2rad(1f0);]; # discretization size used for training
 
 # Boundary conditions
 bcs = [Kc1(x1_min,x2,x3,x4) ~ 0.f0, Kc2(100f0,x2,x3,x4) ~ 0.f0]; # place holder, not really used
-
 
 ## Neural network set up
 dim = 4 # number of dimensions
@@ -165,8 +168,7 @@ integral = NeuralPDE.get_numeric_integral(strategy, indvars, depvars, chain, der
 ## Loss function
 println("Defining loss function for each term.")
 _pde_loss_functions = [NeuralPDE.build_loss_function(pde_i, indvars, depvars, phi, derivative, integral, chain, initθ, strategy) for pde_i in pde];
-# _pde_loss_function = NeuralPDE.build_loss_function(pde, indvars, depvars, phi, derivative, integral, chain, initθ, strategy);
-# _pde_loss_function(tx, th0) # ptxas code issue
+
 tx = (μ_ss);
 if useGPU
     tx = cu(μ_ss);
