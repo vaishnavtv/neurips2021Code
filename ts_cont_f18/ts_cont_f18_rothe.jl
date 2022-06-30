@@ -29,7 +29,7 @@ TMax = 50000f0; # maximum thrust
 dStab_max = pi/3; # min, max values for δ_stab
 
 # file location to save data
-expNum = 1;
+expNum = 2;
 useGPU = false;
 runExp = true;
 saveFile = "data_ts_cont/exp$(expNum).jld2";
