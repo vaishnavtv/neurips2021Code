@@ -24,7 +24,7 @@ maxOpt2Iters = 10000; # maximum number of training iterations for opt2
 # Σ_ss = 0.01f0*Array(f18_xTrim[indX]).*1.0f0I(4);
 μ_ss = An2*([0f0,0f0,0f0,0f0] .+ Array(f18_xTrim[indX])) + bn2; # full dynamics
 # μ_ss = An3*([0f0,0f0,0f0,0f0]) + bn3; # perturbation dynamics == 0
-Σ_ss = 0.001f0.*1.0f0I(4);
+Σ_ss = 0.01f0.*1.0f0I(4);
 
 Q_fpke = 0.0f0; # Q = σ^2
 dx = 0.05f0;
@@ -33,7 +33,7 @@ dStab_max = pi/3; # min, max values for δ_stab
 domMult = 1f0; # domain multiplier
 
 # file location to save data
-expNum = 39;
+expNum = 40;
 useGPU = true;
 runExp = true;
 saveFile = "data_rhoConst_gpu/exp$(expNum).jld2";
