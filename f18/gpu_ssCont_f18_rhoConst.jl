@@ -32,14 +32,14 @@ TMax = 50000f0; # maximum thrust
 dStab_max = pi/3; # min, max values for δ_stab
 
 # file location to save data
-expNum = 33;
-useGPU = false;
+expNum = 34;
+useGPU = true;
 runExp = true;
 saveFile = "data_rhoConst_gpu/exp$(expNum).jld2";
 runExp_fileName = "out_rhoConst_gpu/log$(expNum).txt";
 if runExp
     open(runExp_fileName, "a+") do io
-        write(io, "Generating a controller for f18 with desired ss distribution. 2 HL with $(nn) neurons in the hl and $(activFunc) activation. $(maxOpt1Iters) iterations with ADAM and then $(maxOpt2Iters) with LBFGS. using GPU? $(useGPU). Q_fpke = $(Q_fpke). μ_ss = $(μ_ss). Σ_ss = $(Σ_ss). Not dividing equation by ρ. Finding utrim, using xN as input. dx = $(dx). Added dStab_max and TMax with tanh and sigmoid activation functions on output for δ_stab and Thrust. Changed normalized variable bounds to [-5,5] instead of [0,1]. Changed Σ_ss to $(Σ_ss). Check ADAM iters. Adding utrim. Perturbation dynamics instead of full dynamics. With Kc_lqr.
+        write(io, "Generating a controller for f18 with desired ss distribution. 2 HL with $(nn) neurons in the hl and $(activFunc) activation. $(maxOpt1Iters) iterations with ADAM and then $(maxOpt2Iters) with LBFGS. using GPU? $(useGPU). Q_fpke = $(Q_fpke). μ_ss = $(μ_ss). Σ_ss = $(Σ_ss). Not dividing equation by ρ. Finding utrim, using xN as input. dx = $(dx). Added dStab_max and TMax with tanh and sigmoid activation functions on output for δ_stab and Thrust. Changed normalized variable bounds to [-5,5] instead of [0,1]. Changed Σ_ss to $(Σ_ss). Check ADAM iters. Adding utrim. Perturbation dynamics instead of full dynamics. With Kc_lqr. MANUALLY WROTE PDE.
         Experiment number: $(expNum)\n")
     end
 end
@@ -104,7 +104,7 @@ function f(xn)
     ui = [dStab_max*Kc1((xn)...), TMax*Kc2((xn)...)];
 
     xFull = f18_xTrim + maskIndx*xi;
-    uFull = f18_uTrim + maskIndu*ui + maskK*xi;
+    uFull = f18_uTrim .+ maskIndu*ui .+ (maskK)*xi;
 
      xdotFull = f18Dyn(xFull, uFull)
     return An3*(xdotFull[indX]) # return the 4 state dynamics in normalized form
@@ -123,7 +123,17 @@ T2 = Differential(xSym[2])(F[2])
 T3 = Differential(xSym[3])(F[3]) 
 T4 = Differential(xSym[4])(F[4]) 
 
-pde = [expand_derivatives(T1) ~ 0.f0, expand_derivatives(T2) ~ 0.0f0, expand_derivatives(T4) ~ 0.0f0]; # T3 not dependent on Kc, will sum these terms later
+# pde = [expand_derivatives(T1) ~ 0.f0, expand_derivatives(T2) ~ 0.0f0, expand_derivatives(T4) ~ 0.0f0]; # T3 not dependent on Kc, will sum these terms later
+pde_11 =  ((41999.996 + 7199.999x1)*(2.2821835e-7 + 7.1759096e-8x2 + 1.9695668e-5((0.3540971 + 0.10471976x2)^3) - 2.197296e-5((0.3540971 + 0.10471976x2)^2) - 5.018289e-6((0.3540971 + 0.10471976x2)^4) - 3.4348316e-6(4.236((0.3540971 + 0.10471976x2)^2) - 0.060387194 - 0.028682742x2 - 3.8578((0.3540971 + 0.10471976x2)^3))*(0.008910803x2 + 0.059580725x3 + 0.074604765x4 + 1.0471975511965976Kc1(x1, x2, x3, x4) - 0.078592755 - 0.5351496x1)) + 0.016666668(48.332527Differential(x1)(Kc2(x1, x2, x3, x4)) - 9.102541e-8)*cos(0.3540971 + 0.10471976x2) - 3.4348316e-6(1.0471975511965976Differential(x1)(Kc1(x1, x2, x3, x4)) - 0.5351496)*(4.236((0.3540971 + 0.10471976x2)^2) - 0.060387194 - 0.028682742x2 - 3.8578((0.3540971 + 0.10471976x2)^3))*((350.0 + 59.999996x1)^2))*exp(10.139757 - 499.99997abs2(x1) - 499.99997abs2(x2) - 499.99997abs2(x3) - 499.99997abs2(x4)) ~ 0.0f0
+pde_12 = - 999.99994x1*(0.43961164sin(0.3540971 + 0.10471976x2)*cos(0.32624668 + 0.10471976x3) + 0.016666668(14.016433 + 3.2600995e-9x2 + 4.7042508e-9x3 + 5.132007e-9x4 + 48.332527Kc2(x1, x2, x3, x4) - 9.102541e-8x1)*cos(0.3540971 + 0.10471976x2) - 3.4348316e-6((4.236((0.3540971 + 0.10471976x2)^2) - 0.060387194 - 0.028682742x2 - 3.8578((0.3540971 + 0.10471976x2)^3))*(0.008910803x2 + 0.059580725x3 + 0.074604765x4 + 1.0471975511965976Kc1(x1, x2, x3, x4) - 0.078592755 - 0.5351496x1) + 6.3971((0.3540971 + 0.10471976x2)^2) + 1.461((0.3540971 + 0.10471976x2)^4) - 0.06644237 - 0.020891592x2 - 5.7341((0.3540971 + 0.10471976x2)^3))*((350.0 + 59.999996x1)^2) - 0.5366667sin(0.32624668 + 0.10471976x3)*cos(0.3540971 + 0.10471976x2))*exp(10.139757 - 499.99997abs2(x1) - 499.99997abs2(x2) - 499.99997abs2(x3) - 499.99997abs2(x4)) ~ 0.0f0
+
+pde_21 = ((-0.6888047 - 0.118080795x1)*(0.19219527 + 0.36583847((0.3540971 + 0.10471976x2)^2) + (0.008910803 + 1.0471975511965976Differential(x2)(Kc1(x1, x2, x3, x4)))*(0.7160864 + 0.04246386x2 + 2.1852((0.3540971 + 0.10471976x2)^3) - 2.6975((0.3540971 + 0.10471976x2)^2)) + (0.68650085((0.3540971 + 0.10471976x2)^2) - 0.15758792 - 0.059162796x2)*(0.008910803x2 + 0.059580725x3 + 0.074604765x4 + 1.0471975511965976Kc1(x1, x2, x3, x4) - 0.078592755 - 0.5351496x1) - 0.1189748x2) + (0.10471976(8.6922864e-7x1 - 133.84708 - 3.1131655e-8x2 - 4.4922285e-8x3 - 4.9007053e-8x4 - 461.54163Kc2(x1, x2, x3, x4))*cos(0.3540971 + 0.10471976x2) - 9.549296(3.2600995e-9 + 48.332527Differential(x2)(Kc2(x1, x2, x3, x4)))*sin(0.3540971 + 0.10471976x2)) / (350.0 + 59.999996x1) + (32.2sin(0.32624668 + 0.10471976x3)*cos(0.3540971 + 0.10471976x2) - 26.376698sin(0.3540971 + 0.10471976x2)*cos(0.32624668 + 0.10471976x3)) / (350.0 + 59.999996x1))*exp(10.139757 - 499.99997abs2(x1) - 499.99997abs2(x2) - 499.99997abs2(x3) - 499.99997abs2(x4)) ~0.0f0
+pde_22 = - 999.99994x2*(0.30756673 + x4 + (251.8789cos(0.32624668 + 0.10471976x3)*cos(0.3540971 + 0.10471976x2) + 307.48737sin(0.32624668 + 0.10471976x3)*sin(0.3540971 + 0.10471976x2)) / (350.0 + 59.999996x1) + (-9.549296(14.016433 + 3.2600995e-9x2 + 4.7042508e-9x3 + 5.132007e-9x4 + 48.332527Kc2(x1, x2, x3, x4) - 9.102541e-8x1)*sin(0.3540971 + 0.10471976x2)) / (350.0 + 59.999996x1) - 0.0019680134(350.0 + 59.999996x1)*(1.9898093 + 0.59449404x2 + (0.7160864 + 0.04246386x2 + 2.1852((0.3540971 + 0.10471976x2)^3) - 2.6975((0.3540971 + 0.10471976x2)^2))*(0.008910803x2 + 0.059580725x3 + 0.074604765x4 + 1.0471975511965976Kc1(x1, x2, x3, x4) - 0.078592755 - 0.5351496x1) + 1.1645((0.3540971 + 0.10471976x2)^3) - 5.4246((0.3540971 + 0.10471976x2)^2)))*exp(10.139757 - 499.99997abs2(x1) - 499.99997abs2(x2) - 499.99997abs2(x3) - 499.99997abs2(x4)) ~ 0.0f0
+
+pde_41 = 0.00015502161((350.0 + 59.999996x1)^2)*((0.074604765 + 1.0471975511965976Differential(x4)(Kc1(x1, x2, x3, x4)))*(0.9338((0.3540971 + 0.10471976x2)^2) - 1.0200045 - 0.03398156x2) + (0.69432116x2 + 39.037586((0.3540971 + 0.10471976x2)^3) - 0.13651864 - 41.35689((0.3540971 + 0.10471976x2)^2)) / (350.0 + 59.999996x1))*exp(10.139757 - 499.99997abs2(x1) - 499.99997abs2(x2) - 499.99997abs2(x3) - 499.99997abs2(x4)) ~ 0.0f0
+pde_42 = - 999.99994x4*(0.00015502161(0.09434361 + 0.053511795x2 + (0.9338((0.3540971 + 0.10471976x2)^2) - 1.0200045 - 0.03398156x2)*(0.008910803x2 + 0.059580725x3 + 0.074604765x4 + 1.0471975511965976Kc1(x1, x2, x3, x4) - 0.078592755 - 0.5351496x1) + ((1//2)*(0.032208312 + 0.10471976x4)*(13.260557x2 + 745.5629((0.3540971 + 0.10471976x2)^3) - 2.6073139 - 789.85846((0.3540971 + 0.10471976x2)^2))) / (350.0 + 59.999996x1) - 1.2897((0.3540971 + 0.10471976x2)^2))*((350.0 + 59.999996x1)^2) - 0.008434476)*exp(10.139757 - 499.99997abs2(x1) - 499.99997abs2(x2) - 499.99997abs2(x3) - 499.99997abs2(x4)) ~ 0.0f0
+
+pde = [pde_11, pde_12, pde_21, pde_22, pde_41, pde_42]
 println("PDE defined.")
 
 ## Domain
