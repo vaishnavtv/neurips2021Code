@@ -175,7 +175,7 @@ println("x3 initial value: $(rad2deg(solSim[3,1])) deg;  x3 terminal value: $(ra
 println("x4 initial value: $(rad2deg(solSim[4,1])) deg/s;  x4 terminal value: $(rad2deg(solSim[4,end])) deg/s");#- f18_xTrim[indX][4])) deg/s");
 println("Terminal value state norm: $(norm(solSim[:,end]))");
 
-savefig("figs_rhoFixed_gpu/exp$(expNum)/traj.png")
+savefig("figs_rhoFixed_gpu/exp$(expNum)/trajWithNN.png")
 
 ## Generate 20 random trajectories
 # seed!(1);
