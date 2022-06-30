@@ -18,7 +18,7 @@ tEnd = 100.0f0; dt = 0.2f0;
 TMax = 50000f0; # maximum thrust
 dStab_max = pi/3; # min, max values for δ_stab
 
-expNum = 34; 
+expNum = 36; 
 # fileLoc = "data_rhoConst/exp$(expNum).jld2";
 fileLoc = "data_rhoConst_gpu/exp$(expNum).jld2";
 @info "Loading file from ss2_cont_f18_rhoFixed exp $(expNum)"
@@ -99,7 +99,7 @@ function f18RedDyn(xn,t)
 
     xFull = f18_xTrim + maskIndx*xi;
     # uFull = f18_uTrim + maskIndu*ud;
-    uFull = f18_uTrim + maskK*xi+ maskIndu*ud ;
+    uFull = f18_uTrim + maskK*xi#+ maskIndu*ud ;
     
     xdotFull = f18Dyn(xFull, uFull) #- f18Dyn(f18_xTrim, f18_uTrim)
     return An3*(xdotFull[indX])
@@ -158,8 +158,8 @@ function plotTraj(solInp, figNum)
     tight_layout()
 end
 vmin = [-100f0;deg2rad(-10f0);deg2rad(-10f0); deg2rad(-5f0)] ;
-xmin = 1f0*vmin #.+ f18_xTrim[indX]; 
-xmax = -1f0*vmin #.+ f18_xTrim[indX]
+xmin = 2f0*vmin #.+ f18_xTrim[indX]; 
+xmax = -2f0*vmin #.+ f18_xTrim[indX]
 txFull = xmin .+ ((xmax - xmin) .* rand(4));
 tx = An3*(txFull) + bn3;
 @show txFull
@@ -175,7 +175,7 @@ println("x3 initial value: $(rad2deg(solSim[3,1])) deg;  x3 terminal value: $(ra
 println("x4 initial value: $(rad2deg(solSim[4,1])) deg/s;  x4 terminal value: $(rad2deg(solSim[4,end])) deg/s");#- f18_xTrim[indX][4])) deg/s");
 println("Terminal value state norm: $(norm(solSim[:,end]))");
 
-savefig("figs_rhoFixed_gpu/exp$(expNum)/trajWithNN.png")
+savefig("figs_rhoFixed_gpu/exp$(expNum)/trajWithoutNN.png")
 
 ## Generate 20 random trajectories
 # seed!(1);
