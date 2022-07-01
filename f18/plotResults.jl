@@ -4,6 +4,7 @@ cd(@__DIR__);
 include("../utils.jl")
 include("f18DynNorm.jl")
 include("f18Dyn.jl")
+cd(@__DIR__);
 mkpath("figs_rhoFixed_gpu")
 
 import Random: seed!; seed!(100);
@@ -15,10 +16,10 @@ nn = 100;
 Q_fpke = 0.0f0#*1.0I(2); # σ^2
 tEnd = 100.0f0; dt = 0.2f0;
 
-TMax = 50000f0; # maximum thrust
+TMax = 20000f0; # maximum thrust
 dStab_max = pi/3; # min, max values for δ_stab
 
-expNum = 36; 
+expNum = 29; 
 # fileLoc = "data_rhoConst/exp$(expNum).jld2";
 fileLoc = "data_rhoConst_gpu/exp$(expNum).jld2";
 @info "Loading file from ss2_cont_f18_rhoFixed exp $(expNum)"
@@ -70,12 +71,10 @@ for i in 1:length(indX)
 end
 maskTrim = ones(Float32,length(f18_xTrim)); maskTrim[indX] .= 0f0; # keeping nonrelevant states constant
 
-# Kc_lqr = Float32.([ -9.49027     256.08        232.103       83.0816
-# -6.60375e-7    1.49645e-6    7.74026e-6   2.79943e-6]);
-# Kc_lqr = Float32.([-0.00891552  0.0847851   0.56858     0.711855
-# -1.5683e-6   3.20966e-5  4.65499e-5  5.06769e-5]); # this is good.
-Kc_lqr = Float32.([  -0.00891916  0.0850919   0.568954    0.712423
--1.56943e-6  3.22057e-5  4.64721e-5  5.06978e-5]);
+# Kc_lqr = Float32.([  -0.00891916  0.0850919   0.568954    0.712423
+# -1.56943e-6  3.22057e-5  4.64721e-5  5.06978e-5]);
+# Kc_lqr = Float32[-0.0027077585 0.008460493 0.33792582 0.46743223; -0.0003060145 0.006903539 0.009952054 0.014728539]
+Kc_lqr = Float32[-0.0026858766 -0.017071942 0.35291886 0.46017873; -0.30356252 5.2939005 11.192051 14.639285]
 # maskK = Float32.(maskIndu*Kc_nomStab) # masking linear controller in perturbation
 maskK = Float32.(maskIndu*Kc_lqr) # masking linear controller in perturbation
 # function f18RedDyn(xd,t)
@@ -124,10 +123,10 @@ function plotTraj(solInp, figNum)
     # u2 = [first(phi(sol.u[i], th2)) for i = 1:length(tSim)]# .- f18_uTrim[indU[2]];
     # u2 = 0f0*ones(length(u1)) #*[first(phi(sol.u[i], th2)) for i = 1:length(tSim)];
 
-    # u1 = [(maskK*sol[:,i])[3] for i=1:length(tSim)]
-    # u2 = [(maskK*sol[:,i])[4] for i=1:length(tSim)]
-    u1 = [dStab_max*tanh(first(phi(solInp[:,i], th1))) for i = 1:length(tSim)] #.- f18_uTrim[indU[1]];
-    u2 = [TMax*sigmoid(first(phi(solInp[:,i], th2))) for i = 1:length(tSim)] #.- f18_uTrim[indU[2]];
+    # u1 = [dStab_max*tanh(first(phi(solInp[:,i], th1))) for i = 1:length(tSim)]
+    # u2 = [TMax*sigmoid(first(phi(solInp[:,i], th2))) for i = 1:length(tSim)]
+    u1 = f18_uTrim[indU[1]] .+ [(maskK*sol[:,i])[3] for i=1:length(tSim)] 
+    u2 = f18_uTrim[indU[2]] .+ [(maskK*sol[:,i])[4] for i=1:length(tSim)];
     
     figure(figNum, figsize = (8,4));#clf()
     subplot(3, 2, 1);
@@ -158,8 +157,8 @@ function plotTraj(solInp, figNum)
     tight_layout()
 end
 vmin = [-100f0;deg2rad(-10f0);deg2rad(-10f0); deg2rad(-5f0)] ;
-xmin = 2f0*vmin #.+ f18_xTrim[indX]; 
-xmax = -2f0*vmin #.+ f18_xTrim[indX]
+xmin = 1f0*vmin #.+ f18_xTrim[indX]; 
+xmax = -1f0*vmin #.+ f18_xTrim[indX]
 txFull = xmin .+ ((xmax - xmin) .* rand(4));
 tx = An3*(txFull) + bn3;
 @show txFull
@@ -175,7 +174,7 @@ println("x3 initial value: $(rad2deg(solSim[3,1])) deg;  x3 terminal value: $(ra
 println("x4 initial value: $(rad2deg(solSim[4,1])) deg/s;  x4 terminal value: $(rad2deg(solSim[4,end])) deg/s");#- f18_xTrim[indX][4])) deg/s");
 println("Terminal value state norm: $(norm(solSim[:,end]))");
 
-savefig("figs_rhoFixed_gpu/exp$(expNum)/trajWithoutNN.png")
+savefig("figs_rhoFixed_gpu/exp$(expNum)/traj.png")
 
 ## Generate 20 random trajectories
 # seed!(1);
