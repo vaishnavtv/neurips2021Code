@@ -22,25 +22,25 @@ maxOpt2Iters = 10000; # maximum number of training iterations for opt2
 # parameters for rhoSS_desired
 # μ_ss = [0f0,0f0,0f0,0f0] #.+ Array(f18_xTrim[indX]);
 # Σ_ss = 0.01f0*Array(f18_xTrim[indX]).*1.0f0I(4);
-μ_ss = An2*([0f0,0f0,0f0,0f0] .+ Array(f18_xTrim[indX])) + bn2; # full dynamics
-# μ_ss = An3*([0f0,0f0,0f0,0f0]) + bn3; # perturbation dynamics == 0
+# μ_ss = An2*([0f0,0f0,0f0,0f0] .+ Array(f18_xTrim[indX])) + bn2; # full dynamics
+μ_ss = An3*([0f0,0f0,0f0,0f0]) + bn3; # perturbation dynamics == 0
 Σ_ss = 0.001f0.*1.0f0I(4);
 
 Q_fpke = 0.0f0; # Q = σ^2
-dx = 0.05f0;
+dx = 0.1f0;
 TMax = 20000f0; # maximum thrust
 dStab_max = pi/3; # min, max values for δ_stab
 domMult = 1f0; # domain multiplier
 
 # file location to save data
-expNum = 44;
+expNum = 43;
 useGPU = true;
 runExp = true;
 saveFile = "data_rhoConst_gpu/exp$(expNum).jld2";
 runExp_fileName = "out_rhoConst_gpu/log$(expNum).txt";
 if runExp
     open(runExp_fileName, "a+") do io
-        write(io, "Generating a controller for f18 with desired ss distribution. 2 HL with $(nn) neurons in the hl and $(activFunc) activation. $(maxOpt1Iters) iterations with ADAM and then $(maxOpt2Iters) with LBFGS. using GPU? $(useGPU). Q_fpke = $(Q_fpke). μ_ss = $(μ_ss). Σ_ss = $(Σ_ss). Not dividing equation by ρ. Finding utrim, using xN as input. dx = $(dx). Added dStab_max and TMax with both tanh activation functions on output for δ_stab and Thrust. Changed normalized variable bounds to [-5,5] instead of [0,1]. Adding utrim. Full dynamics. Output activation funciton on T changed to 0.5(tanh + 1). Σ_ss =  0.001I.
+        write(io, "Generating a controller for f18 with desired ss distribution. 2 HL with $(nn) neurons in the hl and $(activFunc) activation. $(maxOpt1Iters) iterations with ADAM and then $(maxOpt2Iters) with LBFGS. using GPU? $(useGPU). Q_fpke = $(Q_fpke). μ_ss = $(μ_ss). Σ_ss = $(Σ_ss). Not dividing equation by ρ. Finding utrim, using xN as input. dx = $(dx). Added dStab_max and TMax with both tanh activation functions on output for δ_stab and Thrust. Changed normalized variable bounds to [-5,5] instead of [0,1]. Adding utrim. PERTURBATION dynamics. Output activation funciton on T changed to 0.5(tanh + 1). Σ_ss =  0.001I.
         Experiment number: $(expNum)\n")
     end
 end
@@ -89,24 +89,24 @@ function f(xn)
     # return (xdotFull[indX]) # return the 4 state dynamics
 
     # normalized input to f18 dynamics (full dynamics)
-    xi = An2Inv*(xn .- bn2); # x of 'i'nterest
-    ui = [dStab_max*Kc1((xn)...), TMax*Kc2((xn)...)];
-
-    xFull = maskTrim.*f18_xTrim + maskIndx*xi;
-    uFull = [1f0;1f0;0f0;0f0].*f18_uTrim + maskIndu*ui; 
-
-    xdotFull = f18Dyn(xFull, uFull)
-    return An2*(xdotFull[indX]) # return the 4 state dynamics in normalized form
-
-    # normalized input to f18 dynamics (xn is perturbation)
-    # xi = An3Inv*(xn .- bn3); # x of 'i'nterest,, perturbation
+    # xi = An2Inv*(xn .- bn2); # x of 'i'nterest
     # ui = [dStab_max*Kc1((xn)...), TMax*Kc2((xn)...)];
 
-    # xFull = f18_xTrim + maskIndx*xi;
-    # uFull = f18_uTrim .+ maskIndu*ui #.+ (maskK)*xi;
+    # xFull = maskTrim.*f18_xTrim + maskIndx*xi;
+    # uFull = [1f0;1f0;0f0;0f0].*f18_uTrim + maskIndu*ui; 
 
-    #  xdotFull = f18Dyn(xFull, uFull)
-    # return An3*(xdotFull[indX]) # return the 4 state dynamics in normalized form
+    # xdotFull = f18Dyn(xFull, uFull)
+    # return An2*(xdotFull[indX]) # return the 4 state dynamics in normalized form
+
+    # normalized input to f18 dynamics (xn is perturbation)
+    xi = An3Inv*(xn .- bn3); # x of 'i'nterest,, perturbation
+    ui = [dStab_max*Kc1((xn)...), TMax*Kc2((xn)...)];
+
+    xFull = f18_xTrim + maskIndx*xi;
+    uFull = f18_uTrim .+ maskIndu*ui #.+ (maskK)*xi;
+
+     xdotFull = f18Dyn(xFull, uFull)
+    return An3*(xdotFull[indX]) # return the 4 state dynamics in normalized form
 end
 
 ##
@@ -137,10 +137,10 @@ println("PDE defined.")
 
 ## Domain
 # All xi between [bd,bd]
-x1_min = domMult*vN2(f18_xTrim[indX[1]]-100f0) ; x1_max = domMult*vN2(f18_xTrim[indX[1]]+100f0);
-x2_min = domMult*alpN2(f18_xTrim[indX[2]] +  deg2rad(-10f0)) ; x2_max = domMult*alpN2(f18_xTrim[indX[2]] + deg2rad(10f0))
-x3_min = domMult*thN2(f18_xTrim[indX[3]] + deg2rad(-10f0)) ; x3_max = domMult*thN2(f18_xTrim[indX[3]] +  deg2rad(10f0));
-x4_min = domMult*qN2(f18_xTrim[indX[4]] + deg2rad(-5f0)) ; x4_max = domMult*qN2(f18_xTrim[indX[4]] + deg2rad(5f0)) 
+x1_min = domMult*vN3(-100f0) ; x1_max = domMult*vN3(100f0);
+x2_min = domMult*alpN3(deg2rad(-10f0)) ; x2_max = domMult*alpN3(deg2rad(10f0))
+x3_min = domMult*thN3(deg2rad(-10f0)) ; x3_max = domMult*thN3( deg2rad(10f0));
+x4_min = domMult*qN3(deg2rad(-5f0)) ; x4_max = domMult*qN3(deg2rad(5f0))  
 domains = [x1 ∈ IntervalDomain(x1_min, x1_max), x2 ∈ IntervalDomain(x2_min, x2_max), x3 ∈ IntervalDomain(x3_min, x3_max), x4 ∈ IntervalDomain(x4_min, x4_max),];
 
 # Boundary conditions
