@@ -36,11 +36,12 @@ function getKc_nomStab(A2, B2)
     Kc = W.value * inv(Y.value)
     return Kc
 end
-Kc_nomStab = getKc_nomStab(linA,linB);
+# Kc_nomStab = getKc_nomStab(linA,linB);
 
 ## Solve LMI and get LQR controller
-Q = Diagonal([1e-1; 1e-1; 1e0; 1e-1]); R = Diagonal([1e3; 1e2]);
-# Q = Diagonal([1e-1; 1e-1; 1e-1; 1e-2]); R = Diagonal([1e3; 1e2]); # this is good.
+Q = Diagonal([1e-1; 1e3; 1e3; 1e1]); R = Diagonal([1e4; 1e-3]); # good control effort (look at exp29 results.)
+# Q = Diagonal([1e-1; 1e-1; 1e0; 1e-1]); R = Diagonal([1e3; 1e2]); # high control effort
+# Q = Diagonal([1e-1; 1e-1; 1e-1; 1e-2]); R = Diagonal([1e3; 1e2]); # high control effort
 # Q = Diagonal([1f1; 1f0; 1f0; 1f-1]); R = Diagonal([1f-3; 1f-1]);
 function getKc_lqr(A2,B2)
     # Get lqr controller
@@ -55,8 +56,8 @@ function getKc_lqr(A2,B2)
     Kc = -inv(R)*B2'*inv(Y.value);
     return Kc
 end
-Kc_lqr = getKc_lqr(linA,linB);
-
+Kc_lqr = Float32.(getKc_lqr(linA,linB));
+@show Kc_lqr
 
 ## TESTING CONTROLLER ON LINEAR SYSTEM
 ## Check if nominal linear system is controlled - Yes.
