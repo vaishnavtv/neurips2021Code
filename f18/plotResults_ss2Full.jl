@@ -1,4 +1,4 @@
-# Plot results for perturbation dynamics
+# For ss2 control with full dynamics.
 using JLD2,PyPlot,LinearAlgebra,Trapz,Printf,LaTeXStrings, Flux, Distributions
 pygui(true);
 cd(@__DIR__);
@@ -17,11 +17,10 @@ nn = 100;
 Q_fpke = 0.0f0#*1.0I(2); # σ^2
 tEnd = 100.0f0; dt = 0.2f0;
 
-TMax = 20000f0; # maximum thrust
+TMax = 30000f0; # maximum thrust
 dStab_max = pi/3; # min, max values for δ_stab
 
-expNum = 42; 
-# fileLoc = "data_rhoConst/exp$(expNum).jld2";
+expNum = 40; 
 fileLoc = "data_rhoConst_gpu/exp$(expNum).jld2";
 @info "Loading file from ss2_cont_f18_rhoFixed exp $(expNum)"
 file = jldopen(fileLoc, "r");
@@ -72,8 +71,6 @@ for i in 1:length(indX)
 end
 maskTrim = ones(Float32,length(f18_xTrim)); maskTrim[indX] .= 0f0; # keeping nonrelevant states constant
 
-# Kc_lqr = Float32.([  -0.00891916  0.0850919   0.568954    0.712423
-# -1.56943e-6  3.22057e-5  4.64721e-5  5.06978e-5]);
 # Kc_lqr = Float32[-0.0027077585 0.008460493 0.33792582 0.46743223; -0.0003060145 0.006903539 0.009952054 0.014728539]
 # Kc_lqr = Float32[-0.0026858766 -0.017071942 0.35291886 0.46017873; -0.30356252 5.2939005 11.192051 14.639285]
 # maskK = Float32.(maskIndu*Kc_nomStab) # masking linear controller in perturbation
@@ -83,26 +80,17 @@ maskK = Float32.(maskIndu*Kc_lqr) # masking linear controller in perturbation
 function f18RedDyn(xn,t)
     # reduced order f18 dynamics
     
-    # xi = An2\(xn-bn2);  ## FULL 
-    xi = An3\(xn-bn3); ## PERTURBATION
-    # ud = [dStab_max*tanh(first(phi(xn, th1))); TMax*sigmoid(first(phi(xn, th2)))]
-    ud = [dStab_max*tanh(first(phi(xn, th1))); TMax*0.5f0*(tanh(first(phi(xn, th2))) .+ 1f0)]
+    xi = An2\(xn-bn2);  ## FULL 
+    ud = [dStab_max*tanh(first(phi(xn, th1))); TMax*sigmoid(first(phi(xn, th2)))]
+    # ud = [dStab_max*tanh(first(phi(xn, th1))); TMax*0.5f0*(tanh(first(phi(xn, th2))) .+ 1f0)]
     
     ## FULL
-    # xFull = maskTrim.*f18_xTrim + maskIndx*xi; 
-    # # uFull = f18_uTrim 
-    # uFull = [1f0;1f0;0f0;0f0].*f18_uTrim + maskIndu*ud;
+    xFull = maskTrim.*f18_xTrim + maskIndx*xi; 
+    # uFull = f18_uTrim 
+    uFull = [1f0;1f0;0f0;0f0].*f18_uTrim + maskIndu*ud;
 
-    # xdotFull = f18Dyn(xFull, uFull)
-    # return An2*(xdotFull[indX])
-
-    ## PERTURBATION
-    xFull = f18_xTrim + maskIndx*xi;
-    # uFull = f18_uTrim + maskIndu*ud;
-    uFull = f18_uTrim + maskK*xi + maskIndu*ud ;
-    
     xdotFull = f18Dyn(xFull, uFull)
-    return An3*(xdotFull[indX])
+    return An2*(xdotFull[indX])
 end
 
 function nlSim(x0)
@@ -114,20 +102,19 @@ function nlSim(x0)
 end
 
 function plotTraj(solInp, figNum)
-    # sol = hcat([An2\(xt - bn2) for xt in solInp.u]...) ## full
-    sol = hcat([An3\(xt - bn3) for xt in solInp.u]...) ## perturbation
+    sol = hcat([An2\(xt - bn2) for xt in solInp.u]...) ## full
     tSim = solInp.t
-    x1Sol = sol[1, :] #.- f18_xTrim[indX[1]]
-    x2Sol = (sol[2, :]) #.- f18_xTrim[indX[2]]
-    x3Sol = (sol[3, :]) #.- f18_xTrim[indX[3]]
-    x4Sol = sol[4, :] #.- f18_xTrim[indX[4]]
+    x1Sol = sol[1, :] .- f18_xTrim[indX[1]]
+    x2Sol = (sol[2, :]) .- f18_xTrim[indX[2]]
+    x3Sol = (sol[3, :]) .- f18_xTrim[indX[3]]
+    x4Sol = sol[4, :] .- f18_xTrim[indX[4]]
 
     u1 = zeros(length(tSim)); u2 = zeros(length(tSim))
     u1 = [dStab_max*tanh(first(phi(solInp[:,i], th1))) for i = 1:length(tSim)]
-    # u2 = [TMax*sigmoid(first(phi(solInp[:,i], th2))) for i = 1:length(tSim)]
-    u2 = [TMax*0.5f0*(tanh(first(phi(solInp[:,i], th2))) .+ 1f0) for i = 1:length(tSim)]
-    u1 .+= f18_uTrim[indU[1]] .+ [(maskK*sol[:,i])[3] for i=1:length(tSim)] 
-    u2 .+= f18_uTrim[indU[2]] .+ [(maskK*sol[:,i])[4] for i=1:length(tSim)];
+    u2 = [TMax*sigmoid(first(phi(solInp[:,i], th2))) for i = 1:length(tSim)]
+    # u2 = [TMax*0.5f0*(tanh(first(phi(solInp[:,i], th2))) .+ 1f0) for i = 1:length(tSim)]
+    # u1 .+= f18_uTrim[indU[1]] .+ [(maskK*sol[:,i])[3] for i=1:length(tSim)] 
+    # u2 .+= f18_uTrim[indU[2]] .+ [(maskK*sol[:,i])[4] for i=1:length(tSim)];
     
     figure(figNum, figsize = (8,4));#clf()
     subplot(3, 2, 1);
@@ -158,11 +145,10 @@ function plotTraj(solInp, figNum)
     tight_layout()
 end
 vmin = [-100f0;deg2rad(-10f0);deg2rad(-10f0); deg2rad(-5f0)] ;
-xmin = 1f0*vmin #.+ f18_xTrim[indX]; 
-xmax = -1f0*vmin #.+ f18_xTrim[indX]
+xmin = 1f0*vmin .+ f18_xTrim[indX]; 
+xmax = -1f0*vmin .+ f18_xTrim[indX]
 txFull = xmin .+ ((xmax - xmin) .* rand(4));
-# tx = An2*(txFull) + bn2; # full
-tx = An3*(txFull) + bn3; # perturbation
+tx = An2*(txFull) + bn2; # full
 @show txFull
 @show tx
 solSim = nlSim(tx);
@@ -170,10 +156,10 @@ figure(3); clf();
 plotTraj(solSim, 3);
 # Unnormalize start and end values
 # solSim[:,1] = An3\(solSim[:,1] - bn3); solSim[:,end] = An3\(solSim[:,end] - bn3);
-println("x1 initial value: $(solSim[1,1]);  x1 terminal value: $(solSim[1,end])");# - f18_xTrim[indX][1])");
-println("x2 initial value: $(rad2deg(solSim[2,1])) deg;  x2 terminal value: $(rad2deg(solSim[2,end])) deg");#- f18_xTrim[indX][2])) deg");
-println("x3 initial value: $(rad2deg(solSim[3,1])) deg;  x3 terminal value: $(rad2deg(solSim[3,end])) deg");#- f18_xTrim[indX][3])) deg");
-println("x4 initial value: $(rad2deg(solSim[4,1])) deg/s;  x4 terminal value: $(rad2deg(solSim[4,end])) deg/s");#- f18_xTrim[indX][4])) deg/s");
+println("x1 initial value: $(solSim[1,1]);  x1 terminal value: $(solSim[1,end] - f18_xTrim[indX][1])");
+println("x2 initial value: $(rad2deg(solSim[2,1])) deg;  x2 terminal value: $(rad2deg(solSim[2,end] - f18_xTrim[indX][2])) deg");
+println("x3 initial value: $(rad2deg(solSim[3,1])) deg;  x3 terminal value: $(rad2deg(solSim[3,end]- f18_xTrim[indX][3])) deg");
+println("x4 initial value: $(rad2deg(solSim[4,1])) deg/s;  x4 terminal value: $(rad2deg(solSim[4,end]- f18_xTrim[indX][4])) deg/s");
 println("Terminal value state norm: $(norm(solSim[:,end]))");
 
 # savefig("figs_rhoFixed_gpu/exp$(expNum)/trajWithoutNN.png")
@@ -189,39 +175,3 @@ savefig("figs_rhoFixed_gpu/exp$(expNum)/trajWithNN.png")
 # [plotTraj(solSim_nT[i], figNum) for i in 1:nTraj]; 
 # suptitle("Deviation from x̄ ($(nTraj) trajectories)"); 
 # savefig("figs_rhoFixed_gpu/exp$(expNum)/traj$(nTraj).png")
-
-
-
-##
-function fs(xd, phi, th1, th2)
-
-    ud = [first(phi(xd, th1)); first(phi(xd, th2))]
-
-    # perturbation about trim point
-    xFull = f18_xTrim + maskIndx*xd; 
-    # uFull = [1f0;1f0;0f0;0f0].*f18_uTrim + maskIndu*ud;
-    uFull = f18_uTrim + maskIndu*ud;
-
-    xdotFull = f18Dyn(xFull, uFull)
-    # xdotFull = xFull;
-
-    return (xdotFull[indX]) # return the 4 state dynamics
-
-end
-
-using ForwardDiff, Distributions
-function tl(th1, th2, y, phi)
-    μ_ss = [0f0,0f0,0f0,0f0] 
-    Σ_ss = 0.1f0*Array(f18_xTrim[indX]).*1.0f0I(4)
-    rho(x) =  pdf(MvNormal(μ_ss, Σ_ss),x);
-    drho(x) = ForwardDiff.gradient(rho, x);
-
-    dfs(x) = diag(ForwardDiff.jacobian(z->fs(z, phi, th1, th2), x));
-    # dphi(x) = ForwardDiff.gradient(z->first(phi(z, th0)), x);
-    @show dfs(y)
-    @show drho(y)
-    l = rho(y)*sum(dfs(y)) +  dot(fs(y, phi, th1, th2), drho(y));
-    return l
-end
-# txEnd = solSim[:,end];
-# @show tl(th1, th2, tx, phi)
