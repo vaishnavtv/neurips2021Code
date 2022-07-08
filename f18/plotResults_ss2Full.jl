@@ -17,10 +17,10 @@ nn = 100;
 Q_fpke = 0.0f0#*1.0I(2); # σ^2
 tEnd = 100.0f0; dt = 0.2f0;
 
-TMax = 30000f0; # maximum thrust
+TMax = 20000f0; # maximum thrust
 dStab_max = pi/3; # min, max values for δ_stab
 
-expNum = 40; 
+expNum = 44; 
 fileLoc = "data_rhoConst_gpu/exp$(expNum).jld2";
 @info "Loading file from ss2_cont_f18_rhoFixed exp $(expNum)"
 file = jldopen(fileLoc, "r");

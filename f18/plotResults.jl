@@ -86,7 +86,8 @@ function f18RedDyn(xn,t)
     # xi = An2\(xn-bn2);  ## FULL 
     xi = An3\(xn-bn3); ## PERTURBATION
     # ud = [dStab_max*tanh(first(phi(xn, th1))); TMax*sigmoid(first(phi(xn, th2)))]
-    ud = [dStab_max*tanh(first(phi(xn, th1))); TMax*0.5f0*(tanh(first(phi(xn, th2))) .+ 1f0)]
+    # ud = [dStab_max*tanh(first(phi(xn, th1))); TMax*0.5f0*(tanh(first(phi(xn, th2))) .+ 1f0)]
+    ud = [5*exp(-5*t)*dStab_max*tanh(first(phi(xn, th1))); 1*exp(-t)*TMax*0.5f0*(tanh(first(phi(xn, th2))) .+ 1f0)]
     
     ## FULL
     # xFull = maskTrim.*f18_xTrim + maskIndx*xi; 
@@ -177,7 +178,7 @@ println("x4 initial value: $(rad2deg(solSim[4,1])) deg/s;  x4 terminal value: $(
 println("Terminal value state norm: $(norm(solSim[:,end]))");
 
 # savefig("figs_rhoFixed_gpu/exp$(expNum)/trajWithoutNN.png")
-savefig("figs_rhoFixed_gpu/exp$(expNum)/trajWithNN.png")
+# savefig("figs_rhoFixed_gpu/exp$(expNum)/trajWithNN_filt.png")
 
 ## Generate 20 random trajectories
 # seed!(1);
