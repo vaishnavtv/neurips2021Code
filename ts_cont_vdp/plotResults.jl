@@ -50,7 +50,7 @@ Q_fpke = 0.1f0#*1.0I(2); # σ^2
 tEnd = 10.0f0;
 dt = tEnd/10f0;
 
-expNum = 26; 
+expNum = 25; 
 fileLoc = "data_cont_rothe/vdp_exp$(expNum).jld2";
 @info "Loading file from ts_cont_vdp exp $(expNum)"
 file = jldopen(fileLoc, "r");
@@ -183,9 +183,10 @@ for tInd in 1:size(solSimGrid[1,1],2)
     ax = PyPlot.axes()
     ax.set_facecolor("black");
     scatter(x1TrajFull_t, x2TrajFull_t,  c = "w", s = 10.0,);
-    xlabel("x1"); ylabel("x2");
+    xlabel(L"x_1"); ylabel(L"x_2");
     xlim([-maxval, maxval]); ylim([-maxval, maxval]);
-    title("VDP with Controller: t = $(tVal)")
+    title("t = $(tVal)")
+    # title("VDP with Controller: t = $(tVal)")
     tight_layout();
     if (tVal*100%100 == 0)
     savefig("figs_cont/exp$(expNum)/scat_t$(Int(tVal)).png")

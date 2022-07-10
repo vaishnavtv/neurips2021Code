@@ -135,9 +135,10 @@ for tInd in 1:size(solSimGrid[1,1],2)
     ax = PyPlot.axes()
     ax.set_facecolor("black");
     scatter(x1TrajFull_t, x2TrajFull_t,  c = "w", s = 10.0,);
-    xlabel("x1"); ylabel("x2");
+    xlabel(L"x_1"); ylabel(L"x_2");
     xlim([-maxval, maxval]); ylim([-maxval, maxval]);
-    title("Steady-state ρ Control: Q = $(Q_fpke), t = $(tVal)")
+    title("t = $(tVal)")
+    # title("Steady-state ρ Control: Q = $(Q_fpke), t = $(tVal)")
     tight_layout();
     if (tVal*100%100 == 0)
         savefig("figs_rhoFixed/exp$(expNum)/scat_t$(Int(tVal)).png")

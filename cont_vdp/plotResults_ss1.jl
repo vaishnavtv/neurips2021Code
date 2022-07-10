@@ -94,8 +94,8 @@ clf();
 subplot(1, 3, 1);
 p1 = pcolor(gridX, gridY, rho_pred_norm, cmap = "inferno", shading = "auto");
 colorbar();
-xlabel("x1");
-ylabel("x2");
+xlabel(L"x_1");
+ylabel(L"x_2");
 title("Prediction");
 axis("auto");
 tight_layout();
@@ -103,8 +103,8 @@ tight_layout();
 subplot(1, 3, 2);
 PyPlot.pcolor(gridX, gridY, rho_true_norm, cmap = "inferno", shading = "auto");
 colorbar();
-xlabel("x1");
-ylabel("x2");
+xlabel(L"x_1");
+ylabel(L"x_2");
 title("Exact");
 axis("auto");
 tight_layout();
@@ -116,9 +116,9 @@ mseRHOErrStr = @sprintf "%.2e" mseRHOErr;
 subplot(1, 3, 3);
 PyPlot.pcolor(gridX, gridY, errNorm, cmap = "inferno", shading = "auto");
 colorbar();
-xlabel("x1");
-ylabel("x2");
-title(L"Solution Error; $ϵ_{ρ}=$ %$mseRHOErrStr");
+xlabel(L"x_1");
+ylabel(L"x_2");
+title(L"Solution Error; $ϵ_{mse}=$ %$mseRHOErrStr");
 axis("auto");
 tight_layout();
 
@@ -213,9 +213,10 @@ for tInd in 1:size(solSimGrid[1,1],2)
     ax = PyPlot.axes()
     ax.set_facecolor("black");
     scatter(x1TrajFull_t, x2TrajFull_t,  c = "w", s = 10.0,);
-    xlabel("x1"); ylabel("x2");
+    xlabel(L"x_1"); ylabel(L"x_2");
     xlim([-maxval, maxval]); ylim([-maxval, maxval]);
-    title("Steady-state ρ Control: Q = $(Q_fpke), t = $(tVal)")
+    title("t = $(tVal)")
+    # title("Steady-state ρ Control: Q = $(Q_fpke), t = $(tVal)")
     tight_layout();
     if (tVal*100%100 == 0)
         savefig("figs_ss1/exp$(expNum)/scat_t$(Int(tVal)).png")
