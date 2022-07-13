@@ -20,7 +20,7 @@ tEnd = 100.0f0; dt = 0.2f0;
 TMax = 20000f0; # maximum thrust
 dStab_max = pi/3; # min, max values for δ_stab
 
-expNum = 42; 
+expNum = 43; 
 # fileLoc = "data_rhoConst/exp$(expNum).jld2";
 fileLoc = "data_rhoConst_gpu/exp$(expNum).jld2";
 @info "Loading file from ss2_cont_f18_rhoFixed exp $(expNum)"
@@ -86,8 +86,8 @@ function f18RedDyn(xn,t)
     # xi = An2\(xn-bn2);  ## FULL 
     xi = An3\(xn-bn3); ## PERTURBATION
     # ud = [dStab_max*tanh(first(phi(xn, th1))); TMax*sigmoid(first(phi(xn, th2)))]
-    # ud = [dStab_max*tanh(first(phi(xn, th1))); TMax*0.5f0*(tanh(first(phi(xn, th2))) .+ 1f0)]
-    ud = [5*exp(-5*t)*dStab_max*tanh(first(phi(xn, th1))); 1*exp(-t)*TMax*0.5f0*(tanh(first(phi(xn, th2))) .+ 1f0)]
+    ud = [dStab_max*tanh(first(phi(xn, th1))); TMax*0.5f0*(tanh(first(phi(xn, th2))) .+ 1f0)]
+    # ud = [5*exp(-5*t)*dStab_max*tanh(first(phi(xn, th1))); 1*exp(-t)*TMax*0.5f0*(tanh(first(phi(xn, th2))) .+ 1f0)]
     
     ## FULL
     # xFull = maskTrim.*f18_xTrim + maskIndx*xi; 
@@ -99,8 +99,8 @@ function f18RedDyn(xn,t)
 
     ## PERTURBATION
     xFull = f18_xTrim + maskIndx*xi;
-    # uFull = f18_uTrim + maskIndu*ud;
-    uFull = f18_uTrim + maskK*xi + maskIndu*ud ;
+    uFull = f18_uTrim + maskIndu*ud;
+    # uFull = f18_uTrim + maskK*xi + maskIndu*ud ;
     
     xdotFull = f18Dyn(xFull, uFull)
     return An3*(xdotFull[indX])
@@ -127,41 +127,46 @@ function plotTraj(solInp, figNum)
     u1 = [dStab_max*tanh(first(phi(solInp[:,i], th1))) for i = 1:length(tSim)]
     # u2 = [TMax*sigmoid(first(phi(solInp[:,i], th2))) for i = 1:length(tSim)]
     u2 = [TMax*0.5f0*(tanh(first(phi(solInp[:,i], th2))) .+ 1f0) for i = 1:length(tSim)]
-    u1 .+= f18_uTrim[indU[1]] .+ [(maskK*sol[:,i])[3] for i=1:length(tSim)] 
-    u2 .+= f18_uTrim[indU[2]] .+ [(maskK*sol[:,i])[4] for i=1:length(tSim)];
+    # u1 .+= f18_uTrim[indU[1]]# .+ [(maskK*sol[:,i])[3] for i=1:length(tSim)] 
+    # u2 .+= f18_uTrim[indU[2]]# .+ [(maskK*sol[:,i])[4] for i=1:length(tSim)];
     
     figure(figNum, figsize = (8,4));#clf()
     subplot(3, 2, 1);
     PyPlot.plot(tSim, x1Sol);
-    xlabel("t"); ylabel("V (ft/s)"); grid("on")
+    # xlabel("t"); ylabel("V (ft/s)"); grid("on")
+    xlabel("t(s)"); ylabel(string(L"\tilde{V}",  " (ft/s)")); grid("on")
 
     subplot(3, 2, 2)
     PyPlot.plot(tSim, rad2deg.(x2Sol))
-    xlabel("t");  ylabel("α (deg)"); grid("on")
+    # xlabel("t");  ylabel("α (deg)"); grid("on")
+    xlabel("t(s)");  ylabel(string(L"\tilde{α}",  " (deg)")); grid("on")
 
     subplot(3, 2, 3)
     PyPlot.plot(tSim, rad2deg.(x3Sol))
-    xlabel("t"); ylabel("θ (deg)"); grid("on")
+    # xlabel("t"); ylabel("θ (deg)"); grid("on")
+    xlabel("t(s)"); ylabel(string(L"\tilde{θ}",  " (deg)")); grid("on")
 
     subplot(3, 2, 4);
     PyPlot.plot(tSim, rad2deg.(x4Sol));
-    xlabel("t"); ylabel("q (deg/s)"); grid("on")
+    # xlabel("t"); ylabel("q (deg/s)"); grid("on")
+    xlabel("t(s)"); ylabel(string(L"\tilde{q}",  " (deg/s)")); grid("on")
 
     subplot(3, 2, 5)
     PyPlot.plot(tSim, rad2deg.(u1))
-    xlabel("t");  ylabel(L"δ_{stab} ({\rm deg})"); grid("on")
+    # xlabel("t(s)");  ylabel(L"δ̃_{stab} ({\rm deg})"); grid("on")
+    xlabel("t(s)");  ylabel(string(L"\tilde{δ}_{\rm stab}",  "(deg)")); grid("on")
 
     subplot(3, 2, 6)
     PyPlot.plot(tSim, u2)
-    xlabel("t"); ylabel("T"); grid("on")
-
-    suptitle("Exp$(expNum) Traj: Deviation from x̄");
+    # xlabel("t"); ylabel("T̃ (lbf)"); grid("on")
+    xlabel("t(s)"); ylabel(string(L"\tilde{T}",  " (lbf)")); grid("on");
+    # suptitle("Exp$(expNum) Traj: Deviation from x̄");
     tight_layout()
 end
 vmin = [-100f0;deg2rad(-10f0);deg2rad(-10f0); deg2rad(-5f0)] ;
 xmin = 1f0*vmin #.+ f18_xTrim[indX]; 
 xmax = -1f0*vmin #.+ f18_xTrim[indX]
-txFull = xmin .+ ((xmax - xmin) .* rand(4));
+txFull = [-1;0;0;0].*xmin #.+ ((xmax - xmin) .* rand(4));
 # tx = An2*(txFull) + bn2; # full
 tx = An3*(txFull) + bn3; # perturbation
 @show txFull
@@ -178,19 +183,53 @@ println("x4 initial value: $(rad2deg(solSim[4,1])) deg/s;  x4 terminal value: $(
 println("Terminal value state norm: $(norm(solSim[:,end]))");
 
 # savefig("figs_rhoFixed_gpu/exp$(expNum)/trajWithoutNN.png")
-# savefig("figs_rhoFixed_gpu/exp$(expNum)/trajWithNN_filt.png")
+savefig("figs_rhoFixed_gpu/exp$(expNum)/trajWithNN.png")
 
 ## Generate 20 random trajectories
-# seed!(1);
-# nTraj = 20; figNum = nTraj;
-# tx_nT = [An3*(xmin .+ ((xmax - xmin) .* rand(4))) + bn3 for i in 1:nTraj];
+seed!(1);
+nTraj = 100; figNum = nTraj;
+tx_nT = [An3*(xmin .+ ((xmax - xmin) .* rand(4))) + bn3 for i in 1:nTraj];
 # # tx = An2*(txFull) + bn2;
-# solSim_nT = [nlSim(txi) for txi in tx_nT];
+solSim_nT = [nlSim(txi) for txi in tx_nT];
 # figure(figNum, figsize = (8,4)); clf();
 # [plotTraj(solSim_nT[i], figNum) for i in 1:nTraj]; 
 # suptitle("Deviation from x̄ ($(nTraj) trajectories)"); 
 # savefig("figs_rhoFixed_gpu/exp$(expNum)/traj$(nTraj).png")
 
+##
+function plotSim3D(solGrid, figNum)
+    for tInd in range(1,stop=size(solGrid[1,1],2), step = floor(size(solGrid[1,1],2)/20))
+        tInd = Int(tInd)
+        nTraj = length(solGrid)
+        solGrid2 =  [An3\(solGrid[i][:,tInd] - bn3) for i in 1:nTraj]
+        vFull = [solGrid2[i][1] for i in 1:nTraj]
+        gamFull = rad2deg.([solGrid2[i][3] - solGrid2[i][2] for i in 1:nTraj])
+        qFull = rad2deg.([solGrid2[i][4] for i in 1:nTraj])
+
+        tVal = solGrid[1,1].t[tInd];
+        tVals = @sprintf "%.2f" solGrid[1,1].t[tInd];
+    
+        figure(figNum); clf();
+        ax  = PyPlot.axes()
+        ax.set_facecolor("black");
+        scatter(vFull, gamFull, c = "w", s = 10.0)
+        # scatter3D(vFull, gamFull, qFull,c = "g", s = 10.0);
+        xlim([-100,100]);
+        ylim([-20,20]);
+        # zlim([-20,20]);
+        # zlabel(L"\tilde{q} (deg/s)");
+        xlabel(string(L"\tilde{V}",  " (ft/s)"));
+        ylabel(string(L"\tilde{γ̃}", " (deg)"));
+        title("t = $(tVals)");
+        tight_layout();     
+        
+        savefig("figs_rhoFixed_gpu/exp$(expNum)/scat_t$(Int(floor(tVal))).png")
+        pause(0.001);   
+
+
+    end
+end
+plotSim3D(solSim_nT, 10)
 
 
 ##
