@@ -142,3 +142,4 @@ f18/cont_batch.slurm
 ts_cont_f18/ts_cont_f18.slurm
 ts_cont_f18/out*
 ts_cont_f18/figs*
+*.DS_Store
